@@ -111,14 +111,155 @@ cargo fmt --check
 section "tests"
 cargo test
 
-expect_stdout "Drill 001 default PASS" 'Rusty Drill
+practice_all_correct_input='fn main() {}
+println!("Rusty Drill");
+let answer = 42;
+let name = "Rusty Drill";
+let mut score = 0;
+score += 1;
+let passed = true;
+let score: i32 = 0;
+let scores = [1, 2, 3];
+fn add_one(x: i32) -> i32 { x + 1 }
+if score > 0 {}
+while score < 10 {}
+'
 
-Drill 001
+practice_all_correct_output='Rusty Drill
+
+Practice
+Type :q to quit.
+
+Drill 001/012
 Type exactly:
 
 fn main() {}
 
->PASS' sh -c "printf 'fn main() {}\\n' | cargo run -q"
+>PASS
+
+Drill 002/012
+Type exactly:
+
+println!("Rusty Drill");
+
+>PASS
+
+Drill 003/012
+Type exactly:
+
+let answer = 42;
+
+>PASS
+
+Drill 004/012
+Type exactly:
+
+let name = "Rusty Drill";
+
+>PASS
+
+Drill 005/012
+Type exactly:
+
+let mut score = 0;
+
+>PASS
+
+Drill 006/012
+Type exactly:
+
+score += 1;
+
+>PASS
+
+Drill 007/012
+Type exactly:
+
+let passed = true;
+
+>PASS
+
+Drill 008/012
+Type exactly:
+
+let score: i32 = 0;
+
+>PASS
+
+Drill 009/012
+Type exactly:
+
+let scores = [1, 2, 3];
+
+>PASS
+
+Drill 010/012
+Type exactly:
+
+fn add_one(x: i32) -> i32 { x + 1 }
+
+>PASS
+
+Drill 011/012
+Type exactly:
+
+if score > 0 {}
+
+>PASS
+
+Drill 012/012
+Type exactly:
+
+while score < 10 {}
+
+>PASS
+
+COMPLETE'
+
+practice_quit_output='Rusty Drill
+
+Practice
+Type :q to quit.
+
+Drill 001/012
+Type exactly:
+
+fn main() {}
+
+>QUIT'
+
+practice_retry_then_quit_output='Rusty Drill
+
+Practice
+Type :q to quit.
+
+Drill 001/012
+Type exactly:
+
+fn main() {}
+
+>TRY AGAIN
+Expected:
+fn main() {}
+
+Drill 001/012
+Type exactly:
+
+fn main() {}
+
+>PASS
+
+Drill 002/012
+Type exactly:
+
+println!("Rusty Drill");
+
+>QUIT'
+
+expect_stdout "practice default COMPLETE" "$practice_all_correct_output" sh -c 'printf "%s" "$1" | cargo run -q' sh "$practice_all_correct_input"
+expect_stdout "practice play COMPLETE" "$practice_all_correct_output" sh -c 'printf "%s" "$1" | cargo run -q -- play' sh "$practice_all_correct_input"
+expect_stdout "practice quit" "$practice_quit_output" sh -c "printf ':q\\n' | cargo run -q"
+expect_stdout "practice retry then quit" "$practice_retry_then_quit_output" sh -c "printf 'fn main(){}\\nfn main() {}\\n:q\\n' | cargo run -q"
 
 expect_stdout "Drill 001 explicit PASS" 'Rusty Drill
 
@@ -148,13 +289,15 @@ Available drills:
 expect_stdout "help" 'Rusty Drill
 
 Usage:
+  rusty-drill
   rusty-drill [DRILL_ID]
+  rusty-drill play
   rusty-drill --list
   rusty-drill --help
   rusty-drill --version
 
 Default:
-  Runs Drill 001.
+  Starts a practice session.
 
 Current drills:
 001  fn main() {}
@@ -173,13 +316,15 @@ Current drills:
 expect_stdout "short help" 'Rusty Drill
 
 Usage:
+  rusty-drill
   rusty-drill [DRILL_ID]
+  rusty-drill play
   rusty-drill --list
   rusty-drill --help
   rusty-drill --version
 
 Default:
-  Runs Drill 001.
+  Starts a practice session.
 
 Current drills:
 001  fn main() {}

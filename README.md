@@ -4,15 +4,23 @@ A terminal-first Rust learning/drill CLI that teaches through tiny exact typing 
 
 ## Current Behavior
 
-Rusty Drill shows a drill and asks the user to type an exact answer.
+Rusty Drill starts a practice session and asks the user to type exact answers.
 
-By default, it runs Drill 001:
+By default, it starts practice mode:
 
 ```sh
 cargo run
 ```
 
-You can list drills or select a drill by id:
+You can also start practice mode explicitly:
+
+```sh
+cargo run -- play
+```
+
+In practice mode, `:q` and `:quit` quit successfully. Passing every drill prints `COMPLETE`.
+
+You can list drills, print help/version output, or run one selected drill by id:
 
 ```sh
 cargo run -- --help
@@ -74,6 +82,7 @@ Spaces, punctuation, braces, tabs, casing, Unicode, and internal spacing are not
 
 ```sh
 cargo run
+cargo run -- play
 cargo run -- --help
 cargo run -- --list
 cargo run -- --version
@@ -100,8 +109,9 @@ cargo test
 ## Manual Verification
 
 ```sh
-printf 'fn main() {}\n' | cargo run -q
-printf 'fn main(){}\n' | cargo run -q
+printf ':q\n' | cargo run -q
+printf 'fn main() {}\n' | cargo run -q -- 001
+printf 'fn main(){}\n' | cargo run -q -- 001
 printf 'println!("Rusty Drill");\n' | cargo run -q -- 002
 printf 'score += 1;\n' | cargo run -q -- 006
 printf 'while score < 10 {}\n' | cargo run -q -- 012
@@ -120,6 +130,6 @@ This runs formatting, tests, CLI checks, and git whitespace checks.
 - Fixed catalog.
 - One-line answers.
 - Exact-text validation only.
-- No progress tracking.
+- No saved progress.
 - No compilation validation.
 - No external crates.

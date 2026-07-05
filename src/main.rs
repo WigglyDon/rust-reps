@@ -8,6 +8,7 @@ struct Drill {
 }
 
 enum DrillCommand {
+    Practice,
     Run(&'static Drill),
     List,
     Help,
@@ -91,7 +92,10 @@ fn select_command(args: &[&str]) -> Result<DrillCommand, String> {
         return Err("expected at most one argument".to_string());
     }
 
-    let id = args.first().copied().unwrap_or("001");
+    let id = args.first().copied().unwrap_or("play");
+    if id == "play" {
+        return Ok(DrillCommand::Practice);
+    }
     if id == "--list" {
         return Ok(DrillCommand::List);
     }
@@ -121,6 +125,23 @@ fn print_prompt(drill: &Drill) {
     print!(">");
 }
 
+fn print_practice_header() {
+    println!("Rusty Drill");
+    println!();
+    println!("Practice");
+    println!("Type :q to quit.");
+    println!();
+}
+
+fn print_practice_prompt(drill: &Drill) {
+    println!("Drill {}/{:03}", drill.id, DRILLS.len());
+    println!("Type exactly:");
+    println!();
+    println!("{}", drill.expected);
+    println!();
+    print!(">");
+}
+
 fn print_drill_list() {
     println!("Rusty Drill");
     println!();
@@ -134,13 +155,15 @@ fn print_help() {
     println!("Rusty Drill");
     println!();
     println!("Usage:");
+    println!("  rusty-drill");
     println!("  rusty-drill [DRILL_ID]");
+    println!("  rusty-drill play");
     println!("  rusty-drill --list");
     println!("  rusty-drill --help");
     println!("  rusty-drill --version");
     println!();
     println!("Default:");
-    println!("  Runs Drill 001.");
+    println!("  Starts a practice session.");
     println!();
     println!("Current drills:");
     for drill in DRILLS {
@@ -150,6 +173,78 @@ fn print_help() {
 
 fn print_version() {
     println!("{} {}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
+}
+
+fn flush_stdout_or_exit() {
+    if let Err(err) = io::stdout().flush() {
+        eprintln!("I/O error: {}", err);
+        process::exit(1);
+    }
+}
+
+fn read_line_or_exit(input: &mut String) -> usize {
+    match io::stdin().read_line(input) {
+        Ok(bytes_read) => bytes_read,
+        Err(err) => {
+            eprintln!("I/O error: {}", err);
+            process::exit(1);
+        }
+    }
+}
+
+fn print_answer_result(answer: &str, expected: &str) {
+    if check_answer(answer, expected) {
+        println!("PASS");
+    } else {
+        println!("TRY AGAIN");
+        println!("Expected:");
+        println!("{}", expected);
+    }
+}
+
+fn run_one_shot_drill(drill: &Drill) {
+    print_prompt(drill);
+    flush_stdout_or_exit();
+
+    let mut input = String::new();
+    read_line_or_exit(&mut input);
+    print_answer_result(&input, drill.expected);
+}
+
+fn run_practice_session() {
+    print_practice_header();
+
+    let mut index = 0;
+    while index < DRILLS.len() {
+        let drill = &DRILLS[index];
+        print_practice_prompt(drill);
+        flush_stdout_or_exit();
+
+        let mut input = String::new();
+        if read_line_or_exit(&mut input) == 0 {
+            println!("QUIT");
+            return;
+        }
+
+        let answer = trim_line_ending(&input);
+        if answer == ":q" || answer == ":quit" {
+            println!("QUIT");
+            return;
+        }
+
+        if check_answer(&input, drill.expected) {
+            println!("PASS");
+            println!();
+            index += 1;
+        } else {
+            println!("TRY AGAIN");
+            println!("Expected:");
+            println!("{}", drill.expected);
+            println!();
+        }
+    }
+
+    println!("COMPLETE");
 }
 
 fn main() {
@@ -164,6 +259,10 @@ fn main() {
     };
 
     let drill = match command {
+        DrillCommand::Practice => {
+            run_practice_session();
+            return;
+        }
         DrillCommand::Run(drill) => drill,
         DrillCommand::List => {
             print_drill_list();
@@ -179,26 +278,7 @@ fn main() {
         }
     };
 
-    print_prompt(drill);
-
-    if let Err(err) = io::stdout().flush() {
-        eprintln!("I/O error: {}", err);
-        process::exit(1);
-    }
-
-    let mut input = String::new();
-    if let Err(err) = io::stdin().read_line(&mut input) {
-        eprintln!("I/O error: {}", err);
-        process::exit(1);
-    }
-
-    if check_answer(&input, drill.expected) {
-        println!("PASS");
-    } else {
-        println!("TRY AGAIN");
-        println!("Expected:");
-        println!("{}", drill.expected);
-    }
+    run_one_shot_drill(drill);
 }
 
 #[cfg(test)]
@@ -236,12 +316,35 @@ mod tests {
     }
 
     #[test]
-    fn default_selection_returns_drill_001() {
+    fn default_selection_returns_practice() {
         match select_command(&[]).unwrap() {
+            DrillCommand::Practice => {}
+            DrillCommand::Run(_) => panic!("expected practice command"),
+            DrillCommand::List => panic!("expected practice command"),
+            DrillCommand::Help => panic!("expected practice command"),
+            DrillCommand::Version => panic!("expected practice command"),
+        }
+    }
+
+    #[test]
+    fn play_arg_selects_practice() {
+        match select_command(&["play"]).unwrap() {
+            DrillCommand::Practice => {}
+            DrillCommand::Run(_) => panic!("expected practice command"),
+            DrillCommand::List => panic!("expected practice command"),
+            DrillCommand::Help => panic!("expected practice command"),
+            DrillCommand::Version => panic!("expected practice command"),
+        }
+    }
+
+    #[test]
+    fn selecting_001_returns_drill_001() {
+        match select_command(&["001"]).unwrap() {
             DrillCommand::Run(drill) => {
                 assert_eq!(drill.id, "001");
                 assert_eq!(drill.expected, "fn main() {}");
             }
+            DrillCommand::Practice => panic!("expected Drill 001"),
             DrillCommand::List => panic!("expected Drill 001"),
             DrillCommand::Help => panic!("expected Drill 001"),
             DrillCommand::Version => panic!("expected Drill 001"),
@@ -255,6 +358,7 @@ mod tests {
                 assert_eq!(drill.id, "012");
                 assert_eq!(drill.expected, "while score < 10 {}");
             }
+            DrillCommand::Practice => panic!("expected Drill 012"),
             DrillCommand::List => panic!("expected Drill 012"),
             DrillCommand::Help => panic!("expected Drill 012"),
             DrillCommand::Version => panic!("expected Drill 012"),
@@ -265,6 +369,7 @@ mod tests {
     fn list_arg_selects_list_command() {
         match select_command(&["--list"]).unwrap() {
             DrillCommand::List => {}
+            DrillCommand::Practice => panic!("expected list command"),
             DrillCommand::Run(_) => panic!("expected list command"),
             DrillCommand::Help => panic!("expected list command"),
             DrillCommand::Version => panic!("expected list command"),
@@ -275,6 +380,7 @@ mod tests {
     fn help_arg_selects_help_command() {
         match select_command(&["--help"]).unwrap() {
             DrillCommand::Help => {}
+            DrillCommand::Practice => panic!("expected help command"),
             DrillCommand::Run(_) => panic!("expected help command"),
             DrillCommand::List => panic!("expected help command"),
             DrillCommand::Version => panic!("expected help command"),
@@ -285,6 +391,7 @@ mod tests {
     fn short_help_arg_selects_help_command() {
         match select_command(&["-h"]).unwrap() {
             DrillCommand::Help => {}
+            DrillCommand::Practice => panic!("expected help command"),
             DrillCommand::Run(_) => panic!("expected help command"),
             DrillCommand::List => panic!("expected help command"),
             DrillCommand::Version => panic!("expected help command"),
@@ -295,6 +402,7 @@ mod tests {
     fn version_arg_selects_version_command() {
         match select_command(&["--version"]).unwrap() {
             DrillCommand::Version => {}
+            DrillCommand::Practice => panic!("expected version command"),
             DrillCommand::Run(_) => panic!("expected version command"),
             DrillCommand::List => panic!("expected version command"),
             DrillCommand::Help => panic!("expected version command"),
