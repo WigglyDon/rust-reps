@@ -10,6 +10,7 @@ struct Drill {
 enum DrillCommand {
     Run(&'static Drill),
     List,
+    Help,
 }
 
 const DRILLS: &[Drill] = &[
@@ -69,6 +70,12 @@ fn select_command(args: &[&str]) -> Result<DrillCommand, String> {
     if id == "--list" {
         return Ok(DrillCommand::List);
     }
+    if id == "--help" || id == "-h" {
+        return Ok(DrillCommand::Help);
+    }
+    if id.starts_with('-') {
+        return Err(format!("unknown argument: {}", id));
+    }
 
     find_drill(id)
         .map(DrillCommand::Run)
@@ -95,6 +102,23 @@ fn print_drill_list() {
     }
 }
 
+fn print_help() {
+    println!("Rusty Drill");
+    println!();
+    println!("Usage:");
+    println!("  rusty-drill [DRILL_ID]");
+    println!("  rusty-drill --list");
+    println!("  rusty-drill --help");
+    println!();
+    println!("Default:");
+    println!("  Runs Drill 001.");
+    println!();
+    println!("Current drills:");
+    for drill in DRILLS {
+        println!("{}  {}", drill.id, drill.expected);
+    }
+}
+
 fn main() {
     let args: Vec<String> = env::args().skip(1).collect();
     let arg_refs: Vec<&str> = args.iter().map(String::as_str).collect();
@@ -110,6 +134,10 @@ fn main() {
         DrillCommand::Run(drill) => drill,
         DrillCommand::List => {
             print_drill_list();
+            return;
+        }
+        DrillCommand::Help => {
+            print_help();
             return;
         }
     };
@@ -178,6 +206,7 @@ mod tests {
                 assert_eq!(drill.expected, "fn main() {}");
             }
             DrillCommand::List => panic!("expected Drill 001"),
+            DrillCommand::Help => panic!("expected Drill 001"),
         }
     }
 
@@ -189,6 +218,7 @@ mod tests {
                 assert_eq!(drill.expected, "score += 1;");
             }
             DrillCommand::List => panic!("expected Drill 006"),
+            DrillCommand::Help => panic!("expected Drill 006"),
         }
     }
 
@@ -197,6 +227,25 @@ mod tests {
         match select_command(&["--list"]).unwrap() {
             DrillCommand::List => {}
             DrillCommand::Run(_) => panic!("expected list command"),
+            DrillCommand::Help => panic!("expected list command"),
+        }
+    }
+
+    #[test]
+    fn help_arg_selects_help_command() {
+        match select_command(&["--help"]).unwrap() {
+            DrillCommand::Help => {}
+            DrillCommand::Run(_) => panic!("expected help command"),
+            DrillCommand::List => panic!("expected help command"),
+        }
+    }
+
+    #[test]
+    fn short_help_arg_selects_help_command() {
+        match select_command(&["-h"]).unwrap() {
+            DrillCommand::Help => {}
+            DrillCommand::Run(_) => panic!("expected help command"),
+            DrillCommand::List => panic!("expected help command"),
         }
     }
 
@@ -207,8 +256,20 @@ mod tests {
     }
 
     #[test]
+    fn unknown_long_option_errors() {
+        let err = select_command(&["--wat"]).err().unwrap();
+        assert_eq!(err, "unknown argument: --wat");
+    }
+
+    #[test]
+    fn unknown_short_option_errors() {
+        let err = select_command(&["-x"]).err().unwrap();
+        assert_eq!(err, "unknown argument: -x");
+    }
+
+    #[test]
     fn too_many_args_errors() {
-        let err = select_command(&["001", "extra"]).err().unwrap();
+        let err = select_command(&["--help", "extra"]).err().unwrap();
         assert_eq!(err, "expected at most one argument");
     }
 

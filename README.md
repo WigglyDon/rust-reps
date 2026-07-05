@@ -15,6 +15,7 @@ cargo run
 You can list drills or select a drill by id:
 
 ```sh
+cargo run -- --help
 cargo run -- --list
 cargo run -- 001
 cargo run -- 002
@@ -48,7 +49,7 @@ Expected:
 fn main() {}
 ```
 
-Unknown drill ids and too many arguments are CLI errors and exit nonzero.
+Unknown options, unknown drill ids, and too many arguments are CLI errors and exit nonzero.
 
 ## Newline Rule
 
@@ -60,6 +61,7 @@ Spaces, punctuation, braces, tabs, casing, Unicode, and internal spacing are not
 
 ```sh
 cargo run
+cargo run -- --help
 cargo run -- --list
 cargo run -- 001
 cargo run -- 002

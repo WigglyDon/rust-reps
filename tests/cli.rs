@@ -17,6 +17,7 @@ const DRILL_006_PASS_OUTPUT: &str =
     "Rusty Drill\n\nDrill 006\nType exactly:\n\nscore += 1;\n\n>PASS\n";
 const DRILL_006_TRY_AGAIN_OUTPUT: &str = "Rusty Drill\n\nDrill 006\nType exactly:\n\nscore += 1;\n\n>TRY AGAIN\nExpected:\nscore += 1;\n";
 const LIST_OUTPUT: &str = "Rusty Drill\n\nAvailable drills:\n001  fn main() {}\n002  println!(\"Rusty Drill\");\n003  let answer = 42;\n004  let name = \"Rusty Drill\";\n005  let mut score = 0;\n006  score += 1;\n";
+const HELP_OUTPUT: &str = "Rusty Drill\n\nUsage:\n  rusty-drill [DRILL_ID]\n  rusty-drill --list\n  rusty-drill --help\n\nDefault:\n  Runs Drill 001.\n\nCurrent drills:\n001  fn main() {}\n002  println!(\"Rusty Drill\");\n003  let answer = 42;\n004  let name = \"Rusty Drill\";\n005  let mut score = 0;\n006  score += 1;\n";
 
 fn run_rusty_drill(args: &[&str], input: &str) -> Output {
     let mut child = Command::new(env!("CARGO_BIN_EXE_rusty-drill"))
@@ -134,6 +135,24 @@ fn list_command_exits_successfully_and_prints_catalog() {
 }
 
 #[test]
+fn help_command_exits_successfully_and_prints_help() {
+    let output = run_rusty_drill(&["--help"], "");
+
+    assert!(output.status.success());
+    assert_eq!(String::from_utf8(output.stdout).unwrap(), HELP_OUTPUT);
+    assert_eq!(String::from_utf8(output.stderr).unwrap(), "");
+}
+
+#[test]
+fn short_help_command_exits_successfully_and_prints_help() {
+    let output = run_rusty_drill(&["-h"], "");
+
+    assert!(output.status.success());
+    assert_eq!(String::from_utf8(output.stdout).unwrap(), HELP_OUTPUT);
+    assert_eq!(String::from_utf8(output.stderr).unwrap(), "");
+}
+
+#[test]
 fn drill_003_input_exits_successfully_and_prints_pass() {
     let output = run_rusty_drill(&["003"], "let answer = 42;\n");
 
@@ -225,15 +244,54 @@ fn list_extra_arg_exits_nonzero_and_prints_error() {
 }
 
 #[test]
+fn unknown_long_option_exits_nonzero_and_prints_error() {
+    let output = run_rusty_drill(&["--wat"], "");
+
+    assert!(!output.status.success());
+    assert_eq!(String::from_utf8(output.stdout).unwrap(), "");
+    assert_eq!(
+        String::from_utf8(output.stderr).unwrap(),
+        "error: unknown argument: --wat\n"
+    );
+}
+
+#[test]
+fn unknown_short_option_exits_nonzero_and_prints_error() {
+    let output = run_rusty_drill(&["-x"], "");
+
+    assert!(!output.status.success());
+    assert_eq!(String::from_utf8(output.stdout).unwrap(), "");
+    assert_eq!(
+        String::from_utf8(output.stderr).unwrap(),
+        "error: unknown argument: -x\n"
+    );
+}
+
+#[test]
+fn help_extra_arg_exits_nonzero_and_prints_error() {
+    let output = run_rusty_drill(&["--help", "extra"], "");
+
+    assert!(!output.status.success());
+    assert_eq!(String::from_utf8(output.stdout).unwrap(), "");
+    assert_eq!(
+        String::from_utf8(output.stderr).unwrap(),
+        "error: expected at most one argument\n"
+    );
+}
+
+#[test]
 fn stderr_is_empty_for_normal_product_results() {
     let pass_output = run_rusty_drill(&[], "fn main() {}\n");
     let try_again_output = run_rusty_drill(&["006"], "score += 1\n");
     let list_output = run_rusty_drill(&["--list"], "");
+    let help_output = run_rusty_drill(&["--help"], "");
 
     assert!(pass_output.status.success());
     assert!(try_again_output.status.success());
     assert!(list_output.status.success());
+    assert!(help_output.status.success());
     assert_eq!(String::from_utf8(pass_output.stderr).unwrap(), "");
     assert_eq!(String::from_utf8(try_again_output.stderr).unwrap(), "");
     assert_eq!(String::from_utf8(list_output.stderr).unwrap(), "");
+    assert_eq!(String::from_utf8(help_output.stderr).unwrap(), "");
 }

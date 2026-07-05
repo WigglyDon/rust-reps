@@ -44,6 +44,12 @@ cargo test
 section "Drill 001 default PASS"
 printf 'fn main() {}\n' | cargo run -q
 
+section "help"
+cargo run -q -- --help
+
+section "short help"
+cargo run -q -- -h
+
 section "list"
 cargo run -q -- --list
 
@@ -66,7 +72,9 @@ section "Drill 006 TRY AGAIN"
 printf 'score += 1\n' | cargo run -q -- 006
 
 expect_error "unknown id error" "error: unknown drill id: 999" cargo run -q -- 999
+expect_error "unknown option error" "error: unknown argument: --wat" cargo run -q -- --wat
 expect_error "too many args error" "error: expected at most one argument" cargo run -q -- 001 extra
+expect_error "too many help args error" "error: expected at most one argument" cargo run -q -- --help extra
 
 section "unstaged diff check"
 git diff --check
