@@ -7,6 +7,11 @@ struct Drill {
     expected: &'static str,
 }
 
+enum DrillCommand {
+    Run(&'static Drill),
+    List,
+}
+
 const DRILLS: &[Drill] = &[
     Drill {
         id: "001",
@@ -15,6 +20,22 @@ const DRILLS: &[Drill] = &[
     Drill {
         id: "002",
         expected: "println!(\"Rusty Drill\");",
+    },
+    Drill {
+        id: "003",
+        expected: "let answer = 42;",
+    },
+    Drill {
+        id: "004",
+        expected: "let name = \"Rusty Drill\";",
+    },
+    Drill {
+        id: "005",
+        expected: "let mut score = 0;",
+    },
+    Drill {
+        id: "006",
+        expected: "score += 1;",
     },
 ];
 
@@ -39,26 +60,22 @@ fn find_drill(id: &str) -> Option<&'static Drill> {
     DRILLS.iter().find(|drill| drill.id == id)
 }
 
-fn select_drill(args: &[&str]) -> Result<&'static Drill, String> {
+fn select_command(args: &[&str]) -> Result<DrillCommand, String> {
     if args.len() > 1 {
-        return Err("expected at most one drill id".to_string());
+        return Err("expected at most one argument".to_string());
     }
 
     let id = args.first().copied().unwrap_or("001");
-    find_drill(id).ok_or_else(|| format!("unknown drill id: {}", id))
+    if id == "--list" {
+        return Ok(DrillCommand::List);
+    }
+
+    find_drill(id)
+        .map(DrillCommand::Run)
+        .ok_or_else(|| format!("unknown drill id: {}", id))
 }
 
-fn main() {
-    let args: Vec<String> = env::args().skip(1).collect();
-    let arg_refs: Vec<&str> = args.iter().map(String::as_str).collect();
-    let drill = match select_drill(&arg_refs) {
-        Ok(drill) => drill,
-        Err(err) => {
-            eprintln!("error: {}", err);
-            process::exit(1);
-        }
-    };
-
+fn print_prompt(drill: &Drill) {
     println!("Rusty Drill");
     println!();
     println!("Drill {}", drill.id);
@@ -67,6 +84,37 @@ fn main() {
     println!("{}", drill.expected);
     println!();
     print!(">");
+}
+
+fn print_drill_list() {
+    println!("Rusty Drill");
+    println!();
+    println!("Available drills:");
+    for drill in DRILLS {
+        println!("{}  {}", drill.id, drill.expected);
+    }
+}
+
+fn main() {
+    let args: Vec<String> = env::args().skip(1).collect();
+    let arg_refs: Vec<&str> = args.iter().map(String::as_str).collect();
+    let command = match select_command(&arg_refs) {
+        Ok(command) => command,
+        Err(err) => {
+            eprintln!("error: {}", err);
+            process::exit(1);
+        }
+    };
+
+    let drill = match command {
+        DrillCommand::Run(drill) => drill,
+        DrillCommand::List => {
+            print_drill_list();
+            return;
+        }
+    };
+
+    print_prompt(drill);
 
     if let Err(err) = io::stdout().flush() {
         eprintln!("I/O error: {}", err);
@@ -124,27 +172,49 @@ mod tests {
 
     #[test]
     fn default_selection_returns_drill_001() {
-        let drill = select_drill(&[]).unwrap();
-        assert_eq!(drill.id, "001");
-        assert_eq!(drill.expected, "fn main() {}");
+        match select_command(&[]).unwrap() {
+            DrillCommand::Run(drill) => {
+                assert_eq!(drill.id, "001");
+                assert_eq!(drill.expected, "fn main() {}");
+            }
+            DrillCommand::List => panic!("expected Drill 001"),
+        }
     }
 
     #[test]
-    fn selecting_002_returns_drill_002() {
-        let drill = select_drill(&["002"]).unwrap();
-        assert_eq!(drill.id, "002");
-        assert_eq!(drill.expected, "println!(\"Rusty Drill\");");
+    fn selecting_006_returns_drill_006() {
+        match select_command(&["006"]).unwrap() {
+            DrillCommand::Run(drill) => {
+                assert_eq!(drill.id, "006");
+                assert_eq!(drill.expected, "score += 1;");
+            }
+            DrillCommand::List => panic!("expected Drill 006"),
+        }
+    }
+
+    #[test]
+    fn list_arg_selects_list_command() {
+        match select_command(&["--list"]).unwrap() {
+            DrillCommand::List => {}
+            DrillCommand::Run(_) => panic!("expected list command"),
+        }
     }
 
     #[test]
     fn unknown_id_errors() {
-        let err = select_drill(&["999"]).err().unwrap();
+        let err = select_command(&["999"]).err().unwrap();
         assert_eq!(err, "unknown drill id: 999");
     }
 
     #[test]
     fn too_many_args_errors() {
-        let err = select_drill(&["001", "extra"]).err().unwrap();
-        assert_eq!(err, "expected at most one drill id");
+        let err = select_command(&["001", "extra"]).err().unwrap();
+        assert_eq!(err, "expected at most one argument");
+    }
+
+    #[test]
+    fn catalog_contains_expected_six_drill_ids_in_order() {
+        let ids: Vec<&str> = DRILLS.iter().map(|drill| drill.id).collect();
+        assert_eq!(ids, vec!["001", "002", "003", "004", "005", "006"]);
     }
 }
