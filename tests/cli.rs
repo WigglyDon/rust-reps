@@ -30,7 +30,8 @@ const DRILL_012_PASS_OUTPUT: &str =
     "Rusty Drill\n\nDrill 012\nType exactly:\n\nwhile score < 10 {}\n\n>PASS\n";
 const DRILL_012_TRY_AGAIN_OUTPUT: &str = "Rusty Drill\n\nDrill 012\nType exactly:\n\nwhile score < 10 {}\n\n>TRY AGAIN\nExpected:\nwhile score < 10 {}\n";
 const LIST_OUTPUT: &str = "Rusty Drill\n\nAvailable drills:\n001  fn main() {}\n002  println!(\"Rusty Drill\");\n003  let answer = 42;\n004  let name = \"Rusty Drill\";\n005  let mut score = 0;\n006  score += 1;\n007  let passed = true;\n008  let score: i32 = 0;\n009  let scores = [1, 2, 3];\n010  fn add_one(x: i32) -> i32 { x + 1 }\n011  if score > 0 {}\n012  while score < 10 {}\n";
-const HELP_OUTPUT: &str = "Rusty Drill\n\nUsage:\n  rusty-drill [DRILL_ID]\n  rusty-drill --list\n  rusty-drill --help\n\nDefault:\n  Runs Drill 001.\n\nCurrent drills:\n001  fn main() {}\n002  println!(\"Rusty Drill\");\n003  let answer = 42;\n004  let name = \"Rusty Drill\";\n005  let mut score = 0;\n006  score += 1;\n007  let passed = true;\n008  let score: i32 = 0;\n009  let scores = [1, 2, 3];\n010  fn add_one(x: i32) -> i32 { x + 1 }\n011  if score > 0 {}\n012  while score < 10 {}\n";
+const HELP_OUTPUT: &str = "Rusty Drill\n\nUsage:\n  rusty-drill [DRILL_ID]\n  rusty-drill --list\n  rusty-drill --help\n  rusty-drill --version\n\nDefault:\n  Runs Drill 001.\n\nCurrent drills:\n001  fn main() {}\n002  println!(\"Rusty Drill\");\n003  let answer = 42;\n004  let name = \"Rusty Drill\";\n005  let mut score = 0;\n006  score += 1;\n007  let passed = true;\n008  let score: i32 = 0;\n009  let scores = [1, 2, 3];\n010  fn add_one(x: i32) -> i32 { x + 1 }\n011  if score > 0 {}\n012  while score < 10 {}\n";
+const VERSION_OUTPUT: &str = "rusty-drill 0.1.0\n";
 
 fn run_rusty_drill(args: &[&str], input: &str) -> Output {
     let mut child = Command::new(env!("CARGO_BIN_EXE_rusty-drill"))
@@ -162,6 +163,15 @@ fn short_help_command_exits_successfully_and_prints_help() {
 
     assert!(output.status.success());
     assert_eq!(String::from_utf8(output.stdout).unwrap(), HELP_OUTPUT);
+    assert_eq!(String::from_utf8(output.stderr).unwrap(), "");
+}
+
+#[test]
+fn version_command_exits_successfully_and_prints_version() {
+    let output = run_rusty_drill(&["--version"], "");
+
+    assert!(output.status.success());
+    assert_eq!(String::from_utf8(output.stdout).unwrap(), VERSION_OUTPUT);
     assert_eq!(String::from_utf8(output.stderr).unwrap(), "");
 }
 
@@ -370,18 +380,33 @@ fn help_extra_arg_exits_nonzero_and_prints_error() {
 }
 
 #[test]
+fn version_extra_arg_exits_nonzero_and_prints_error() {
+    let output = run_rusty_drill(&["--version", "extra"], "");
+
+    assert!(!output.status.success());
+    assert_eq!(String::from_utf8(output.stdout).unwrap(), "");
+    assert_eq!(
+        String::from_utf8(output.stderr).unwrap(),
+        "error: expected at most one argument\n"
+    );
+}
+
+#[test]
 fn stderr_is_empty_for_normal_product_results() {
     let pass_output = run_rusty_drill(&[], "fn main() {}\n");
     let try_again_output = run_rusty_drill(&["012"], "while score < 10\n");
     let list_output = run_rusty_drill(&["--list"], "");
     let help_output = run_rusty_drill(&["--help"], "");
+    let version_output = run_rusty_drill(&["--version"], "");
 
     assert!(pass_output.status.success());
     assert!(try_again_output.status.success());
     assert!(list_output.status.success());
     assert!(help_output.status.success());
+    assert!(version_output.status.success());
     assert_eq!(String::from_utf8(pass_output.stderr).unwrap(), "");
     assert_eq!(String::from_utf8(try_again_output.stderr).unwrap(), "");
     assert_eq!(String::from_utf8(list_output.stderr).unwrap(), "");
     assert_eq!(String::from_utf8(help_output.stderr).unwrap(), "");
+    assert_eq!(String::from_utf8(version_output.stderr).unwrap(), "");
 }

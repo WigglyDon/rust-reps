@@ -17,6 +17,7 @@ You can list drills or select a drill by id:
 ```sh
 cargo run -- --help
 cargo run -- --list
+cargo run -- --version
 cargo run -- 001
 cargo run -- 002
 cargo run -- 003
@@ -75,6 +76,7 @@ Spaces, punctuation, braces, tabs, casing, Unicode, and internal spacing are not
 cargo run
 cargo run -- --help
 cargo run -- --list
+cargo run -- --version
 cargo run -- 001
 cargo run -- 002
 cargo run -- 003

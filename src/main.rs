@@ -11,6 +11,7 @@ enum DrillCommand {
     Run(&'static Drill),
     List,
     Help,
+    Version,
 }
 
 const DRILLS: &[Drill] = &[
@@ -97,6 +98,9 @@ fn select_command(args: &[&str]) -> Result<DrillCommand, String> {
     if id == "--help" || id == "-h" {
         return Ok(DrillCommand::Help);
     }
+    if id == "--version" {
+        return Ok(DrillCommand::Version);
+    }
     if id.starts_with('-') {
         return Err(format!("unknown argument: {}", id));
     }
@@ -133,6 +137,7 @@ fn print_help() {
     println!("  rusty-drill [DRILL_ID]");
     println!("  rusty-drill --list");
     println!("  rusty-drill --help");
+    println!("  rusty-drill --version");
     println!();
     println!("Default:");
     println!("  Runs Drill 001.");
@@ -141,6 +146,10 @@ fn print_help() {
     for drill in DRILLS {
         println!("{}  {}", drill.id, drill.expected);
     }
+}
+
+fn print_version() {
+    println!("{} {}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
 }
 
 fn main() {
@@ -162,6 +171,10 @@ fn main() {
         }
         DrillCommand::Help => {
             print_help();
+            return;
+        }
+        DrillCommand::Version => {
+            print_version();
             return;
         }
     };
@@ -231,6 +244,7 @@ mod tests {
             }
             DrillCommand::List => panic!("expected Drill 001"),
             DrillCommand::Help => panic!("expected Drill 001"),
+            DrillCommand::Version => panic!("expected Drill 001"),
         }
     }
 
@@ -243,6 +257,7 @@ mod tests {
             }
             DrillCommand::List => panic!("expected Drill 012"),
             DrillCommand::Help => panic!("expected Drill 012"),
+            DrillCommand::Version => panic!("expected Drill 012"),
         }
     }
 
@@ -252,6 +267,7 @@ mod tests {
             DrillCommand::List => {}
             DrillCommand::Run(_) => panic!("expected list command"),
             DrillCommand::Help => panic!("expected list command"),
+            DrillCommand::Version => panic!("expected list command"),
         }
     }
 
@@ -261,6 +277,7 @@ mod tests {
             DrillCommand::Help => {}
             DrillCommand::Run(_) => panic!("expected help command"),
             DrillCommand::List => panic!("expected help command"),
+            DrillCommand::Version => panic!("expected help command"),
         }
     }
 
@@ -270,6 +287,17 @@ mod tests {
             DrillCommand::Help => {}
             DrillCommand::Run(_) => panic!("expected help command"),
             DrillCommand::List => panic!("expected help command"),
+            DrillCommand::Version => panic!("expected help command"),
+        }
+    }
+
+    #[test]
+    fn version_arg_selects_version_command() {
+        match select_command(&["--version"]).unwrap() {
+            DrillCommand::Version => {}
+            DrillCommand::Run(_) => panic!("expected version command"),
+            DrillCommand::List => panic!("expected version command"),
+            DrillCommand::Help => panic!("expected version command"),
         }
     }
 
@@ -294,6 +322,12 @@ mod tests {
     #[test]
     fn too_many_args_errors() {
         let err = select_command(&["--help", "extra"]).err().unwrap();
+        assert_eq!(err, "expected at most one argument");
+    }
+
+    #[test]
+    fn too_many_version_args_errors() {
+        let err = select_command(&["--version", "extra"]).err().unwrap();
         assert_eq!(err, "expected at most one argument");
     }
 

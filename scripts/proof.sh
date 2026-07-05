@@ -151,6 +151,7 @@ Usage:
   rusty-drill [DRILL_ID]
   rusty-drill --list
   rusty-drill --help
+  rusty-drill --version
 
 Default:
   Runs Drill 001.
@@ -175,6 +176,7 @@ Usage:
   rusty-drill [DRILL_ID]
   rusty-drill --list
   rusty-drill --help
+  rusty-drill --version
 
 Default:
   Runs Drill 001.
@@ -192,6 +194,8 @@ Current drills:
 010  fn add_one(x: i32) -> i32 { x + 1 }
 011  if score > 0 {}
 012  while score < 10 {}' cargo run -q -- -h
+
+expect_stdout "version" 'rusty-drill 0.1.0' cargo run -q -- --version
 
 expect_stdout "Drill 002 PASS" 'Rusty Drill
 
@@ -291,6 +295,7 @@ expect_error "unknown id error" "error: unknown drill id: 999" cargo run -q -- 9
 expect_error "unknown option error" "error: unknown argument: --wat" cargo run -q -- --wat
 expect_error "too many args error" "error: expected at most one argument" cargo run -q -- 001 extra
 expect_error "too many help args error" "error: expected at most one argument" cargo run -q -- --help extra
+expect_error "too many version args error" "error: expected at most one argument" cargo run -q -- --version extra
 
 section "unstaged diff check"
 git diff --check
