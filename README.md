@@ -51,6 +51,14 @@ printf 'fn main() {}\n' | cargo run -q
 printf 'fn main(){}\n' | cargo run -q
 ```
 
+## Local Proof
+
+```sh
+./scripts/proof-v0.sh
+```
+
+This runs formatting, tests, CLI checks, and git whitespace checks.
+
 ## Current Limitations
 
 - One drill.
