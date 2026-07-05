@@ -63,8 +63,19 @@ const PRACTICE_ALL_CORRECT_OUTPUT: &str = concat!(
     "Drill 011/012\nType exactly:\n\nif score > 0 {}\n\n>PASS\n\n",
     "Drill 012/012\nType exactly:\n\nwhile score < 10 {}\n\n>PASS\n\n",
     "COMPLETE\n",
+    "Summary:\n",
+    "Passed: 12/12\n",
+    "Attempts: 12\n",
 );
-const PRACTICE_QUIT_OUTPUT: &str = "Rusty Drill\n\nPractice\nType :q to quit.\n\nDrill 001/012\nType exactly:\n\nfn main() {}\n\n>QUIT\n";
+const PRACTICE_QUIT_OUTPUT: &str = concat!(
+    "Rusty Drill\n\n",
+    "Practice\n",
+    "Type :q to quit.\n\n",
+    "Drill 001/012\nType exactly:\n\nfn main() {}\n\n>QUIT\n",
+    "Summary:\n",
+    "Passed: 0/12\n",
+    "Attempts: 0\n",
+);
 const PRACTICE_RETRY_THEN_QUIT_OUTPUT: &str = concat!(
     "Rusty Drill\n\n",
     "Practice\n",
@@ -74,6 +85,9 @@ const PRACTICE_RETRY_THEN_QUIT_OUTPUT: &str = concat!(
     "fn main() {}\n\n",
     "Drill 001/012\nType exactly:\n\nfn main() {}\n\n>PASS\n\n",
     "Drill 002/012\nType exactly:\n\nprintln!(\"Rusty Drill\");\n\n>QUIT\n",
+    "Summary:\n",
+    "Passed: 1/12\n",
+    "Attempts: 2\n",
 );
 
 fn run_rusty_drill(args: &[&str], input: &str) -> Output {
@@ -207,6 +221,25 @@ fn explicit_drill_001_input_exits_successfully_and_prints_pass() {
     assert_eq!(
         String::from_utf8(output.stdout).unwrap(),
         DRILL_001_PASS_OUTPUT
+    );
+}
+
+#[test]
+fn one_shot_selected_drill_outputs_do_not_include_summary() {
+    let drill_001_output = run_rusty_drill(&["001"], "fn main() {}\n");
+    let drill_012_output = run_rusty_drill(&["012"], "while score < 10 {}\n");
+
+    assert!(drill_001_output.status.success());
+    assert!(drill_012_output.status.success());
+    assert!(
+        !String::from_utf8(drill_001_output.stdout)
+            .unwrap()
+            .contains("Summary:")
+    );
+    assert!(
+        !String::from_utf8(drill_012_output.stdout)
+            .unwrap()
+            .contains("Summary:")
     );
 }
 

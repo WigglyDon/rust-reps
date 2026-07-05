@@ -15,6 +15,11 @@ enum DrillCommand {
     Version,
 }
 
+struct PracticeStats {
+    passed: usize,
+    attempts: usize,
+}
+
 const DRILLS: &[Drill] = &[
     Drill {
         id: "001",
@@ -175,6 +180,12 @@ fn print_version() {
     println!("{} {}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
 }
 
+fn print_summary(stats: &PracticeStats) {
+    println!("Summary:");
+    println!("Passed: {}/{}", stats.passed, DRILLS.len());
+    println!("Attempts: {}", stats.attempts);
+}
+
 fn flush_stdout_or_exit() {
     if let Err(err) = io::stdout().flush() {
         eprintln!("I/O error: {}", err);
@@ -214,6 +225,10 @@ fn run_one_shot_drill(drill: &Drill) {
 fn run_practice_session() {
     print_practice_header();
 
+    let mut stats = PracticeStats {
+        passed: 0,
+        attempts: 0,
+    };
     let mut index = 0;
     while index < DRILLS.len() {
         let drill = &DRILLS[index];
@@ -223,16 +238,20 @@ fn run_practice_session() {
         let mut input = String::new();
         if read_line_or_exit(&mut input) == 0 {
             println!("QUIT");
+            print_summary(&stats);
             return;
         }
 
         let answer = trim_line_ending(&input);
         if answer == ":q" || answer == ":quit" {
             println!("QUIT");
+            print_summary(&stats);
             return;
         }
 
+        stats.attempts += 1;
         if check_answer(&input, drill.expected) {
+            stats.passed += 1;
             println!("PASS");
             println!();
             index += 1;
@@ -245,6 +264,7 @@ fn run_practice_session() {
     }
 
     println!("COMPLETE");
+    print_summary(&stats);
 }
 
 fn main() {

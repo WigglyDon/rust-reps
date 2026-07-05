@@ -19,6 +19,7 @@ cargo run -- play
 ```
 
 In practice mode, `:q` and `:quit` quit successfully. Passing every drill prints `COMPLETE`.
+Practice mode prints a compact summary when it completes or quits; the summary is not saved.
 
 You can list drills, print help/version output, or run one selected drill by id:
 

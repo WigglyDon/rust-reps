@@ -214,7 +214,10 @@ while score < 10 {}
 
 >PASS
 
-COMPLETE'
+COMPLETE
+Summary:
+Passed: 12/12
+Attempts: 12'
 
 practice_quit_output='Rusty Drill
 
@@ -226,7 +229,10 @@ Type exactly:
 
 fn main() {}
 
->QUIT'
+>QUIT
+Summary:
+Passed: 0/12
+Attempts: 0'
 
 practice_retry_then_quit_output='Rusty Drill
 
@@ -254,7 +260,10 @@ Type exactly:
 
 println!("Rusty Drill");
 
->QUIT'
+>QUIT
+Summary:
+Passed: 1/12
+Attempts: 2'
 
 expect_stdout "practice default COMPLETE" "$practice_all_correct_output" sh -c 'printf "%s" "$1" | cargo run -q' sh "$practice_all_correct_input"
 expect_stdout "practice play COMPLETE" "$practice_all_correct_output" sh -c 'printf "%s" "$1" | cargo run -q -- play' sh "$practice_all_correct_input"
