@@ -38,6 +38,30 @@ const DRILLS: &[Drill] = &[
         id: "006",
         expected: "score += 1;",
     },
+    Drill {
+        id: "007",
+        expected: "let passed = true;",
+    },
+    Drill {
+        id: "008",
+        expected: "let score: i32 = 0;",
+    },
+    Drill {
+        id: "009",
+        expected: "let scores = [1, 2, 3];",
+    },
+    Drill {
+        id: "010",
+        expected: "fn add_one(x: i32) -> i32 { x + 1 }",
+    },
+    Drill {
+        id: "011",
+        expected: "if score > 0 {}",
+    },
+    Drill {
+        id: "012",
+        expected: "while score < 10 {}",
+    },
 ];
 
 fn trim_line_ending(input: &str) -> &str {
@@ -211,14 +235,14 @@ mod tests {
     }
 
     #[test]
-    fn selecting_006_returns_drill_006() {
-        match select_command(&["006"]).unwrap() {
+    fn selecting_012_returns_drill_012() {
+        match select_command(&["012"]).unwrap() {
             DrillCommand::Run(drill) => {
-                assert_eq!(drill.id, "006");
-                assert_eq!(drill.expected, "score += 1;");
+                assert_eq!(drill.id, "012");
+                assert_eq!(drill.expected, "while score < 10 {}");
             }
-            DrillCommand::List => panic!("expected Drill 006"),
-            DrillCommand::Help => panic!("expected Drill 006"),
+            DrillCommand::List => panic!("expected Drill 012"),
+            DrillCommand::Help => panic!("expected Drill 012"),
         }
     }
 
@@ -274,8 +298,13 @@ mod tests {
     }
 
     #[test]
-    fn catalog_contains_expected_six_drill_ids_in_order() {
+    fn catalog_contains_expected_twelve_drill_ids_in_order() {
         let ids: Vec<&str> = DRILLS.iter().map(|drill| drill.id).collect();
-        assert_eq!(ids, vec!["001", "002", "003", "004", "005", "006"]);
+        assert_eq!(
+            ids,
+            vec![
+                "001", "002", "003", "004", "005", "006", "007", "008", "009", "010", "011", "012",
+            ]
+        );
     }
 }

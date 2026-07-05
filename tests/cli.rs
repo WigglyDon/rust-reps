@@ -16,8 +16,21 @@ const DRILL_005_PASS_OUTPUT: &str =
 const DRILL_006_PASS_OUTPUT: &str =
     "Rusty Drill\n\nDrill 006\nType exactly:\n\nscore += 1;\n\n>PASS\n";
 const DRILL_006_TRY_AGAIN_OUTPUT: &str = "Rusty Drill\n\nDrill 006\nType exactly:\n\nscore += 1;\n\n>TRY AGAIN\nExpected:\nscore += 1;\n";
-const LIST_OUTPUT: &str = "Rusty Drill\n\nAvailable drills:\n001  fn main() {}\n002  println!(\"Rusty Drill\");\n003  let answer = 42;\n004  let name = \"Rusty Drill\";\n005  let mut score = 0;\n006  score += 1;\n";
-const HELP_OUTPUT: &str = "Rusty Drill\n\nUsage:\n  rusty-drill [DRILL_ID]\n  rusty-drill --list\n  rusty-drill --help\n\nDefault:\n  Runs Drill 001.\n\nCurrent drills:\n001  fn main() {}\n002  println!(\"Rusty Drill\");\n003  let answer = 42;\n004  let name = \"Rusty Drill\";\n005  let mut score = 0;\n006  score += 1;\n";
+const DRILL_007_PASS_OUTPUT: &str =
+    "Rusty Drill\n\nDrill 007\nType exactly:\n\nlet passed = true;\n\n>PASS\n";
+const DRILL_008_PASS_OUTPUT: &str =
+    "Rusty Drill\n\nDrill 008\nType exactly:\n\nlet score: i32 = 0;\n\n>PASS\n";
+const DRILL_009_PASS_OUTPUT: &str =
+    "Rusty Drill\n\nDrill 009\nType exactly:\n\nlet scores = [1, 2, 3];\n\n>PASS\n";
+const DRILL_010_PASS_OUTPUT: &str =
+    "Rusty Drill\n\nDrill 010\nType exactly:\n\nfn add_one(x: i32) -> i32 { x + 1 }\n\n>PASS\n";
+const DRILL_011_PASS_OUTPUT: &str =
+    "Rusty Drill\n\nDrill 011\nType exactly:\n\nif score > 0 {}\n\n>PASS\n";
+const DRILL_012_PASS_OUTPUT: &str =
+    "Rusty Drill\n\nDrill 012\nType exactly:\n\nwhile score < 10 {}\n\n>PASS\n";
+const DRILL_012_TRY_AGAIN_OUTPUT: &str = "Rusty Drill\n\nDrill 012\nType exactly:\n\nwhile score < 10 {}\n\n>TRY AGAIN\nExpected:\nwhile score < 10 {}\n";
+const LIST_OUTPUT: &str = "Rusty Drill\n\nAvailable drills:\n001  fn main() {}\n002  println!(\"Rusty Drill\");\n003  let answer = 42;\n004  let name = \"Rusty Drill\";\n005  let mut score = 0;\n006  score += 1;\n007  let passed = true;\n008  let score: i32 = 0;\n009  let scores = [1, 2, 3];\n010  fn add_one(x: i32) -> i32 { x + 1 }\n011  if score > 0 {}\n012  while score < 10 {}\n";
+const HELP_OUTPUT: &str = "Rusty Drill\n\nUsage:\n  rusty-drill [DRILL_ID]\n  rusty-drill --list\n  rusty-drill --help\n\nDefault:\n  Runs Drill 001.\n\nCurrent drills:\n001  fn main() {}\n002  println!(\"Rusty Drill\");\n003  let answer = 42;\n004  let name = \"Rusty Drill\";\n005  let mut score = 0;\n006  score += 1;\n007  let passed = true;\n008  let score: i32 = 0;\n009  let scores = [1, 2, 3];\n010  fn add_one(x: i32) -> i32 { x + 1 }\n011  if score > 0 {}\n012  while score < 10 {}\n";
 
 fn run_rusty_drill(args: &[&str], input: &str) -> Output {
     let mut child = Command::new(env!("CARGO_BIN_EXE_rusty-drill"))
@@ -208,6 +221,83 @@ fn drill_006_wrong_answer_exits_successfully_and_prints_try_again() {
 }
 
 #[test]
+fn drill_007_input_exits_successfully_and_prints_pass() {
+    let output = run_rusty_drill(&["007"], "let passed = true;\n");
+
+    assert!(output.status.success());
+    assert_eq!(
+        String::from_utf8(output.stdout).unwrap(),
+        DRILL_007_PASS_OUTPUT
+    );
+}
+
+#[test]
+fn drill_008_input_exits_successfully_and_prints_pass() {
+    let output = run_rusty_drill(&["008"], "let score: i32 = 0;\n");
+
+    assert!(output.status.success());
+    assert_eq!(
+        String::from_utf8(output.stdout).unwrap(),
+        DRILL_008_PASS_OUTPUT
+    );
+}
+
+#[test]
+fn drill_009_input_exits_successfully_and_prints_pass() {
+    let output = run_rusty_drill(&["009"], "let scores = [1, 2, 3];\n");
+
+    assert!(output.status.success());
+    assert_eq!(
+        String::from_utf8(output.stdout).unwrap(),
+        DRILL_009_PASS_OUTPUT
+    );
+}
+
+#[test]
+fn drill_010_input_exits_successfully_and_prints_pass() {
+    let output = run_rusty_drill(&["010"], "fn add_one(x: i32) -> i32 { x + 1 }\n");
+
+    assert!(output.status.success());
+    assert_eq!(
+        String::from_utf8(output.stdout).unwrap(),
+        DRILL_010_PASS_OUTPUT
+    );
+}
+
+#[test]
+fn drill_011_input_exits_successfully_and_prints_pass() {
+    let output = run_rusty_drill(&["011"], "if score > 0 {}\n");
+
+    assert!(output.status.success());
+    assert_eq!(
+        String::from_utf8(output.stdout).unwrap(),
+        DRILL_011_PASS_OUTPUT
+    );
+}
+
+#[test]
+fn drill_012_input_exits_successfully_and_prints_pass() {
+    let output = run_rusty_drill(&["012"], "while score < 10 {}\n");
+
+    assert!(output.status.success());
+    assert_eq!(
+        String::from_utf8(output.stdout).unwrap(),
+        DRILL_012_PASS_OUTPUT
+    );
+}
+
+#[test]
+fn drill_012_wrong_answer_exits_successfully_and_prints_try_again() {
+    let output = run_rusty_drill(&["012"], "while score < 10\n");
+
+    assert!(output.status.success());
+    assert_eq!(
+        String::from_utf8(output.stdout).unwrap(),
+        DRILL_012_TRY_AGAIN_OUTPUT
+    );
+}
+
+#[test]
 fn unknown_drill_id_exits_nonzero_and_prints_error() {
     let output = run_rusty_drill(&["999"], "");
 
@@ -282,7 +372,7 @@ fn help_extra_arg_exits_nonzero_and_prints_error() {
 #[test]
 fn stderr_is_empty_for_normal_product_results() {
     let pass_output = run_rusty_drill(&[], "fn main() {}\n");
-    let try_again_output = run_rusty_drill(&["006"], "score += 1\n");
+    let try_again_output = run_rusty_drill(&["012"], "while score < 10\n");
     let list_output = run_rusty_drill(&["--list"], "");
     let help_output = run_rusty_drill(&["--help"], "");
 

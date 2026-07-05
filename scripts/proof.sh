@@ -137,7 +137,13 @@ Available drills:
 003  let answer = 42;
 004  let name = "Rusty Drill";
 005  let mut score = 0;
-006  score += 1;' cargo run -q -- --list
+006  score += 1;
+007  let passed = true;
+008  let score: i32 = 0;
+009  let scores = [1, 2, 3];
+010  fn add_one(x: i32) -> i32 { x + 1 }
+011  if score > 0 {}
+012  while score < 10 {}' cargo run -q -- --list
 
 expect_stdout "help" 'Rusty Drill
 
@@ -155,7 +161,13 @@ Current drills:
 003  let answer = 42;
 004  let name = "Rusty Drill";
 005  let mut score = 0;
-006  score += 1;' cargo run -q -- --help
+006  score += 1;
+007  let passed = true;
+008  let score: i32 = 0;
+009  let scores = [1, 2, 3];
+010  fn add_one(x: i32) -> i32 { x + 1 }
+011  if score > 0 {}
+012  while score < 10 {}' cargo run -q -- --help
 
 expect_stdout "short help" 'Rusty Drill
 
@@ -173,7 +185,13 @@ Current drills:
 003  let answer = 42;
 004  let name = "Rusty Drill";
 005  let mut score = 0;
-006  score += 1;' cargo run -q -- -h
+006  score += 1;
+007  let passed = true;
+008  let score: i32 = 0;
+009  let scores = [1, 2, 3];
+010  fn add_one(x: i32) -> i32 { x + 1 }
+011  if score > 0 {}
+012  while score < 10 {}' cargo run -q -- -h
 
 expect_stdout "Drill 002 PASS" 'Rusty Drill
 
@@ -193,6 +211,60 @@ score += 1;
 
 >PASS' sh -c "printf 'score += 1;\\n' | cargo run -q -- 006"
 
+expect_stdout "Drill 007 PASS" 'Rusty Drill
+
+Drill 007
+Type exactly:
+
+let passed = true;
+
+>PASS' sh -c "printf 'let passed = true;\\n' | cargo run -q -- 007"
+
+expect_stdout "Drill 008 PASS" 'Rusty Drill
+
+Drill 008
+Type exactly:
+
+let score: i32 = 0;
+
+>PASS' sh -c "printf 'let score: i32 = 0;\\n' | cargo run -q -- 008"
+
+expect_stdout "Drill 009 PASS" 'Rusty Drill
+
+Drill 009
+Type exactly:
+
+let scores = [1, 2, 3];
+
+>PASS' sh -c "printf 'let scores = [1, 2, 3];\\n' | cargo run -q -- 009"
+
+expect_stdout "Drill 010 PASS" 'Rusty Drill
+
+Drill 010
+Type exactly:
+
+fn add_one(x: i32) -> i32 { x + 1 }
+
+>PASS' sh -c "printf 'fn add_one(x: i32) -> i32 { x + 1 }\\n' | cargo run -q -- 010"
+
+expect_stdout "Drill 011 PASS" 'Rusty Drill
+
+Drill 011
+Type exactly:
+
+if score > 0 {}
+
+>PASS' sh -c "printf 'if score > 0 {}\\n' | cargo run -q -- 011"
+
+expect_stdout "Drill 012 PASS" 'Rusty Drill
+
+Drill 012
+Type exactly:
+
+while score < 10 {}
+
+>PASS' sh -c "printf 'while score < 10 {}\\n' | cargo run -q -- 012"
+
 expect_stdout "Drill 006 TRY AGAIN" 'Rusty Drill
 
 Drill 006
@@ -203,6 +275,17 @@ score += 1;
 >TRY AGAIN
 Expected:
 score += 1;' sh -c "printf 'score += 1\\n' | cargo run -q -- 006"
+
+expect_stdout "Drill 012 TRY AGAIN" 'Rusty Drill
+
+Drill 012
+Type exactly:
+
+while score < 10 {}
+
+>TRY AGAIN
+Expected:
+while score < 10 {}' sh -c "printf 'while score < 10\\n' | cargo run -q -- 012"
 
 expect_error "unknown id error" "error: unknown drill id: 999" cargo run -q -- 999
 expect_error "unknown option error" "error: unknown argument: --wat" cargo run -q -- --wat
