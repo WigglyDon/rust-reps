@@ -10,29 +10,99 @@ section() {
     printf '%s\n' "--- $1 ---"
 }
 
+expect_stdout() {
+    label=$1
+    expected=$2
+    shift 2
+
+    section "$label"
+    expected_file=$(mktemp)
+    actual_file=$(mktemp)
+    stderr_file=$(mktemp)
+
+    printf '%s\n' "$expected" > "$expected_file"
+
+    set +e
+    "$@" > "$actual_file" 2> "$stderr_file"
+    status=$?
+    set -e
+
+    if [ "$status" -ne 0 ]; then
+        echo "error: expected command to exit successfully" >&2
+        printf 'status: %s\n' "$status" >&2
+        echo "stderr:" >&2
+        cat "$stderr_file" >&2
+        rm -f "$expected_file" "$actual_file" "$stderr_file"
+        exit 1
+    fi
+
+    if [ -s "$stderr_file" ]; then
+        echo "error: expected empty stderr" >&2
+        echo "actual stderr:" >&2
+        cat "$stderr_file" >&2
+        rm -f "$expected_file" "$actual_file" "$stderr_file"
+        exit 1
+    fi
+
+    if ! cmp -s "$expected_file" "$actual_file"; then
+        echo "error: unexpected stdout" >&2
+        echo "expected:" >&2
+        cat "$expected_file" >&2
+        echo "actual:" >&2
+        cat "$actual_file" >&2
+        rm -f "$expected_file" "$actual_file" "$stderr_file"
+        exit 1
+    fi
+
+    cat "$actual_file"
+    rm -f "$expected_file" "$actual_file" "$stderr_file"
+}
+
 expect_error() {
     label=$1
     expected=$2
     shift 2
 
     section "$label"
+    expected_file=$(mktemp)
+    stdout_file=$(mktemp)
+    stderr_file=$(mktemp)
+
+    printf '%s\n' "$expected" > "$expected_file"
+
     set +e
-    output=$("$@" 2>&1)
+    "$@" > "$stdout_file" 2> "$stderr_file"
     status=$?
     set -e
 
-    printf '%s\n' "$output"
+    cat "$stderr_file"
     printf 'status: %s\n' "$status"
 
     if [ "$status" -eq 0 ]; then
         echo "error: expected command to exit nonzero" >&2
+        rm -f "$expected_file" "$stdout_file" "$stderr_file"
         exit 1
     fi
 
-    if [ "$output" != "$expected" ]; then
-        echo "error: unexpected stderr" >&2
+    if [ -s "$stdout_file" ]; then
+        echo "error: expected empty stdout" >&2
+        echo "actual stdout:" >&2
+        cat "$stdout_file" >&2
+        rm -f "$expected_file" "$stdout_file" "$stderr_file"
         exit 1
     fi
+
+    if ! cmp -s "$expected_file" "$stderr_file"; then
+        echo "error: unexpected stderr" >&2
+        echo "expected:" >&2
+        cat "$expected_file" >&2
+        echo "actual:" >&2
+        cat "$stderr_file" >&2
+        rm -f "$expected_file" "$stdout_file" "$stderr_file"
+        exit 1
+    fi
+
+    rm -f "$expected_file" "$stdout_file" "$stderr_file"
 }
 
 section "fmt check"
@@ -41,35 +111,98 @@ cargo fmt --check
 section "tests"
 cargo test
 
-section "Drill 001 default PASS"
-printf 'fn main() {}\n' | cargo run -q
+expect_stdout "Drill 001 default PASS" 'Rusty Drill
 
-section "help"
-cargo run -q -- --help
+Drill 001
+Type exactly:
 
-section "short help"
-cargo run -q -- -h
+fn main() {}
 
-section "list"
-cargo run -q -- --list
+>PASS' sh -c "printf 'fn main() {}\\n' | cargo run -q"
 
-section "Drill 002 PASS"
-printf 'println!("Rusty Drill");\n' | cargo run -q -- 002
+expect_stdout "Drill 001 explicit PASS" 'Rusty Drill
 
-section "Drill 003 PASS"
-printf 'let answer = 42;\n' | cargo run -q -- 003
+Drill 001
+Type exactly:
 
-section "Drill 004 PASS"
-printf 'let name = "Rusty Drill";\n' | cargo run -q -- 004
+fn main() {}
 
-section "Drill 005 PASS"
-printf 'let mut score = 0;\n' | cargo run -q -- 005
+>PASS' sh -c "printf 'fn main() {}\\n' | cargo run -q -- 001"
 
-section "Drill 006 PASS"
-printf 'score += 1;\n' | cargo run -q -- 006
+expect_stdout "list" 'Rusty Drill
 
-section "Drill 006 TRY AGAIN"
-printf 'score += 1\n' | cargo run -q -- 006
+Available drills:
+001  fn main() {}
+002  println!("Rusty Drill");
+003  let answer = 42;
+004  let name = "Rusty Drill";
+005  let mut score = 0;
+006  score += 1;' cargo run -q -- --list
+
+expect_stdout "help" 'Rusty Drill
+
+Usage:
+  rusty-drill [DRILL_ID]
+  rusty-drill --list
+  rusty-drill --help
+
+Default:
+  Runs Drill 001.
+
+Current drills:
+001  fn main() {}
+002  println!("Rusty Drill");
+003  let answer = 42;
+004  let name = "Rusty Drill";
+005  let mut score = 0;
+006  score += 1;' cargo run -q -- --help
+
+expect_stdout "short help" 'Rusty Drill
+
+Usage:
+  rusty-drill [DRILL_ID]
+  rusty-drill --list
+  rusty-drill --help
+
+Default:
+  Runs Drill 001.
+
+Current drills:
+001  fn main() {}
+002  println!("Rusty Drill");
+003  let answer = 42;
+004  let name = "Rusty Drill";
+005  let mut score = 0;
+006  score += 1;' cargo run -q -- -h
+
+expect_stdout "Drill 002 PASS" 'Rusty Drill
+
+Drill 002
+Type exactly:
+
+println!("Rusty Drill");
+
+>PASS' sh -c "printf 'println!(\"Rusty Drill\");\\n' | cargo run -q -- 002"
+
+expect_stdout "Drill 006 PASS" 'Rusty Drill
+
+Drill 006
+Type exactly:
+
+score += 1;
+
+>PASS' sh -c "printf 'score += 1;\\n' | cargo run -q -- 006"
+
+expect_stdout "Drill 006 TRY AGAIN" 'Rusty Drill
+
+Drill 006
+Type exactly:
+
+score += 1;
+
+>TRY AGAIN
+Expected:
+score += 1;' sh -c "printf 'score += 1\\n' | cargo run -q -- 006"
 
 expect_error "unknown id error" "error: unknown drill id: 999" cargo run -q -- 999
 expect_error "unknown option error" "error: unknown argument: --wat" cargo run -q -- --wat
