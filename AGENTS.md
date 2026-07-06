@@ -47,9 +47,9 @@
 - `main`: process orchestration and interactive default decision only.
 - `answer`: answer normalization/comparison helpers.
 - `cli`: launch command selection, usage/help/list/version, CLI/tool errors.
-- `engine`: pure game/session simulation and state transitions.
+- `engine`: pure game/session simulation, state transitions, and exercise-shaped packets.
 - `practice`: plain terminal adapter, stdin/stdout, and in-session command handling.
-- `client`: platform-neutral visual projection, client frame structs, and visual-only UI state.
+- `client`: platform-neutral visual projection from engine packets, client frame structs, and visual-only UI state.
 - `tui`: terminal adapter/projection, fullscreen rendering, key input loop, and terminal lifecycle only.
 - `tests` / `scripts/proof.sh`: executable behavior evidence.
 - `README`: describe proven behavior only.

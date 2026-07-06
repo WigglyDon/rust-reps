@@ -1,4 +1,42 @@
-use crate::{answer, catalog};
+use crate::{answer, catalog, curriculum};
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ExerciseKind {
+    TypeExact,
+}
+
+impl ExerciseKind {
+    fn from_task_type(task_type: curriculum::TaskType) -> Self {
+        match task_type {
+            curriculum::TaskType::TypeExact => Self::TypeExact,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ExerciseValidator {
+    Exact,
+}
+
+impl ExerciseValidator {
+    fn from_validator(validator: curriculum::Validator) -> Self {
+        match validator {
+            curriculum::Validator::Exact => Self::Exact,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ExercisePacket {
+    pub id: &'static str,
+    pub position: usize,
+    pub total: usize,
+    pub prompt: &'static str,
+    pub expected_answer: &'static str,
+    pub instruction: &'static str,
+    pub kind: ExerciseKind,
+    pub validator: ExerciseValidator,
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SubmitResult {
@@ -21,9 +59,9 @@ pub struct SessionStats {
     pub total_drills: usize,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct SessionSnapshot {
-    pub current_drill: Option<&'static catalog::Drill>,
+    pub exercise: Option<ExercisePacket>,
     pub stats: SessionStats,
     pub is_complete: bool,
 }
@@ -65,8 +103,8 @@ impl Session {
         self.index >= self.total_drills()
     }
 
-    pub fn current_drill(&self) -> Option<&'static catalog::Drill> {
-        catalog::drills().get(self.index)
+    pub fn current_exercise(&self) -> Option<ExercisePacket> {
+        exercise_packet_at(self.index)
     }
 
     pub fn stats(&self) -> SessionStats {
@@ -80,19 +118,19 @@ impl Session {
 
     pub fn snapshot(&self) -> SessionSnapshot {
         SessionSnapshot {
-            current_drill: self.current_drill(),
+            exercise: self.current_exercise(),
             stats: self.stats(),
             is_complete: self.is_complete(),
         }
     }
 
     pub fn submit_answer(&mut self, input: &str) -> SubmitResult {
-        let Some(drill) = self.current_drill() else {
+        let Some(exercise) = self.current_exercise() else {
             return SubmitResult::NoActiveDrill;
         };
 
         self.attempts += 1;
-        if answer::check_answer(input, drill.expected) {
+        if answer::check_answer(input, exercise.expected_answer) {
             self.passed += 1;
             self.index += 1;
             return SubmitResult::Correct;
@@ -102,7 +140,7 @@ impl Session {
     }
 
     pub fn skip(&mut self) -> SkipResult {
-        if self.current_drill().is_none() {
+        if self.current_exercise().is_none() {
             return SkipResult::NoActiveDrill;
         }
 
@@ -112,16 +150,43 @@ impl Session {
     }
 }
 
+pub fn exercise_packets() -> Vec<ExercisePacket> {
+    (0..catalog::drills().len())
+        .filter_map(exercise_packet_at)
+        .collect()
+}
+
+pub fn first_exercise_packet() -> ExercisePacket {
+    exercise_packet_at(0).expect("catalog contains at least one exercise")
+}
+
+fn exercise_packet_at(index: usize) -> Option<ExercisePacket> {
+    let drill = catalog::drills().get(index)?;
+    Some(ExercisePacket {
+        id: drill.id,
+        position: index + 1,
+        total: catalog::drills().len(),
+        prompt: drill.prompt,
+        expected_answer: drill.expected,
+        instruction: "Copy this line exactly:",
+        kind: ExerciseKind::from_task_type(drill.task_type),
+        validator: ExerciseValidator::from_validator(drill.validator),
+    })
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{Session, SkipResult, SubmitResult};
+    use super::{ExerciseKind, ExerciseValidator, Session, SkipResult, SubmitResult};
 
     #[test]
-    fn new_session_starts_at_drill_001() {
+    fn new_session_starts_at_exercise_001() {
         let session = Session::new();
 
         assert_eq!(
-            session.current_drill().expect("expected first drill").id,
+            session
+                .current_exercise()
+                .expect("expected first exercise")
+                .id,
             "001"
         );
         assert_eq!(session.passed(), 0);
@@ -140,7 +205,10 @@ mod tests {
         assert_eq!(session.passed(), 1);
         assert_eq!(session.attempts(), 1);
         assert_eq!(
-            session.current_drill().expect("expected second drill").id,
+            session
+                .current_exercise()
+                .expect("expected second exercise")
+                .id,
             "002"
         );
     }
@@ -156,7 +224,10 @@ mod tests {
         assert_eq!(session.attempts(), 1);
         assert_eq!(session.skipped(), 0);
         assert_eq!(
-            session.current_drill().expect("expected first drill").id,
+            session
+                .current_exercise()
+                .expect("expected first exercise")
+                .id,
             "001"
         );
     }
@@ -172,7 +243,10 @@ mod tests {
         assert_eq!(session.attempts(), 0);
         assert_eq!(session.skipped(), 1);
         assert_eq!(
-            session.current_drill().expect("expected second drill").id,
+            session
+                .current_exercise()
+                .expect("expected second exercise")
+                .id,
             "002"
         );
     }
@@ -196,28 +270,31 @@ mod tests {
     fn completion_after_final_correct_answer() {
         let mut session = Session::new();
 
-        while let Some(drill) = session.current_drill() {
-            assert_eq!(session.submit_answer(drill.expected), SubmitResult::Correct);
+        while let Some(exercise) = session.current_exercise() {
+            assert_eq!(
+                session.submit_answer(exercise.expected_answer),
+                SubmitResult::Correct
+            );
         }
 
         assert_eq!(session.passed(), 12);
         assert_eq!(session.attempts(), 12);
         assert!(session.is_complete());
-        assert!(session.current_drill().is_none());
+        assert!(session.current_exercise().is_none());
     }
 
     #[test]
     fn completion_after_final_skip() {
         let mut session = Session::new();
 
-        while session.current_drill().is_some() {
+        while session.current_exercise().is_some() {
             assert_eq!(session.skip(), SkipResult::Skipped);
         }
 
         assert_eq!(session.skipped(), 12);
         assert_eq!(session.attempts(), 0);
         assert!(session.is_complete());
-        assert!(session.current_drill().is_none());
+        assert!(session.current_exercise().is_none());
     }
 
     #[test]
@@ -229,7 +306,7 @@ mod tests {
         let snapshot = session.snapshot();
 
         assert_eq!(
-            snapshot.current_drill.expect("expected second drill").id,
+            snapshot.exercise.expect("expected second exercise").id,
             "002"
         );
         assert_eq!(snapshot.stats.passed, 0);
@@ -240,18 +317,96 @@ mod tests {
     }
 
     #[test]
-    fn current_drill_access_tracks_position() {
+    fn current_exercise_access_tracks_position() {
         let mut session = Session::new();
 
         assert_eq!(
-            session.current_drill().expect("expected first drill").id,
+            session
+                .current_exercise()
+                .expect("expected first exercise")
+                .id,
             "001"
         );
         assert_eq!(session.submit_answer("fn main() {}"), SubmitResult::Correct);
         assert_eq!(
-            session.current_drill().expect("expected second drill").id,
+            session
+                .current_exercise()
+                .expect("expected second exercise")
+                .id,
             "002"
         );
+    }
+
+    #[test]
+    fn exercise_packet_contains_client_facing_fields() {
+        let session = Session::new();
+
+        let exercise = session.current_exercise().expect("expected first exercise");
+
+        assert_eq!(exercise.id, "001");
+        assert_eq!(exercise.position, 1);
+        assert_eq!(exercise.total, 12);
+        assert_eq!(exercise.prompt, "fn main() {}");
+        assert_eq!(exercise.expected_answer, "fn main() {}");
+        assert_eq!(exercise.instruction, "Copy this line exactly:");
+        assert_eq!(exercise.kind, ExerciseKind::TypeExact);
+        assert_eq!(exercise.validator, ExerciseValidator::Exact);
+    }
+
+    #[test]
+    fn exercise_packet_advances_after_correct_answer() {
+        let mut session = Session::new();
+
+        assert_eq!(session.submit_answer("fn main() {}"), SubmitResult::Correct);
+        let exercise = session
+            .current_exercise()
+            .expect("expected second exercise");
+
+        assert_eq!(exercise.id, "002");
+        assert_eq!(exercise.position, 2);
+    }
+
+    #[test]
+    fn exercise_packet_does_not_advance_after_wrong_answer() {
+        let mut session = Session::new();
+
+        assert_eq!(session.submit_answer("wrong"), SubmitResult::TryAgain);
+        let exercise = session.current_exercise().expect("expected first exercise");
+
+        assert_eq!(exercise.id, "001");
+        assert_eq!(exercise.position, 1);
+    }
+
+    #[test]
+    fn exercise_packet_advances_after_skip() {
+        let mut session = Session::new();
+
+        assert_eq!(session.skip(), SkipResult::Skipped);
+        let exercise = session
+            .current_exercise()
+            .expect("expected second exercise");
+
+        assert_eq!(exercise.id, "002");
+        assert_eq!(exercise.position, 2);
+    }
+
+    #[test]
+    fn completion_snapshot_has_no_current_exercise() {
+        let mut session = Session::new();
+
+        while let Some(exercise) = session.current_exercise() {
+            assert_eq!(
+                session.submit_answer(exercise.expected_answer),
+                SubmitResult::Correct
+            );
+        }
+
+        let snapshot = session.snapshot();
+
+        assert!(snapshot.is_complete);
+        assert!(snapshot.exercise.is_none());
+        assert_eq!(snapshot.stats.passed, 12);
+        assert_eq!(snapshot.stats.total_drills, 12);
     }
 
     #[test]

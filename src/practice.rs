@@ -61,6 +61,23 @@ fn read_line_or_exit(input: &mut String) -> usize {
     }
 }
 
+fn print_practice_exercise_prompt(exercise: &engine::ExercisePacket) {
+    println!("Drill {}/{:03}", exercise.id, exercise.total);
+    println!("Prompt:");
+    println!();
+    println!("{}", exercise.prompt);
+    println!();
+    print!(">");
+}
+
+fn print_practice_exercise_status(exercise: &engine::ExercisePacket, session: &engine::Session) {
+    println!("Status:");
+    println!("Current: {}/{:03}", exercise.id, exercise.total);
+    println!("Passed: {}/{}", session.passed(), exercise.total);
+    println!("Skipped: {}", session.skipped());
+    println!("Attempts: {}", session.attempts());
+}
+
 pub fn run_one_shot_drill(drill: &catalog::Drill) {
     presentation::print_one_shot_prompt(drill);
     flush_stdout_or_exit();
@@ -81,10 +98,10 @@ pub fn run_practice_session() {
     let mut session = engine::Session::new();
 
     while !session.is_complete() {
-        let drill = session
-            .current_drill()
-            .expect("current drill exists while session active");
-        presentation::print_practice_prompt(drill, session.total_drills());
+        let exercise = session
+            .current_exercise()
+            .expect("current exercise exists while session active");
+        print_practice_exercise_prompt(&exercise);
         flush_stdout_or_exit();
 
         let mut input = String::new();
@@ -113,13 +130,7 @@ pub fn run_practice_session() {
                 println!();
             }
             PracticeEvent::Status => {
-                presentation::print_practice_status(
-                    drill,
-                    session.passed(),
-                    session.skipped(),
-                    session.attempts(),
-                    session.total_drills(),
-                );
+                print_practice_exercise_status(&exercise, &session);
                 println!();
             }
             PracticeEvent::List => {
@@ -141,7 +152,7 @@ pub fn run_practice_session() {
                 println!();
             }
             PracticeEvent::TryAgain => {
-                presentation::print_answer_try_again(drill.expected);
+                presentation::print_answer_try_again(exercise.expected_answer);
                 println!();
             }
         }
@@ -164,14 +175,17 @@ mod tests {
     fn correct_answer_advances_and_counts() {
         let mut session = engine::Session::new();
 
-        let drill = session.current_drill().expect("expected first drill");
-        let event = submit_practice_input(&mut session, drill.expected);
+        let exercise = session.current_exercise().expect("expected first exercise");
+        let event = submit_practice_input(&mut session, exercise.expected_answer);
 
         assert!(matches!(event, PracticeEvent::Correct));
         assert_eq!(session.passed(), 1);
         assert_eq!(session.attempts(), 1);
         assert_eq!(
-            session.current_drill().expect("expected second drill").id,
+            session
+                .current_exercise()
+                .expect("expected second exercise")
+                .id,
             "002"
         );
     }
@@ -188,8 +202,8 @@ mod tests {
         assert_eq!(session.skipped(), 0);
         assert_eq!(
             session
-                .current_drill()
-                .expect("expected still first drill")
+                .current_exercise()
+                .expect("expected still first exercise")
                 .id,
             "001"
         );
@@ -206,7 +220,10 @@ mod tests {
         assert_eq!(session.attempts(), 0);
         assert_eq!(session.skipped(), 1);
         assert_eq!(
-            session.current_drill().expect("expected second drill").id,
+            session
+                .current_exercise()
+                .expect("expected second exercise")
+                .id,
             "002"
         );
     }

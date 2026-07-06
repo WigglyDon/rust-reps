@@ -44,15 +44,6 @@ pub fn print_one_shot_prompt(drill: &catalog::Drill) {
     print!(">");
 }
 
-pub fn print_practice_prompt(drill: &catalog::Drill, total_drills: usize) {
-    println!("Drill {}/{}", drill.id, format_args!("{:03}", total_drills));
-    println!("Prompt:");
-    println!();
-    println!("{}", drill.expected);
-    println!();
-    print!(">");
-}
-
 pub fn print_drill_list() {
     print_app_header();
     println!("Available drills:");
@@ -76,20 +67,6 @@ pub fn print_practice_commands() {
     println!(":skip    skip current drill");
     println!(":q       quit");
     println!(":quit    quit");
-}
-
-pub fn print_practice_status(
-    current_drill: &catalog::Drill,
-    passed: usize,
-    skipped: usize,
-    attempts: usize,
-    total_drills: usize,
-) {
-    println!("Status:");
-    println!("Current: {}/{:03}", current_drill.id, total_drills);
-    println!("Passed: {}/{}", passed, total_drills);
-    println!("Skipped: {}", skipped);
-    println!("Attempts: {}", attempts);
 }
 
 pub fn print_unknown_practice_command() {

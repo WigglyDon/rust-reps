@@ -1,4 +1,4 @@
-use crate::{catalog, engine};
+use crate::engine;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ClientAction {
@@ -132,13 +132,13 @@ pub fn project_client_frame(
     completed: bool,
 ) -> ClientFrame {
     let snapshot = session.snapshot();
-    let drill = snapshot
-        .current_drill
-        .unwrap_or_else(|| &catalog::drills()[0]);
+    let exercise = snapshot
+        .exercise
+        .unwrap_or_else(engine::first_exercise_packet);
     let progress_label = if completed || snapshot.is_complete {
         "Complete".to_string()
     } else {
-        format!("Drill {}/{}", drill.id, snapshot.stats.total_drills)
+        format!("Drill {}/{}", exercise.id, exercise.total)
     };
 
     ClientFrame {
@@ -146,8 +146,8 @@ pub fn project_client_frame(
             problem: ProblemView {
                 title: "Problem".to_string(),
                 progress_label,
-                instruction: "Copy this line exactly:".to_string(),
-                prompt: drill.prompt.to_string(),
+                instruction: exercise.instruction.to_string(),
+                prompt: exercise.prompt.to_string(),
             },
             workbox: WorkboxView {
                 title: "Workbox".to_string(),
@@ -226,6 +226,21 @@ mod tests {
             "Copy this line exactly:"
         );
         assert_eq!(frame.game_window.problem.prompt, "fn main() {}");
+    }
+
+    #[test]
+    fn frame_projection_uses_exercise_packet_position_and_prompt() {
+        let mut session = engine::Session::new();
+        let ui_state = ClientUiState::new();
+
+        assert!(matches!(
+            session.submit_answer("fn main() {}"),
+            engine::SubmitResult::Correct
+        ));
+        let frame = project_client_frame(&session, &ui_state, false);
+
+        assert_eq!(frame.game_window.problem.progress_label, "Drill 002/12");
+        assert_eq!(frame.game_window.problem.prompt, "println!(\"Rust Reps\");");
     }
 
     #[test]

@@ -1,5 +1,5 @@
 use crate::{
-    answer, catalog,
+    answer,
     client::{ClientAction, ClientFrame, ClientUiState, project_client_frame},
     engine,
 };
@@ -45,10 +45,10 @@ impl TuiApp {
         self.ui_state.cursor_visible()
     }
 
-    pub fn active_drill(&self) -> &'static catalog::Drill {
+    pub fn active_exercise(&self) -> engine::ExercisePacket {
         self.session
-            .current_drill()
-            .unwrap_or(&catalog::drills()[0])
+            .current_exercise()
+            .unwrap_or_else(engine::first_exercise_packet)
     }
 
     #[cfg(test)]
@@ -102,7 +102,7 @@ impl TuiApp {
                 "STATUS".to_string(),
                 format!(
                     "Current: {}/{}",
-                    self.active_drill().id,
+                    self.active_exercise().id,
                     self.session.total_drills()
                 ),
                 format!(
@@ -114,9 +114,9 @@ impl TuiApp {
                 format!("Attempts: {}", self.session.attempts()),
             ]
         } else if command == ":list" {
-            catalog::drills()
+            engine::exercise_packets()
                 .iter()
-                .map(|drill| format!("{}  {}", drill.id, drill.expected))
+                .map(|exercise| format!("{}  {}", exercise.id, exercise.expected_answer))
                 .collect()
         } else if command == ":skip" {
             let _ = self.session.skip();
@@ -144,7 +144,7 @@ impl TuiApp {
                     }
                 }
                 engine::SubmitResult::TryAgain => {
-                    let expected = self.active_drill().expected;
+                    let expected = self.active_exercise().expected_answer;
                     vec![
                         "TRY AGAIN".to_string(),
                         "Expected:".to_string(),
@@ -208,8 +208,8 @@ mod tests {
         assert_eq!(app.session().attempts(), 1);
         assert_eq!(
             app.session()
-                .current_drill()
-                .expect("expected second drill")
+                .current_exercise()
+                .expect("expected second exercise")
                 .id,
             "002"
         );
@@ -228,8 +228,8 @@ mod tests {
         assert_eq!(app.session().attempts(), 1);
         assert_eq!(
             app.session()
-                .current_drill()
-                .expect("expected first drill")
+                .current_exercise()
+                .expect("expected first exercise")
                 .id,
             "001"
         );
@@ -294,11 +294,11 @@ mod tests {
     fn final_answer_marks_completion_state() {
         let mut app = TuiApp::new();
         for drill_index in 0..12 {
-            let drill = app
+            let exercise = app
                 .session()
-                .current_drill()
-                .expect("expected active drill");
-            for ch in drill.expected.chars() {
+                .current_exercise()
+                .expect("expected active exercise");
+            for ch in exercise.expected_answer.chars() {
                 app.handle_action(ClientAction::TypeChar(ch));
             }
             app.handle_action(ClientAction::Submit);
