@@ -54,8 +54,68 @@ mod tests {
     }
 
     #[test]
+    fn no_newline_passes() {
+        let answer = "fn main() {}";
+        assert!(check_answer(answer, "fn main() {}"));
+    }
+
+    #[test]
+    fn leading_space_fails() {
+        let answer = " fn main() {}";
+        assert!(!check_answer(answer, "fn main() {}"));
+    }
+
+    #[test]
+    fn trailing_space_before_newline_fails() {
+        let answer = "fn main() {} \n";
+        assert!(!check_answer(answer, "fn main() {}"));
+    }
+
+    #[test]
     fn internal_spacing_differences_fail() {
         let answer = "fn  main() {}";
+        assert!(!check_answer(answer, "fn main() {}"));
+    }
+
+    #[test]
+    fn tab_character_differences_fail() {
+        let answer = "fn\tmain() {}";
+        assert!(!check_answer(answer, "fn main() {}"));
+    }
+
+    #[test]
+    fn case_sensitivity_fails() {
+        let answer = "Fn Main() {}";
+        assert!(!check_answer(answer, "fn main() {}"));
+    }
+
+    #[test]
+    fn missing_punctuation_fails() {
+        let answer = "fn main()";
+        assert!(!check_answer(answer, "fn main() {}"));
+    }
+
+    #[test]
+    fn empty_string_fails() {
+        let answer = "";
+        assert!(!check_answer(answer, "fn main() {}"));
+    }
+
+    #[test]
+    fn blank_line_fails() {
+        let answer = "\n";
+        assert!(!check_answer(answer, "fn main() {}"));
+    }
+
+    #[test]
+    fn multiple_lines_fail() {
+        let answer = "fn main() {}\nprintln!(\"Rust Reps\");\n";
+        assert!(!check_answer(answer, "fn main() {}"));
+    }
+
+    #[test]
+    fn trailing_cr_without_lf_is_not_normalized() {
+        let answer = "fn main() {}\r";
         assert!(!check_answer(answer, "fn main() {}"));
     }
 

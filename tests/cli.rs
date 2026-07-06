@@ -5,6 +5,9 @@ use std::process::{Command, Output, Stdio};
 const DRILL_001_PASS_OUTPUT: &str =
     "Rust Reps\n\nDrill 001\nType exactly:\n\nfn main() {}\n\n>PASS\n";
 const DRILL_001_TRY_AGAIN_OUTPUT: &str = "Rust Reps\n\nDrill 001\nType exactly:\n\nfn main() {}\n\n>TRY AGAIN\nExpected:\nfn main() {}\n";
+const DRILL_001_BLANK_LINE_OUTPUT: &str = DRILL_001_TRY_AGAIN_OUTPUT;
+const DRILL_001_TRAILING_SPACE_OUTPUT: &str = DRILL_001_TRY_AGAIN_OUTPUT;
+const DRILL_001_CRLF_PASS_OUTPUT: &str = DRILL_001_PASS_OUTPUT;
 const DRILL_002_PASS_OUTPUT: &str =
     "Rust Reps\n\nDrill 002\nType exactly:\n\nprintln!(\"Rust Reps\");\n\n>PASS\n";
 const DRILL_002_TRY_AGAIN_OUTPUT: &str = "Rust Reps\n\nDrill 002\nType exactly:\n\nprintln!(\"Rust Reps\");\n\n>TRY AGAIN\nExpected:\nprintln!(\"Rust Reps\");\n";
@@ -300,6 +303,42 @@ const PRACTICE_UNKNOWN_THEN_STATUS_THEN_QUIT_OUTPUT: &str = concat!(
     "Attempts: 0\n",
 );
 
+const PRACTICE_BLANK_LINE_THEN_STATUS_THEN_QUIT_OUTPUT: &str = concat!(
+    "Rust Reps\n\n",
+    "Practice\n",
+    "Exact typing practice.\n",
+    "Answers must match exactly.\n",
+    "Type :help for commands and :q to quit.\n\n",
+    "Drill 001/012\nType exactly:\n\nfn main() {}\n\n>TRY AGAIN\nExpected:\nfn main() {}\n\n",
+    "Drill 001/012\nType exactly:\n\nfn main() {}\n\n>Status:\n",
+    "Current: 001/012\n",
+    "Passed: 0/12\n",
+    "Skipped: 0\n",
+    "Attempts: 1\n\n",
+    "Drill 001/012\nType exactly:\n\nfn main() {}\n\n>QUIT\n",
+    "Summary:\n",
+    "Passed: 0/12\n",
+    "Skipped: 0\n",
+    "Attempts: 1\n",
+);
+
+const PRACTICE_TRAILING_SPACE_THEN_STATUS_THEN_QUIT_OUTPUT: &str =
+    PRACTICE_BLANK_LINE_THEN_STATUS_THEN_QUIT_OUTPUT;
+
+const PRACTICE_CRLF_CORRECT_THEN_QUIT_OUTPUT: &str = concat!(
+    "Rust Reps\n\n",
+    "Practice\n",
+    "Exact typing practice.\n",
+    "Answers must match exactly.\n",
+    "Type :help for commands and :q to quit.\n\n",
+    "Drill 001/012\nType exactly:\n\nfn main() {}\n\n>PASS\n\n",
+    "Drill 002/012\nType exactly:\n\nprintln!(\"Rust Reps\");\n\n>QUIT\n",
+    "Summary:\n",
+    "Passed: 1/12\n",
+    "Skipped: 0\n",
+    "Attempts: 1\n",
+);
+
 const PRACTICE_UNKNOWN_THEN_CORRECT_THEN_QUIT_OUTPUT: &str = concat!(
     "Rust Reps\n\n",
     "Practice\n",
@@ -557,6 +596,42 @@ fn practice_unknown_then_correct_answer_then_quits() {
 }
 
 #[test]
+fn practice_blank_line_then_status_then_quits() {
+    let output = run_rust_reps(&[], "\n:status\n:q\n");
+
+    assert!(output.status.success());
+    assert_eq!(
+        String::from_utf8(output.stdout).unwrap(),
+        PRACTICE_BLANK_LINE_THEN_STATUS_THEN_QUIT_OUTPUT
+    );
+    assert_eq!(String::from_utf8(output.stderr).unwrap(), "");
+}
+
+#[test]
+fn practice_trailing_space_then_status_then_quits() {
+    let output = run_rust_reps(&[], "fn main() {} \n:status\n:q\n");
+
+    assert!(output.status.success());
+    assert_eq!(
+        String::from_utf8(output.stdout).unwrap(),
+        PRACTICE_TRAILING_SPACE_THEN_STATUS_THEN_QUIT_OUTPUT
+    );
+    assert_eq!(String::from_utf8(output.stderr).unwrap(), "");
+}
+
+#[test]
+fn practice_crlf_correct_then_quit() {
+    let output = run_rust_reps(&[], "fn main() {}\r\n:q\r\n");
+
+    assert!(output.status.success());
+    assert_eq!(
+        String::from_utf8(output.stdout).unwrap(),
+        PRACTICE_CRLF_CORRECT_THEN_QUIT_OUTPUT
+    );
+    assert_eq!(String::from_utf8(output.stderr).unwrap(), "");
+}
+
+#[test]
 fn practice_stats_typo_treated_as_unknown_command() {
     let output = run_rust_reps(&[], ":stats\n:q\n");
 
@@ -764,6 +839,42 @@ fn one_shot_wrong_answer_exits_successfully_and_prints_try_again() {
     assert_eq!(
         String::from_utf8(output.stdout).unwrap(),
         DRILL_001_TRY_AGAIN_OUTPUT
+    );
+    assert_eq!(String::from_utf8(output.stderr).unwrap(), "");
+}
+
+#[test]
+fn one_shot_blank_line_is_wrong_answer() {
+    let output = run_rust_reps(&["001"], "\n");
+
+    assert!(output.status.success());
+    assert_eq!(
+        String::from_utf8(output.stdout).unwrap(),
+        DRILL_001_BLANK_LINE_OUTPUT
+    );
+    assert_eq!(String::from_utf8(output.stderr).unwrap(), "");
+}
+
+#[test]
+fn one_shot_trailing_space_is_wrong_answer() {
+    let output = run_rust_reps(&["001"], "fn main() {} \n");
+
+    assert!(output.status.success());
+    assert_eq!(
+        String::from_utf8(output.stdout).unwrap(),
+        DRILL_001_TRAILING_SPACE_OUTPUT
+    );
+    assert_eq!(String::from_utf8(output.stderr).unwrap(), "");
+}
+
+#[test]
+fn one_shot_crlf_answer_exits_successfully_and_prints_pass() {
+    let output = run_rust_reps(&["001"], "fn main() {}\r\n");
+
+    assert!(output.status.success());
+    assert_eq!(
+        String::from_utf8(output.stdout).unwrap(),
+        DRILL_001_CRLF_PASS_OUTPUT
     );
     assert_eq!(String::from_utf8(output.stderr).unwrap(), "");
 }

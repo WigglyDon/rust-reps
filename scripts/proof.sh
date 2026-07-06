@@ -146,6 +146,26 @@ fn main() {}
 Expected:
 fn main() {}'
 
+drill_001_blank_line_output='Rust Reps
+
+Drill 001
+Type exactly:
+
+fn main() {}
+
+>TRY AGAIN
+Expected:
+fn main() {}'
+
+drill_001_crlf_pass_output='Rust Reps
+
+Drill 001
+Type exactly:
+
+fn main() {}
+
+>PASS'
+
 practice_all_correct_output='Rust Reps
 
 Practice
@@ -323,6 +343,107 @@ Summary:
 Passed: 0/12
 Skipped: 0
 Attempts: 0'
+
+practice_blank_line_then_status_then_quit_output='Rust Reps
+
+Practice
+Exact typing practice.
+Answers must match exactly.
+Type :help for commands and :q to quit.
+
+Drill 001/012
+Type exactly:
+
+fn main() {}
+
+>TRY AGAIN
+Expected:
+fn main() {}
+
+Drill 001/012
+Type exactly:
+
+fn main() {}
+
+>Status:
+Current: 001/012
+Passed: 0/12
+Skipped: 0
+Attempts: 1
+
+Drill 001/012
+Type exactly:
+
+fn main() {}
+
+>QUIT
+Summary:
+Passed: 0/12
+Skipped: 0
+Attempts: 1'
+
+practice_trailing_space_then_status_then_quit_output='Rust Reps
+
+Practice
+Exact typing practice.
+Answers must match exactly.
+Type :help for commands and :q to quit.
+
+Drill 001/012
+Type exactly:
+
+fn main() {}
+
+>TRY AGAIN
+Expected:
+fn main() {}
+
+Drill 001/012
+Type exactly:
+
+fn main() {}
+
+>Status:
+Current: 001/012
+Passed: 0/12
+Skipped: 0
+Attempts: 1
+
+Drill 001/012
+Type exactly:
+
+fn main() {}
+
+>QUIT
+Summary:
+Passed: 0/12
+Skipped: 0
+Attempts: 1'
+
+practice_crlf_correct_then_quit_output='Rust Reps
+
+Practice
+Exact typing practice.
+Answers must match exactly.
+Type :help for commands and :q to quit.
+
+Drill 001/012
+Type exactly:
+
+fn main() {}
+
+>PASS
+
+Drill 002/012
+Type exactly:
+
+println!("Rust Reps");
+
+>QUIT
+Summary:
+Passed: 1/12
+Skipped: 0
+Attempts: 1'
 
 practice_unknown_then_correct_then_quit_output='Rust Reps
 
@@ -930,6 +1051,9 @@ expect_stdout "practice quit" "$practice_quit_output" sh -c "printf ':q\\n' | ca
 expect_stdout "practice help then quit" "$practice_help_then_quit_output" sh -c "printf ':help\\n:q\\n' | cargo run -q"
 expect_stdout "practice help then status then quit" "$practice_help_then_status_then_quit_output" sh -c "printf ':help\\n:status\\n:q\\n' | cargo run -q"
 expect_stdout "practice unknown then status then quit" "$practice_unknown_then_status_then_quit_output" sh -c "printf ':unknown\\n:status\\n:q\\n' | cargo run -q"
+expect_stdout "practice blank line then status then quit" "$practice_blank_line_then_status_then_quit_output" sh -c "printf '\\n:status\\n:q\\n' | cargo run -q"
+expect_stdout "practice trailing space then status then quit" "$practice_trailing_space_then_status_then_quit_output" sh -c "printf 'fn main() {} \\n:status\\n:q\\n' | cargo run -q"
+expect_stdout "practice CRLF correct then quit" "$practice_crlf_correct_then_quit_output" sh -c "printf 'fn main() {}\\r\\n:q\\r\\n' | cargo run -q"
 expect_stdout "practice unknown then correct then quit" "$practice_unknown_then_correct_then_quit_output" sh -c "printf ':unknown\\nfn main() {}\\n:q\\n' | cargo run -q"
 expect_stdout "practice unknown command then quit" "$practice_unknown_then_quit_output" sh -c "printf ':stats\\n:q\\n' | cargo run -q"
 expect_stdout "practice wrong then status then quit" "$practice_wrong_then_status_then_quit_output" sh -c "printf 'wrong\\n:status\\n:q\\n' | cargo run -q"
@@ -1027,6 +1151,9 @@ Current drills:
 expect_stdout "version" 'rust-reps 0.1.0' cargo run -q -- --version
 
 expect_stdout "one-shot wrong" "$drill_001_try_again_output" sh -c "printf 'wrong\\n' | cargo run -q -- 001"
+expect_stdout "one-shot blank line" "$drill_001_blank_line_output" sh -c "printf '\\n' | cargo run -q -- 001"
+expect_stdout "one-shot trailing space" "$drill_001_try_again_output" sh -c "printf 'fn main() {} \\n' | cargo run -q -- 001"
+expect_stdout "one-shot CRLF correct" "$drill_001_crlf_pass_output" sh -c "printf 'fn main() {}\\r\\n' | cargo run -q -- 001"
 expect_stdout "one-shot help as wrong answer" "$drill_001_try_again_output" sh -c "printf ':help\\n' | cargo run -q -- 001"
 
 section "temporary install"
@@ -1082,17 +1209,14 @@ expect_stdout "installed unknown command then status then quit" "$practice_unkno
 expect_stdout "installed unknown command then correct then quit" "$practice_unknown_then_correct_then_quit_output" env PATH="$install_root/bin:$PATH" sh -c "printf ':unknown\\nfn main() {}\\n:q\\n' | rust-reps"
 expect_stdout "installed practice correct then status then quit" "$practice_correct_then_status_then_quit_output" env PATH="$install_root/bin:$PATH" sh -c "printf 'fn main() {}\\n:status\\n:q\\n' | rust-reps"
 expect_stdout "installed practice skip then status then quit" "$practice_skip_then_status_then_quit_output" env PATH="$install_root/bin:$PATH" sh -c "printf ':skip\\n:status\\n:q\\n' | rust-reps"
+expect_stdout "installed practice blank line then quit" "$practice_wrong_then_quit_output" env PATH="$install_root/bin:$PATH" sh -c "printf '\\n:q\\n' | rust-reps"
+expect_stdout "installed practice CRLF correct then quit" "$practice_crlf_correct_then_quit_output" env PATH="$install_root/bin:$PATH" sh -c "printf 'fn main() {}\\r\\n:q\\r\\n' | rust-reps"
 expect_stdout "installed unknown command smoke" "$practice_unknown_then_quit_output" env PATH="$install_root/bin:$PATH" sh -c "printf ':unknown\\n:q\\n' | rust-reps"
 expect_stdout "installed practice all skips complete" "$practice_all_skip_output" env PATH="$install_root/bin:$PATH" sh -c "printf '%s' \"$practice_all_skip_input\" | rust-reps"
 expect_stdout "installed practice mixed complete" "$practice_mixed_complete_output" env PATH="$install_root/bin:$PATH" sh -c "printf '%s' \"$practice_mixed_complete_input\" | rust-reps"
-expect_stdout "installed Drill 001 PASS" 'Rust Reps
-
-Drill 001
-Type exactly:
-
-fn main() {}
-
->PASS' env PATH="$install_root/bin:$PATH" sh -c 'printf "fn main() {}\n" | rust-reps 001'
+expect_stdout "installed Drill 001 PASS" "$drill_001_crlf_pass_output" env PATH="$install_root/bin:$PATH" sh -c 'printf "fn main() {}\n" | rust-reps 001'
+expect_stdout "installed Drill 001 CRLF PASS" "$drill_001_crlf_pass_output" env PATH="$install_root/bin:$PATH" sh -c 'printf "fn main() {}\r\n" | rust-reps 001'
+expect_stdout "installed Drill 001 blank line" "$drill_001_blank_line_output" env PATH="$install_root/bin:$PATH" sh -c "printf '\\n' | rust-reps 001"
 
 expect_stdout "Drill 002 PASS" 'Rust Reps
 
