@@ -12,9 +12,10 @@ pub(crate) fn render_ui(frame: &mut Frame<'_>, app: &TuiApp) {
         .constraints([
             Constraint::Length(5),
             Constraint::Length(5),
+            Constraint::Length(4),
+            Constraint::Length(5),
             Constraint::Length(5),
             Constraint::Min(2),
-            Constraint::Length(7),
         ])
         .split(frame.area());
 
@@ -37,21 +38,27 @@ pub(crate) fn render_ui(frame: &mut Frame<'_>, app: &TuiApp) {
     );
 
     frame.render_widget(
-        Paragraph::new(Text::from(as_lines(stat_lines(app))))
+        Paragraph::new(Text::from(as_lines(session_lines(app))))
             .block(Block::default().borders(Borders::ALL).title("Session")),
         chunks[2],
     );
 
     frame.render_widget(
+        Paragraph::new(Text::from(as_lines(input_lines(app))))
+            .block(Block::default().borders(Borders::ALL).title("Input")),
+        chunks[3],
+    );
+
+    frame.render_widget(
         Paragraph::new("F1 or ? for command panel")
             .block(Block::default().borders(Borders::ALL).title("Mode")),
-        chunks[3],
+        chunks[4],
     );
 
     frame.render_widget(
         Paragraph::new(Text::from(as_lines(output_lines(app))))
             .block(Block::default().borders(Borders::ALL).title("Output")),
-        chunks[4],
+        chunks[5],
     );
 }
 
@@ -80,12 +87,10 @@ fn drill_lines(app: &TuiApp) -> Vec<String> {
         format!("Drill {}/{}", drill.id, app.session().total_drills()),
         String::new(),
         drill.expected.to_string(),
-        String::new(),
-        format!("> {}", app.input()),
     ]
 }
 
-fn stat_lines(app: &TuiApp) -> Vec<String> {
+fn session_lines(app: &TuiApp) -> Vec<String> {
     vec![
         format!(
             "Passed: {}/{}",
@@ -94,6 +99,19 @@ fn stat_lines(app: &TuiApp) -> Vec<String> {
         ),
         format!("Skipped: {}", app.session().skipped()),
         format!("Attempts: {}", app.session().attempts()),
+    ]
+}
+
+fn input_lines(app: &TuiApp) -> Vec<String> {
+    let input_text = if app.input().is_empty() {
+        "<empty>".to_string()
+    } else {
+        app.input().to_string()
+    };
+
+    vec![
+        "Type answer input:".to_string(),
+        format!("> {}", input_text),
     ]
 }
 
@@ -116,7 +134,8 @@ fn render_lines_for_snapshot(app: &TuiApp) -> Vec<String> {
     [
         header_lines(app),
         drill_lines(app),
-        stat_lines(app),
+        session_lines(app),
+        input_lines(app),
         output_lines(app),
     ]
     .concat()
@@ -146,6 +165,8 @@ mod tests {
         assert!(lines.iter().any(|line| line == "Passed: 1/12"));
         assert!(lines.iter().any(|line| line == "PASS"));
         assert!(lines.iter().any(|line| line == "Commands:"));
+        assert!(lines.iter().any(|line| line == "Type answer input:"));
+        assert!(lines.iter().any(|line| line.ends_with("<empty>")));
     }
 
     #[test]
@@ -155,5 +176,19 @@ mod tests {
         assert!(lines.iter().any(|line| line == "Skipped: 0"));
         assert!(lines.iter().any(|line| line == "Attempts: 0"));
         assert!(lines.iter().any(|line| line.contains("Drill 001/12")));
+        assert!(lines.iter().any(|line| line.ends_with("<empty>")));
+        assert!(lines.iter().any(|line| line == "Type answer input:"));
+    }
+
+    #[test]
+    fn render_snapshot_shows_typed_input_text() {
+        let mut app = TuiApp::new();
+        for ch in "hello".chars() {
+            app.handle_intent(UiIntent::Append(ch));
+        }
+        let lines = render_lines_for_snapshot(&app);
+
+        assert!(lines.iter().any(|line| line == "Type answer input:"));
+        assert!(lines.iter().any(|line| line == "> hello"));
     }
 }

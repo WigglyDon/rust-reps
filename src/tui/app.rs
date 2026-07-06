@@ -235,6 +235,18 @@ mod tests {
     }
 
     #[test]
+    fn app_input_buffer_tracks_characters_and_backspace() {
+        let mut app = TuiApp::new();
+        app.handle_intent(UiIntent::Append('h'));
+        app.handle_intent(UiIntent::Append('i'));
+
+        assert_eq!(app.input(), "hi");
+
+        app.handle_intent(UiIntent::Backspace);
+        assert_eq!(app.input(), "h");
+    }
+
+    #[test]
     fn final_answer_marks_completion_state() {
         let mut app = TuiApp::new();
         for drill_index in 0..12 {
