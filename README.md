@@ -1,57 +1,89 @@
 # Rust Reps
 
-A terminal-first Rust learning/drill CLI that teaches through tiny exact typing reps.
+Rust Reps is a terminal-first Rust practice game.
+It teaches one-line Rust reps through exact-match typing in plain terminal output.
+The catalog is small and placeholder right now.
 
-## Current Behavior
-
-Rust Reps starts a practice session and asks the user to type exact answers.
+## Player Mode
 
 After local install, the command is `rust-reps` (`rust-reps.exe` on Windows).
 
-By default, it starts practice mode:
-
 ```sh
+cargo install --path . --force
 rust-reps
-```
-
-You can also start practice mode explicitly:
-
-```sh
-rust-reps play
-```
-
-In practice mode, `:help` shows commands, `:status` shows session status, `:list` shows drills, and `:skip` skips the current drill. `:q` and `:quit` quit successfully. Passing every drill prints `COMPLETE`.
-Practice mode prints a compact summary with passed, skipped, and attempts when it completes or quits; the summary is not saved.
-
-Practice commands:
-
-- `:help` shows commands.
-- `:status` shows session status.
-- `:list` shows drills.
-- `:skip` skips the current drill.
-- `:q` / `:quit` quits practice mode.
-
-You can list drills, print help/version output, or run one selected drill by id:
-
-```sh
-rust-reps --help
-rust-reps --list
-rust-reps --version
 rust-reps 001
-rust-reps 002
-rust-reps 003
-rust-reps 004
-rust-reps 005
-rust-reps 006
-rust-reps 007
-rust-reps 008
-rust-reps 009
-rust-reps 010
-rust-reps 011
-rust-reps 012
+rust-reps --list
+rust-reps --help
+rust-reps --version
+cargo uninstall rust-reps
 ```
 
-Current drills:
+`rust-reps` without arguments starts the practice session.
+
+`rust-reps 001` runs just drill 001 in one-shot mode.
+
+`rust-reps --list` prints the current catalog.
+
+`rust-reps --help` prints all CLI forms.
+
+`rust-reps --version` prints `rust-reps 0.1.0`.
+
+## Practice Mode
+
+By default, `rust-reps` starts practice mode with drills in fixed order.
+
+- `PASS` means exact answer match and advances to the next drill.
+- `TRY AGAIN` means a wrong answer and repeats the same drill.
+- `:skip` skips the current drill and advances without incrementing attempts.
+- `:status` prints current state (`Current`, `Passed`, `Skipped`, `Attempts`) without advancing.
+- `:list` prints all drills and does not advance.
+- `:help` prints in-session commands.
+- `:q` or `:quit` quits and prints:
+
+```text
+>QUIT
+Summary:
+Passed: ...
+Skipped: ...
+Attempts: ...
+```
+
+- `EOF` also exits with `QUIT` and summary.
+- Completing all drills prints:
+
+```text
+COMPLETE
+Summary:
+Passed: ...
+Skipped: ...
+Attempts: ...
+```
+
+`rust-reps 001` does not show practice summary and does not use practice commands as control flow.
+
+In practice mode, unknown colon input is a command error (not a try again):
+
+```text
+>UNKNOWN COMMAND
+Type :help for commands.
+```
+
+## Exact Answer Contract
+
+Exact answers are literal and deterministic:
+
+- Only one trailing line ending is trimmed: `\n` or `\r\n`.
+- Leading spaces are required and must match.
+- Trailing spaces before newline are required and must match.
+- Internal spacing is required and must match.
+- Tabs, casing, punctuation, braces, quotes, and Unicode must match exactly.
+- Multiline answers are treated as multiline and must match exactly.
+- A blank line is a wrong answer.
+- Wrong answers print `TRY AGAIN` plus `Expected:` and the exact expected answer.
+- Unknown colon commands in practice are command errors and do not count attempts.
+- Colon text in one-shot mode is just answer text, so `:help` can be a wrong answer there.
+
+## Current Drills (Placeholder Catalog)
 
 - `001` expects `fn main() {}`
 - `002` expects `println!("Rust Reps");`
@@ -66,54 +98,6 @@ Current drills:
 - `011` expects `if score > 0 {}`
 - `012` expects `while score < 10 {}`
 
-Rust Reps reads one line from standard input. For the exact answer, it prints:
-
-```text
-PASS
-```
-
-For anything else, it prints `TRY AGAIN`, `Expected:`, and the selected drill's expected answer.
-For Drill 001, that output is:
-
-```text
-TRY AGAIN
-Expected:
-fn main() {}
-```
-
-Unknown options, unknown drill ids, and too many arguments are CLI errors and exit nonzero.
-
-## Newline Rule
-
-A trailing LF or CRLF from pressing Enter is ignored.
-
-Spaces, punctuation, braces, tabs, casing, Unicode, and internal spacing are not normalized.
-
-## Player Mode
-
-```sh
-cargo install --path . --force
-rust-reps
-cargo uninstall rust-reps
-```
-
-After `cargo install --path . --force`, run:
-
-```sh
-command -v rust-reps
-rust-reps --version
-rust-reps
-```
-
-If `command -v rust-reps` prints nothing, `~/.cargo/bin` is probably not on your `PATH` yet (the binary is usually at `$HOME/.cargo/bin/rust-reps`).
-Try opening a new terminal first. If needed, add Cargo’s bin directory:
-
-```sh
-export PATH="$HOME/.cargo/bin:$PATH"
-```
-
-Then run `command -v rust-reps` and `rust-reps --version` again.
-
 ## Developer Mode
 
 ```sh
@@ -123,13 +107,51 @@ cargo test
 ./scripts/proof.sh
 ```
 
-This runs formatting, tests, CLI checks, and git whitespace checks.
+For CLI-only validation, use:
 
-## Current Limitations
+```sh
+cargo fmt --check
+```
 
-- Fixed catalog.
-- One-line answers.
-- Exact-text validation only.
-- No saved progress.
-- No compilation validation.
-- No external crates.
+## Proof / Quality Gates
+
+- `cargo fmt --check`
+- `cargo test`
+- `./scripts/proof.sh`
+- `git diff --check`
+- `git diff --cached --check` (if staged)
+- installed-command proof when install behavior changes (requires real command path checks)
+
+## PATH Troubleshooting
+
+After `cargo install --path . --force`, confirm:
+
+```sh
+command -v rust-reps
+rust-reps --version
+```
+
+If `command -v rust-reps` prints nothing, `~/.cargo/bin` is probably not on your `PATH` yet.
+The binary is usually at `$HOME/.cargo/bin/rust-reps`.
+
+Try opening a new terminal first.
+If still missing, add Cargo bin directory:
+
+```sh
+export PATH="$HOME/.cargo/bin:$PATH"
+```
+
+Then run:
+
+```sh
+command -v rust-reps
+rust-reps --version
+```
+
+## Project Boundaries
+
+- Standard library only (`no dependencies`)
+- No persistence
+- No random mode
+- No compilation validation
+- No TUI/GUI
