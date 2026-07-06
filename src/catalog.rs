@@ -6,6 +6,18 @@ pub type Drill = DrillSpec;
 
 impl fmt::Display for Drill {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let _ = (
+            self.track,
+            self.skill,
+            self.stage,
+            self.task_type,
+            self.difficulty,
+            self.prompt,
+            self.expected,
+            self.validator,
+            self.prerequisites,
+            self.tags,
+        );
         write!(f, "{}  {}", self.id, self.expected)
     }
 }
@@ -21,6 +33,7 @@ pub fn find_drill(id: &str) -> Option<&'static Drill> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::curriculum::{TaskType, Validator};
     use std::collections::HashSet;
 
     #[test]
@@ -73,14 +86,77 @@ mod tests {
         for drill in drills() {
             assert!(
                 !drill.expected.contains('\n'),
-                "expected drill {} answer to be one line",
+                "expected drill {} expected answer to be one line",
                 drill.id
             );
             assert!(
                 !drill.expected.contains('\r'),
-                "expected drill {} answer to be one line",
+                "expected drill {} expected answer to be one line",
                 drill.id
             );
+        }
+    }
+
+    #[test]
+    fn prompts_are_not_empty() {
+        for drill in drills() {
+            assert!(
+                !drill.prompt.is_empty(),
+                "expected drill {} to have a non-empty prompt",
+                drill.id
+            );
+        }
+    }
+
+    #[test]
+    fn prompts_for_type_exact_are_one_line() {
+        for drill in drills() {
+            assert_eq!(drill.task_type, TaskType::TypeExact);
+            assert!(
+                !drill.prompt.contains('\n'),
+                "expected drill {} prompt to be one line",
+                drill.id
+            );
+            assert!(
+                !drill.prompt.contains('\r'),
+                "expected drill {} prompt to be one line",
+                drill.id
+            );
+        }
+    }
+
+    #[test]
+    fn difficulty_is_in_approved_range() {
+        for drill in drills() {
+            assert!(
+                (1..=10).contains(&drill.difficulty),
+                "expected drill {} difficulty to be 1..=10",
+                drill.id
+            );
+        }
+    }
+
+    #[test]
+    fn prerequisites_reference_existing_drills() {
+        let existing_ids: HashSet<&'static str> = drills().iter().map(|drill| drill.id).collect();
+        for drill in drills() {
+            for prereq in drill.prerequisites {
+                assert!(
+                    existing_ids.contains(prereq),
+                    "expected drill {} prerequisite {} to exist",
+                    drill.id,
+                    prereq
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn validator_is_supported_for_task_type() {
+        for drill in drills() {
+            match drill.task_type {
+                TaskType::TypeExact => assert_eq!(drill.validator, Validator::Exact),
+            }
         }
     }
 

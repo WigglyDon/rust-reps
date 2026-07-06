@@ -1,56 +1,197 @@
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum Track {
+    RustSyntax,
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum Stage {
+    Copy,
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum TaskType {
+    TypeExact,
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum Validator {
+    Exact,
+}
+
 #[derive(Copy, Clone)]
 pub struct DrillSpec {
     pub id: &'static str,
+    pub track: Track,
+    pub skill: &'static str,
+    pub stage: Stage,
+    pub task_type: TaskType,
+    pub difficulty: u8,
+    pub prompt: &'static str,
     pub expected: &'static str,
+    pub validator: Validator,
+    pub prerequisites: &'static [&'static str],
+    pub tags: &'static [&'static str],
 }
+
+const SKILL_CORE_SYNTAX: &str = "core_syntax";
+const NO_PREREQUISITES: &[&str] = &[];
+const NO_TAGS: &[&str] = &[];
 
 pub const DRILLS: &[DrillSpec] = &[
     DrillSpec {
         id: "001",
+        track: Track::RustSyntax,
+        skill: SKILL_CORE_SYNTAX,
+        stage: Stage::Copy,
+        task_type: TaskType::TypeExact,
+        difficulty: 1,
+        prompt: "fn main() {}",
         expected: "fn main() {}",
+        validator: Validator::Exact,
+        prerequisites: NO_PREREQUISITES,
+        tags: NO_TAGS,
     },
     DrillSpec {
         id: "002",
+        track: Track::RustSyntax,
+        skill: SKILL_CORE_SYNTAX,
+        stage: Stage::Copy,
+        task_type: TaskType::TypeExact,
+        difficulty: 1,
+        prompt: "println!(\"Rust Reps\");",
         expected: "println!(\"Rust Reps\");",
+        validator: Validator::Exact,
+        prerequisites: NO_PREREQUISITES,
+        tags: NO_TAGS,
     },
     DrillSpec {
         id: "003",
+        track: Track::RustSyntax,
+        skill: SKILL_CORE_SYNTAX,
+        stage: Stage::Copy,
+        task_type: TaskType::TypeExact,
+        difficulty: 2,
+        prompt: "let answer = 42;",
         expected: "let answer = 42;",
+        validator: Validator::Exact,
+        prerequisites: NO_PREREQUISITES,
+        tags: NO_TAGS,
     },
     DrillSpec {
         id: "004",
+        track: Track::RustSyntax,
+        skill: SKILL_CORE_SYNTAX,
+        stage: Stage::Copy,
+        task_type: TaskType::TypeExact,
+        difficulty: 2,
+        prompt: "let name = \"Rust Reps\";",
         expected: "let name = \"Rust Reps\";",
+        validator: Validator::Exact,
+        prerequisites: NO_PREREQUISITES,
+        tags: NO_TAGS,
     },
     DrillSpec {
         id: "005",
+        track: Track::RustSyntax,
+        skill: SKILL_CORE_SYNTAX,
+        stage: Stage::Copy,
+        task_type: TaskType::TypeExact,
+        difficulty: 2,
+        prompt: "let mut score = 0;",
         expected: "let mut score = 0;",
+        validator: Validator::Exact,
+        prerequisites: NO_PREREQUISITES,
+        tags: NO_TAGS,
     },
     DrillSpec {
         id: "006",
+        track: Track::RustSyntax,
+        skill: SKILL_CORE_SYNTAX,
+        stage: Stage::Copy,
+        task_type: TaskType::TypeExact,
+        difficulty: 2,
+        prompt: "score += 1;",
         expected: "score += 1;",
+        validator: Validator::Exact,
+        prerequisites: NO_PREREQUISITES,
+        tags: NO_TAGS,
     },
     DrillSpec {
         id: "007",
+        track: Track::RustSyntax,
+        skill: SKILL_CORE_SYNTAX,
+        stage: Stage::Copy,
+        task_type: TaskType::TypeExact,
+        difficulty: 3,
+        prompt: "let passed = true;",
         expected: "let passed = true;",
+        validator: Validator::Exact,
+        prerequisites: NO_PREREQUISITES,
+        tags: NO_TAGS,
     },
     DrillSpec {
         id: "008",
+        track: Track::RustSyntax,
+        skill: SKILL_CORE_SYNTAX,
+        stage: Stage::Copy,
+        task_type: TaskType::TypeExact,
+        difficulty: 3,
+        prompt: "let score: i32 = 0;",
         expected: "let score: i32 = 0;",
+        validator: Validator::Exact,
+        prerequisites: NO_PREREQUISITES,
+        tags: NO_TAGS,
     },
     DrillSpec {
         id: "009",
+        track: Track::RustSyntax,
+        skill: SKILL_CORE_SYNTAX,
+        stage: Stage::Copy,
+        task_type: TaskType::TypeExact,
+        difficulty: 3,
+        prompt: "let scores = [1, 2, 3];",
         expected: "let scores = [1, 2, 3];",
+        validator: Validator::Exact,
+        prerequisites: NO_PREREQUISITES,
+        tags: NO_TAGS,
     },
     DrillSpec {
         id: "010",
+        track: Track::RustSyntax,
+        skill: SKILL_CORE_SYNTAX,
+        stage: Stage::Copy,
+        task_type: TaskType::TypeExact,
+        difficulty: 4,
+        prompt: "fn add_one(x: i32) -> i32 { x + 1 }",
         expected: "fn add_one(x: i32) -> i32 { x + 1 }",
+        validator: Validator::Exact,
+        prerequisites: NO_PREREQUISITES,
+        tags: NO_TAGS,
     },
     DrillSpec {
         id: "011",
+        track: Track::RustSyntax,
+        skill: SKILL_CORE_SYNTAX,
+        stage: Stage::Copy,
+        task_type: TaskType::TypeExact,
+        difficulty: 4,
+        prompt: "if score > 0 {}",
         expected: "if score > 0 {}",
+        validator: Validator::Exact,
+        prerequisites: NO_PREREQUISITES,
+        tags: NO_TAGS,
     },
     DrillSpec {
         id: "012",
+        track: Track::RustSyntax,
+        skill: SKILL_CORE_SYNTAX,
+        stage: Stage::Copy,
+        task_type: TaskType::TypeExact,
+        difficulty: 4,
+        prompt: "while score < 10 {}",
         expected: "while score < 10 {}",
+        validator: Validator::Exact,
+        prerequisites: NO_PREREQUISITES,
+        tags: NO_TAGS,
     },
 ];

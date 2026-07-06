@@ -40,8 +40,9 @@
 - Empty line ending does not bypass exactness.
 
 ## Module Ownership
+- `curriculum`: curriculum data schema (`DrillSpec`, enums) and static drill data.
+- `catalog`: public catalog API, rendering, and curriculum validation tests.
 - `main`: process orchestration only.
-- `catalog`: drill IDs, prompts, expected answers, and list rendering data.
 - `answer`: answer normalization/comparison helpers.
 - `cli`: launch command selection, usage/help/list/version, CLI/tool errors.
 - `practice`: session state transitions and command handling.
