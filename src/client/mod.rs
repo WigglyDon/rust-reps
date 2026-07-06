@@ -505,7 +505,7 @@ fn is_keyword(identifier: &str) -> bool {
 fn is_type_name(identifier: &str) -> bool {
     matches!(
         identifier,
-        "i32" | "u32" | "usize" | "bool" | "String" | "str" | "char"
+        "i32" | "u32" | "usize" | "bool" | "String" | "str" | "char" | "Option"
     )
 }
 
@@ -597,6 +597,58 @@ mod tests {
     }
 
     #[test]
+    fn tokenizer_highlights_mut_binding_array_and_control_flow_lines() {
+        for (line, expected_tokens) in [
+            (
+                "let mut score = 0;",
+                vec![
+                    (CodeTokenKind::Keyword, "let"),
+                    (CodeTokenKind::Keyword, "mut"),
+                    (CodeTokenKind::Identifier, "score"),
+                    (CodeTokenKind::Number, "0"),
+                ],
+            ),
+            (
+                "let scores = [1, 2, 3];",
+                vec![
+                    (CodeTokenKind::Keyword, "let"),
+                    (CodeTokenKind::Identifier, "scores"),
+                    (CodeTokenKind::Number, "1"),
+                    (CodeTokenKind::Number, "2"),
+                    (CodeTokenKind::Number, "3"),
+                ],
+            ),
+            (
+                "if score > 0 {}",
+                vec![
+                    (CodeTokenKind::Keyword, "if"),
+                    (CodeTokenKind::Identifier, "score"),
+                    (CodeTokenKind::Number, "0"),
+                ],
+            ),
+            (
+                "while score < 10 {}",
+                vec![
+                    (CodeTokenKind::Keyword, "while"),
+                    (CodeTokenKind::Identifier, "score"),
+                    (CodeTokenKind::Number, "10"),
+                ],
+            ),
+        ] {
+            let tokens = tokenize_rust_line(line);
+            assert_eq!(token_text(&tokens), line);
+            for (kind, text) in expected_tokens {
+                assert!(
+                    tokens
+                        .iter()
+                        .any(|token| token.kind == kind && token.text == text),
+                    "expected token {kind:?} {text:?} in {line:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
     fn tokenizer_highlights_macro_and_string_literal() {
         let tokens = tokenize_rust_line("println!(\"Rust Reps\");");
 
@@ -612,13 +664,51 @@ mod tests {
     }
 
     #[test]
+    fn tokenizer_highlights_comment_references_and_generic_type_names() {
+        let comment_tokens = tokenize_rust_line("// comment");
+        assert_eq!(token_text(&comment_tokens), "// comment");
+        assert_eq!(comment_tokens[0].kind, CodeTokenKind::Comment);
+
+        let reference_tokens = tokenize_rust_line("&str");
+        assert_eq!(token_text(&reference_tokens), "&str");
+        assert!(
+            reference_tokens
+                .iter()
+                .any(|token| token.kind == CodeTokenKind::Punctuation && token.text == "&")
+        );
+        assert!(
+            reference_tokens
+                .iter()
+                .any(|token| token.kind == CodeTokenKind::Type && token.text == "str")
+        );
+
+        let generic_tokens = tokenize_rust_line("Option<String>");
+        assert_eq!(token_text(&generic_tokens), "Option<String>");
+        assert!(
+            generic_tokens
+                .iter()
+                .any(|token| token.kind == CodeTokenKind::Type && token.text == "Option")
+        );
+        assert!(
+            generic_tokens
+                .iter()
+                .any(|token| token.kind == CodeTokenKind::Type && token.text == "String")
+        );
+    }
+
+    #[test]
     fn tokenizer_preserves_exact_text_when_concatenated() {
         for line in [
             "fn main() {}",
             "let score: i32 = 0;",
+            "let mut score = 0;",
             "println!(\"Rust Reps\");",
+            "let scores = [1, 2, 3];",
             "if score > 0 {}",
+            "while score < 10 {}",
             "// note",
+            "&str",
+            "Option<String>",
         ] {
             assert_eq!(token_text(&tokenize_rust_line(line)), line);
         }

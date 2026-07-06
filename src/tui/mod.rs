@@ -9,6 +9,7 @@ mod frame_scheduler;
 mod input;
 mod render;
 mod terminal;
+mod theme;
 
 use frame_scheduler::FrameScheduler;
 

@@ -1,0 +1,295 @@
+use crate::client::{CodeTokenKind, CounterRewardFrame, StatusTone};
+use ratatui::style::{Color, Modifier, Style};
+
+#[derive(Clone, Copy)]
+pub(crate) struct RustRepsDark {
+    pub(crate) background: Color,
+    pub(crate) surface: Color,
+    pub(crate) border_normal: Color,
+    pub(crate) border_reward: Color,
+    pub(crate) text_normal: Color,
+    pub(crate) text_muted: Color,
+    pub(crate) keyword: Color,
+    pub(crate) type_name: Color,
+    pub(crate) number: Color,
+    pub(crate) string: Color,
+    pub(crate) macro_function: Color,
+    pub(crate) identifier_plain: Color,
+    pub(crate) punctuation_operator: Color,
+    pub(crate) comment: Color,
+    pub(crate) success: Color,
+    pub(crate) error: Color,
+    pub(crate) warning_unknown: Color,
+    pub(crate) caret: Color,
+    pub(crate) counter_normal: Color,
+    pub(crate) counter_reward: Color,
+}
+
+pub(crate) const RUST_REPS_DARK: RustRepsDark = RustRepsDark {
+    background: Color::Rgb(8, 10, 14),
+    surface: Color::Rgb(12, 15, 21),
+    border_normal: Color::Rgb(62, 70, 84),
+    border_reward: Color::Rgb(116, 238, 158),
+    text_normal: Color::Rgb(232, 237, 246),
+    text_muted: Color::Rgb(119, 129, 148),
+    keyword: Color::Rgb(126, 169, 255),
+    type_name: Color::Rgb(106, 220, 190),
+    number: Color::Rgb(236, 196, 126),
+    string: Color::Rgb(146, 196, 132),
+    macro_function: Color::Rgb(200, 168, 255),
+    identifier_plain: Color::Rgb(232, 237, 246),
+    punctuation_operator: Color::Rgb(150, 159, 176),
+    comment: Color::Rgb(119, 129, 148),
+    success: Color::Rgb(88, 224, 135),
+    error: Color::Rgb(255, 92, 105),
+    warning_unknown: Color::Rgb(235, 178, 86),
+    caret: Color::Rgb(116, 241, 157),
+    counter_normal: Color::Rgb(116, 238, 158),
+    counter_reward: Color::Rgb(158, 255, 187),
+};
+
+pub(crate) fn base_style() -> Style {
+    Style::default()
+        .fg(RUST_REPS_DARK.text_normal)
+        .bg(RUST_REPS_DARK.background)
+}
+
+pub(crate) fn surface_style() -> Style {
+    Style::default().bg(RUST_REPS_DARK.surface)
+}
+
+pub(crate) fn border_style(reward: CounterRewardFrame) -> Style {
+    let intensity = if reward.active {
+        reward.intensity.min(85)
+    } else {
+        0
+    };
+    Style::default()
+        .fg(blend_color(
+            RUST_REPS_DARK.border_normal,
+            RUST_REPS_DARK.border_reward,
+            intensity,
+        ))
+        .bg(RUST_REPS_DARK.surface)
+}
+
+pub(crate) fn code_token_style(kind: CodeTokenKind) -> Style {
+    match kind {
+        CodeTokenKind::Keyword => Style::default()
+            .fg(RUST_REPS_DARK.keyword)
+            .bg(RUST_REPS_DARK.surface)
+            .add_modifier(Modifier::BOLD),
+        CodeTokenKind::Type => Style::default()
+            .fg(RUST_REPS_DARK.type_name)
+            .bg(RUST_REPS_DARK.surface),
+        CodeTokenKind::Number => Style::default()
+            .fg(RUST_REPS_DARK.number)
+            .bg(RUST_REPS_DARK.surface),
+        CodeTokenKind::StringLiteral => Style::default()
+            .fg(RUST_REPS_DARK.string)
+            .bg(RUST_REPS_DARK.surface),
+        CodeTokenKind::Macro => Style::default()
+            .fg(RUST_REPS_DARK.macro_function)
+            .bg(RUST_REPS_DARK.surface)
+            .add_modifier(Modifier::BOLD),
+        CodeTokenKind::Identifier | CodeTokenKind::Plain => Style::default()
+            .fg(RUST_REPS_DARK.identifier_plain)
+            .bg(RUST_REPS_DARK.surface),
+        CodeTokenKind::Punctuation => Style::default()
+            .fg(RUST_REPS_DARK.punctuation_operator)
+            .bg(RUST_REPS_DARK.surface),
+        CodeTokenKind::Whitespace => Style::default()
+            .fg(RUST_REPS_DARK.text_normal)
+            .bg(RUST_REPS_DARK.surface),
+        CodeTokenKind::Comment => Style::default()
+            .fg(RUST_REPS_DARK.comment)
+            .bg(RUST_REPS_DARK.surface)
+            .add_modifier(Modifier::ITALIC),
+    }
+}
+
+pub(crate) fn status_tone_style(tone: StatusTone) -> Style {
+    match tone {
+        StatusTone::Pass => Style::default()
+            .fg(RUST_REPS_DARK.success)
+            .bg(RUST_REPS_DARK.background)
+            .add_modifier(Modifier::BOLD),
+        StatusTone::Complete => Style::default()
+            .fg(RUST_REPS_DARK.type_name)
+            .bg(RUST_REPS_DARK.background)
+            .add_modifier(Modifier::BOLD),
+        StatusTone::TryAgain => Style::default()
+            .fg(RUST_REPS_DARK.error)
+            .bg(RUST_REPS_DARK.background),
+        StatusTone::ExpectedLabel => Style::default()
+            .fg(RUST_REPS_DARK.warning_unknown)
+            .bg(RUST_REPS_DARK.background),
+        StatusTone::UnknownCommand | StatusTone::Warning => Style::default()
+            .fg(RUST_REPS_DARK.warning_unknown)
+            .bg(RUST_REPS_DARK.background),
+        StatusTone::Plain => muted_style(),
+    }
+}
+
+pub(crate) fn counter_symbol_style(reward: CounterRewardFrame) -> Style {
+    Style::default()
+        .fg(counter_color(reward))
+        .bg(RUST_REPS_DARK.background)
+        .add_modifier(Modifier::BOLD)
+}
+
+pub(crate) fn counter_number_style(reward: CounterRewardFrame) -> Style {
+    Style::default()
+        .fg(counter_color(reward))
+        .bg(RUST_REPS_DARK.background)
+        .add_modifier(Modifier::BOLD)
+}
+
+pub(crate) fn caret_style() -> Style {
+    Style::default()
+        .fg(RUST_REPS_DARK.caret)
+        .bg(RUST_REPS_DARK.surface)
+        .add_modifier(Modifier::BOLD)
+}
+
+pub(crate) fn muted_style() -> Style {
+    Style::default()
+        .fg(RUST_REPS_DARK.text_muted)
+        .bg(RUST_REPS_DARK.surface)
+}
+
+pub(crate) fn problem_header_style() -> Style {
+    Style::default()
+        .fg(RUST_REPS_DARK.text_muted)
+        .bg(RUST_REPS_DARK.surface)
+        .add_modifier(Modifier::BOLD)
+}
+
+pub(crate) fn editor_gutter_style() -> Style {
+    Style::default()
+        .fg(RUST_REPS_DARK.text_muted)
+        .bg(RUST_REPS_DARK.surface)
+}
+
+fn counter_color(reward: CounterRewardFrame) -> Color {
+    blend_color(
+        RUST_REPS_DARK.counter_normal,
+        RUST_REPS_DARK.counter_reward,
+        reward.intensity,
+    )
+}
+
+fn blend_color(from: Color, to: Color, intensity: u8) -> Color {
+    let intensity = intensity.min(100) as u16;
+    match (from, to) {
+        (Color::Rgb(from_red, from_green, from_blue), Color::Rgb(to_red, to_green, to_blue)) => {
+            Color::Rgb(
+                blend_channel(from_red, to_red, intensity),
+                blend_channel(from_green, to_green, intensity),
+                blend_channel(from_blue, to_blue, intensity),
+            )
+        }
+        (_, _) if intensity >= 50 => to,
+        _ => from,
+    }
+}
+
+fn blend_channel(from: u8, to: u8, intensity: u16) -> u8 {
+    let from = from as u16;
+    let to = to as u16;
+    (((from * (100 - intensity)) + (to * intensity)) / 100) as u8
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        RUST_REPS_DARK, border_style, code_token_style, counter_symbol_style, status_tone_style,
+    };
+    use crate::client::{CodeTokenKind, CounterRewardFrame, StatusTone};
+    use ratatui::style::Color;
+
+    fn green_dominant(color: Color) -> bool {
+        matches!(color, Color::Rgb(red, green, blue) if green > red && green > blue)
+    }
+
+    fn red_dominant(color: Color) -> bool {
+        matches!(color, Color::Rgb(red, green, blue) if red > green && red > blue)
+    }
+
+    fn amber_like(color: Color) -> bool {
+        matches!(color, Color::Rgb(red, green, blue) if red > blue && green > blue)
+    }
+
+    #[test]
+    fn code_token_styles_map_to_theme_roles() {
+        assert_eq!(
+            code_token_style(CodeTokenKind::Keyword).fg,
+            Some(RUST_REPS_DARK.keyword)
+        );
+        assert_eq!(
+            code_token_style(CodeTokenKind::Type).fg,
+            Some(RUST_REPS_DARK.type_name)
+        );
+        assert_eq!(
+            code_token_style(CodeTokenKind::Number).fg,
+            Some(RUST_REPS_DARK.number)
+        );
+        assert_eq!(
+            code_token_style(CodeTokenKind::StringLiteral).fg,
+            Some(RUST_REPS_DARK.string)
+        );
+    }
+
+    #[test]
+    fn status_styles_reserve_success_error_and_warning_roles() {
+        let success = status_tone_style(StatusTone::Pass)
+            .fg
+            .expect("expected success foreground");
+        let error = status_tone_style(StatusTone::TryAgain)
+            .fg
+            .expect("expected error foreground");
+        let warning = status_tone_style(StatusTone::UnknownCommand)
+            .fg
+            .expect("expected warning foreground");
+
+        assert!(green_dominant(success));
+        assert!(red_dominant(error));
+        assert!(amber_like(warning));
+    }
+
+    #[test]
+    fn syntax_string_green_is_quieter_than_success_green() {
+        let Color::Rgb(_, string_green, _) = RUST_REPS_DARK.string else {
+            panic!("expected rgb string color");
+        };
+        let Color::Rgb(_, success_green, _) = RUST_REPS_DARK.success else {
+            panic!("expected rgb success color");
+        };
+
+        assert_ne!(RUST_REPS_DARK.string, RUST_REPS_DARK.success);
+        assert!(string_green < success_green);
+    }
+
+    #[test]
+    fn counter_reward_and_border_reward_differ_from_normal_states() {
+        let normal_counter = counter_symbol_style(CounterRewardFrame {
+            active: false,
+            intensity: 0,
+        });
+        let reward_counter = counter_symbol_style(CounterRewardFrame {
+            active: true,
+            intensity: 100,
+        });
+        let normal_border = border_style(CounterRewardFrame {
+            active: false,
+            intensity: 0,
+        });
+        let reward_border = border_style(CounterRewardFrame {
+            active: true,
+            intensity: 100,
+        });
+
+        assert_ne!(normal_counter.fg, reward_counter.fg);
+        assert_ne!(normal_border.fg, reward_border.fg);
+    }
+}

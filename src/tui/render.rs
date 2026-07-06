@@ -1,11 +1,17 @@
 use crate::{
-    client::{ClientFrame, CodeToken, CodeTokenKind, CounterRewardFrame, StatusLine, StatusTone},
-    tui::app::TuiApp,
+    client::{ClientFrame, CodeToken, CounterRewardFrame, StatusLine, StatusTone},
+    tui::{
+        app::TuiApp,
+        theme::{
+            base_style, border_style, caret_style, code_token_style, counter_number_style,
+            counter_symbol_style, editor_gutter_style, problem_header_style, status_tone_style,
+            surface_style,
+        },
+    },
 };
 use ratatui::{
     Frame,
     layout::{Alignment, Constraint, Direction, Layout, Margin, Rect},
-    style::{Color, Modifier, Style},
     text::{Line, Span, Text},
     widgets::{Block, Borders, Paragraph},
 };
@@ -13,56 +19,12 @@ use ratatui::{
 const FEEDBACK_CHROME_HEIGHT: u16 = 3;
 const BOTTOM_CHROME_HEIGHT: u16 = 1;
 
-#[derive(Clone, Copy)]
-struct TuiTheme {
-    background: Color,
-    panel: Color,
-    border: Color,
-    text: Color,
-    muted: Color,
-    keyword: Color,
-    type_name: Color,
-    number: Color,
-    string: Color,
-    macro_name: Color,
-    punctuation: Color,
-    success: Color,
-    success_bright: Color,
-    success_soft: Color,
-    danger: Color,
-    warning: Color,
-    caret: Color,
-}
-
-fn theme() -> TuiTheme {
-    TuiTheme {
-        background: Color::Rgb(8, 10, 14),
-        panel: Color::Rgb(12, 15, 21),
-        border: Color::Rgb(62, 70, 84),
-        text: Color::Rgb(232, 237, 246),
-        muted: Color::Rgb(119, 129, 148),
-        keyword: Color::Rgb(126, 169, 255),
-        type_name: Color::Rgb(106, 220, 190),
-        number: Color::Rgb(236, 196, 126),
-        string: Color::Rgb(157, 218, 139),
-        macro_name: Color::Rgb(200, 168, 255),
-        punctuation: Color::Rgb(150, 159, 176),
-        success: Color::Rgb(88, 224, 135),
-        success_bright: Color::Rgb(158, 255, 187),
-        success_soft: Color::Rgb(116, 238, 158),
-        danger: Color::Rgb(255, 92, 105),
-        warning: Color::Rgb(235, 178, 86),
-        caret: Color::Rgb(116, 241, 157),
-    }
-}
-
 pub(crate) fn render_ui(frame: &mut Frame<'_>, app: &TuiApp, now: std::time::Instant) {
     let client_frame = app.frame_at(now);
     render_client_frame(frame, &client_frame);
 }
 
 fn render_client_frame(frame: &mut Frame<'_>, client_frame: &ClientFrame) {
-    let theme = theme();
     let feedback_lines = feedback_chrome_lines(client_frame);
     let chunks = layout_chunks(frame.area(), feedback_height(&feedback_lines));
 
@@ -70,7 +32,7 @@ fn render_client_frame(frame: &mut Frame<'_>, client_frame: &ClientFrame) {
 
     let game_block = Block::default()
         .borders(Borders::ALL)
-        .style(Style::default().bg(theme.panel))
+        .style(surface_style())
         .border_style(border_style(client_frame.counter_reward));
     let game_area = chunks[0];
     let game_body = game_area.inner(Margin {
@@ -122,21 +84,6 @@ fn layout_chunks(area: Rect, feedback_height: u16) -> std::rc::Rc<[Rect]> {
             Constraint::Length(BOTTOM_CHROME_HEIGHT),
         ])
         .split(area)
-}
-
-fn base_style() -> Style {
-    Style::default().fg(theme().text).bg(theme().background)
-}
-
-fn border_style(reward: CounterRewardFrame) -> Style {
-    let intensity = if reward.active {
-        reward.intensity.min(85)
-    } else {
-        0
-    };
-    Style::default()
-        .fg(blend_color(theme().border, theme().success_soft, intensity))
-        .bg(theme().panel)
 }
 
 fn problem_lines(client_frame: &ClientFrame) -> Vec<Line<'static>> {
@@ -231,120 +178,8 @@ fn code_spans(tokens: &[CodeToken]) -> Vec<Span<'static>> {
         .collect()
 }
 
-fn code_token_style(kind: CodeTokenKind) -> Style {
-    let theme = theme();
-    match kind {
-        CodeTokenKind::Keyword => Style::default()
-            .fg(theme.keyword)
-            .bg(theme.panel)
-            .add_modifier(Modifier::BOLD),
-        CodeTokenKind::Type => Style::default().fg(theme.type_name).bg(theme.panel),
-        CodeTokenKind::Number => Style::default().fg(theme.number).bg(theme.panel),
-        CodeTokenKind::StringLiteral => Style::default().fg(theme.string).bg(theme.panel),
-        CodeTokenKind::Macro => Style::default()
-            .fg(theme.macro_name)
-            .bg(theme.panel)
-            .add_modifier(Modifier::BOLD),
-        CodeTokenKind::Identifier | CodeTokenKind::Plain => {
-            Style::default().fg(theme.text).bg(theme.panel)
-        }
-        CodeTokenKind::Punctuation => Style::default().fg(theme.punctuation).bg(theme.panel),
-        CodeTokenKind::Whitespace => Style::default().fg(theme.text).bg(theme.panel),
-        CodeTokenKind::Comment => Style::default()
-            .fg(theme.muted)
-            .bg(theme.panel)
-            .add_modifier(Modifier::ITALIC),
-    }
-}
-
-fn status_tone_style(tone: StatusTone) -> Style {
-    let theme = theme();
-    match tone {
-        StatusTone::Pass => Style::default()
-            .fg(theme.success)
-            .bg(theme.background)
-            .add_modifier(Modifier::BOLD),
-        StatusTone::Complete => Style::default()
-            .fg(theme.type_name)
-            .bg(theme.background)
-            .add_modifier(Modifier::BOLD),
-        StatusTone::TryAgain => Style::default().fg(theme.danger).bg(theme.background),
-        StatusTone::ExpectedLabel => Style::default().fg(theme.warning).bg(theme.background),
-        StatusTone::UnknownCommand | StatusTone::Warning => {
-            Style::default().fg(theme.warning).bg(theme.background)
-        }
-        StatusTone::Plain => muted_style(),
-    }
-}
-
-fn counter_symbol_style(reward: CounterRewardFrame) -> Style {
-    let color = blend_color(
-        theme().success_soft,
-        theme().success_bright,
-        reward.intensity,
-    );
-    Style::default()
-        .fg(color)
-        .bg(theme().background)
-        .add_modifier(Modifier::BOLD)
-}
-
-fn counter_number_style(reward: CounterRewardFrame) -> Style {
-    Style::default()
-        .fg(blend_color(
-            theme().success_soft,
-            theme().success_bright,
-            reward.intensity,
-        ))
-        .bg(theme().background)
-        .add_modifier(Modifier::BOLD)
-}
-
 fn bottom_chrome_alignment() -> Alignment {
     Alignment::Center
-}
-
-fn caret_style() -> Style {
-    Style::default()
-        .fg(theme().caret)
-        .bg(theme().panel)
-        .add_modifier(Modifier::BOLD)
-}
-
-fn muted_style() -> Style {
-    Style::default().fg(theme().muted).bg(theme().panel)
-}
-
-fn problem_header_style() -> Style {
-    Style::default()
-        .fg(theme().muted)
-        .bg(theme().panel)
-        .add_modifier(Modifier::BOLD)
-}
-
-fn editor_gutter_style() -> Style {
-    Style::default().fg(theme().muted).bg(theme().panel)
-}
-
-fn blend_color(from: Color, to: Color, intensity: u8) -> Color {
-    let intensity = intensity.min(100) as u16;
-    match (from, to) {
-        (Color::Rgb(from_red, from_green, from_blue), Color::Rgb(to_red, to_green, to_blue)) => {
-            Color::Rgb(
-                blend_channel(from_red, to_red, intensity),
-                blend_channel(from_green, to_green, intensity),
-                blend_channel(from_blue, to_blue, intensity),
-            )
-        }
-        (_, _) if intensity >= 50 => to,
-        _ => from,
-    }
-}
-
-fn blend_channel(from: u8, to: u8, intensity: u16) -> u8 {
-    let from = from as u16;
-    let to = to as u16;
-    (((from * (100 - intensity)) + (to * intensity)) / 100) as u8
 }
 
 #[cfg(test)]
@@ -386,16 +221,19 @@ mod tests {
     use std::time::{Duration, Instant};
 
     use super::{
-        FEEDBACK_CHROME_HEIGHT, border_style, bottom_chrome_alignment, bottom_chrome_lines,
+        FEEDBACK_CHROME_HEIGHT, bottom_chrome_alignment, bottom_chrome_lines,
         feedback_chrome_lines, feedback_height, layout_chunks, line_text, problem_lines,
-        render_snapshot, status_tone_style, theme,
+        render_snapshot,
     };
     use crate::{
         client::{
             COUNTER_REWARD_ATTACK_DURATION, COUNTER_REWARD_DURATION, COUNTER_REWARD_HOLD_DURATION,
             ClientAction, CounterRewardFrame, StatusTone,
         },
-        tui::TuiApp,
+        tui::{
+            TuiApp,
+            theme::{RUST_REPS_DARK, base_style, border_style, status_tone_style},
+        },
     };
     use ratatui::layout::{Alignment, Rect};
     use ratatui::style::Modifier;
@@ -523,10 +361,10 @@ mod tests {
         let line = lines.first().expect("expected bottom counter line");
 
         assert_eq!(line.spans[0].content.as_ref(), "●");
-        assert_eq!(line.spans[0].style.fg, Some(theme().success_soft));
+        assert_eq!(line.spans[0].style.fg, Some(RUST_REPS_DARK.counter_normal));
         assert!(line.spans[0].style.add_modifier.contains(Modifier::BOLD));
         assert_eq!(line.spans[1].content.as_ref(), " 0");
-        assert_eq!(line.spans[1].style.fg, Some(theme().success_soft));
+        assert_eq!(line.spans[1].style.fg, Some(RUST_REPS_DARK.counter_normal));
         assert!(line.spans[1].style.add_modifier.contains(Modifier::BOLD));
     }
 
@@ -543,10 +381,10 @@ mod tests {
         let line = lines.first().expect("expected bottom counter line");
 
         assert_eq!(line.spans[0].content.as_ref(), "✓");
-        assert_eq!(line.spans[0].style.fg, Some(theme().success_bright));
+        assert_eq!(line.spans[0].style.fg, Some(RUST_REPS_DARK.counter_reward));
         assert!(line.spans[0].style.add_modifier.contains(Modifier::BOLD));
         assert_eq!(line.spans[1].content.as_ref(), " 1");
-        assert_eq!(line.spans[1].style.fg, Some(theme().success_bright));
+        assert_eq!(line.spans[1].style.fg, Some(RUST_REPS_DARK.counter_reward));
         assert!(line.spans[1].style.add_modifier.contains(Modifier::BOLD));
     }
 
@@ -562,35 +400,35 @@ mod tests {
         let lines = bottom_chrome_lines(&frame);
         let line = lines.first().expect("expected bottom counter line");
         assert_eq!(line.spans[0].content.as_ref(), "✓");
-        assert_eq!(line.spans[0].style.fg, Some(theme().success_soft));
+        assert_eq!(line.spans[0].style.fg, Some(RUST_REPS_DARK.counter_normal));
 
         let frame = app.frame_at(now + COUNTER_REWARD_ATTACK_DURATION);
         let lines = bottom_chrome_lines(&frame);
         let line = lines.first().expect("expected bottom counter line");
         assert_eq!(line.spans[0].content.as_ref(), "✓");
-        assert_eq!(line.spans[0].style.fg, Some(theme().success_bright));
-        assert_eq!(line.spans[1].style.fg, Some(theme().success_bright));
+        assert_eq!(line.spans[0].style.fg, Some(RUST_REPS_DARK.counter_reward));
+        assert_eq!(line.spans[1].style.fg, Some(RUST_REPS_DARK.counter_reward));
 
         let frame =
             app.frame_at(now + COUNTER_REWARD_ATTACK_DURATION + (COUNTER_REWARD_HOLD_DURATION / 2));
         let lines = bottom_chrome_lines(&frame);
         let line = lines.first().expect("expected bottom counter line");
         assert_eq!(line.spans[0].content.as_ref(), "✓");
-        assert_eq!(line.spans[0].style.fg, Some(theme().success_bright));
+        assert_eq!(line.spans[0].style.fg, Some(RUST_REPS_DARK.counter_reward));
         assert_eq!(line.spans[1].content.as_ref(), " 1");
 
         let frame = app.frame_at(now + COUNTER_REWARD_DURATION - Duration::from_millis(200));
         let lines = bottom_chrome_lines(&frame);
         let line = lines.first().expect("expected bottom counter line");
         assert_eq!(line.spans[0].content.as_ref(), "✓");
-        assert_ne!(line.spans[0].style.fg, Some(theme().success_bright));
+        assert_ne!(line.spans[0].style.fg, Some(RUST_REPS_DARK.counter_reward));
         assert_eq!(line.spans[1].content.as_ref(), " 1");
 
         let frame = app.frame_at(now + COUNTER_REWARD_DURATION);
         let lines = bottom_chrome_lines(&frame);
         let line = lines.first().expect("expected bottom counter line");
         assert_eq!(line.spans[0].content.as_ref(), "●");
-        assert_eq!(line.spans[0].style.fg, Some(theme().success_soft));
+        assert_eq!(line.spans[0].style.fg, Some(RUST_REPS_DARK.counter_normal));
     }
 
     #[test]
@@ -606,7 +444,7 @@ mod tests {
         let line = lines.first().expect("expected bottom counter line");
 
         assert_eq!(line.spans[0].content.as_ref(), "●");
-        assert_eq!(line.spans[0].style.fg, Some(theme().success_soft));
+        assert_eq!(line.spans[0].style.fg, Some(RUST_REPS_DARK.counter_normal));
         assert_eq!(line.spans[1].content.as_ref(), " 1");
     }
 
@@ -629,7 +467,7 @@ mod tests {
             intensity: 100,
         });
 
-        assert_eq!(idle.fg, Some(theme().border));
+        assert_eq!(idle.fg, Some(RUST_REPS_DARK.border_normal));
         assert_ne!(low.fg, idle.fg);
         assert_ne!(medium.fg, low.fg);
         assert_ne!(peak.fg, medium.fg);
@@ -687,15 +525,15 @@ mod tests {
     fn status_theme_maps_pass_try_again_and_unknown_command_distinctly() {
         assert_eq!(
             status_tone_style(StatusTone::Pass).fg,
-            Some(theme().success)
+            Some(RUST_REPS_DARK.success)
         );
         assert_eq!(
             status_tone_style(StatusTone::TryAgain).fg,
-            Some(theme().danger)
+            Some(RUST_REPS_DARK.error)
         );
         assert_eq!(
             status_tone_style(StatusTone::UnknownCommand).fg,
-            Some(theme().warning)
+            Some(RUST_REPS_DARK.warning_unknown)
         );
         assert_ne!(
             status_tone_style(StatusTone::Pass).fg,
@@ -717,7 +555,7 @@ mod tests {
             .find(|line| line_text(line) == "not quite")
             .expect("expected not quite feedback");
 
-        assert_eq!(try_again.spans[0].style.fg, Some(theme().danger));
+        assert_eq!(try_again.spans[0].style.fg, Some(RUST_REPS_DARK.error));
     }
 
     #[test]
@@ -736,13 +574,13 @@ mod tests {
                 .spans
                 .iter()
                 .any(|span| span.content.as_ref() == "fn"
-                    && span.style.fg == Some(theme().keyword))
+                    && span.style.fg == Some(RUST_REPS_DARK.keyword))
         );
         assert!(
             prompt_line
                 .spans
                 .iter()
-                .any(|span| span.style != super::base_style())
+                .any(|span| span.style != base_style())
         );
     }
 
