@@ -1,7 +1,7 @@
 use crate::{client::ClientFrame, tui::app::TuiApp};
 use ratatui::{
     Frame,
-    layout::{Constraint, Direction, Layout, Margin},
+    layout::{Alignment, Constraint, Direction, Layout, Margin},
     text::{Line, Text},
     widgets::{Block, Borders, Paragraph},
 };
@@ -12,16 +12,17 @@ pub(crate) fn render_ui(frame: &mut Frame<'_>, app: &TuiApp) {
 }
 
 fn render_client_frame(frame: &mut Frame<'_>, client_frame: &ClientFrame) {
+    let feedback_lines = feedback_chrome_lines(client_frame);
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
             Constraint::Min(12),
-            Constraint::Length(7),
-            Constraint::Length(3),
+            Constraint::Length(feedback_height(&feedback_lines)),
+            Constraint::Length(1),
         ])
         .split(frame.area());
 
-    let game_block = Block::default().borders(Borders::ALL).title("Game");
+    let game_block = Block::default().borders(Borders::ALL);
     let game_area = chunks[0];
     let game_body = game_area.inner(Margin {
         vertical: 1,
@@ -44,14 +45,16 @@ fn render_client_frame(frame: &mut Frame<'_>, client_frame: &ClientFrame) {
         game_chunks[1],
     );
 
-    frame.render_widget(
-        Paragraph::new(Text::from(as_lines(status_chrome_lines(client_frame))))
-            .block(Block::default().borders(Borders::ALL).title("Status")),
-        chunks[1],
-    );
+    if !feedback_lines.is_empty() {
+        frame.render_widget(
+            Paragraph::new(Text::from(as_lines(feedback_lines))),
+            chunks[1],
+        );
+    }
 
     frame.render_widget(
-        Paragraph::new(Text::from(as_lines(footer_lines(client_frame)))),
+        Paragraph::new(Text::from(as_lines(bottom_chrome_lines(client_frame))))
+            .alignment(Alignment::Center),
         chunks[2],
     );
 }
@@ -62,26 +65,23 @@ fn as_lines(values: Vec<String>) -> Vec<Line<'static>> {
 
 fn problem_lines(client_frame: &ClientFrame) -> Vec<String> {
     vec![
-        client_frame.game_window.problem.title.clone(),
-        client_frame.game_window.problem.progress_label.clone(),
-        String::new(),
         client_frame.game_window.problem.instruction.clone(),
         client_frame.game_window.problem.prompt.clone(),
     ]
 }
 
 fn workbox_lines(client_frame: &ClientFrame) -> Vec<String> {
-    vec![
-        client_frame.game_window.workbox.title.clone(),
-        String::new(),
-        input_line(client_frame),
-    ]
+    vec![input_line(client_frame)]
 }
 
-fn status_chrome_lines(client_frame: &ClientFrame) -> Vec<String> {
+fn feedback_chrome_lines(client_frame: &ClientFrame) -> Vec<String> {
     let mut lines = client_frame.status_chrome.lines.clone();
     lines.extend(client_frame.help_chrome.lines.clone());
     lines
+}
+
+fn feedback_height(lines: &[String]) -> u16 {
+    lines.len().min(6) as u16
 }
 
 fn input_line(client_frame: &ClientFrame) -> String {
@@ -97,26 +97,23 @@ fn input_line(client_frame: &ClientFrame) -> String {
     }
 }
 
-fn footer_lines(client_frame: &ClientFrame) -> Vec<String> {
-    vec![
-        client_frame.progress_chrome.line.clone(),
-        client_frame.help_chrome.default_hint.clone(),
-    ]
+fn bottom_chrome_lines(client_frame: &ClientFrame) -> Vec<String> {
+    vec![format!("● {}", client_frame.completed_reps_this_run)]
 }
 
 #[cfg(test)]
 struct RenderSnapshot {
     game: Vec<String>,
-    status: Vec<String>,
-    footer: Vec<String>,
+    feedback: Vec<String>,
+    bottom_chrome: Vec<String>,
 }
 
 #[cfg(test)]
 fn render_snapshot(client_frame: &ClientFrame) -> RenderSnapshot {
     RenderSnapshot {
         game: [problem_lines(client_frame), workbox_lines(client_frame)].concat(),
-        status: status_chrome_lines(client_frame),
-        footer: footer_lines(client_frame),
+        feedback: feedback_chrome_lines(client_frame),
+        bottom_chrome: bottom_chrome_lines(client_frame),
     }
 }
 
@@ -130,42 +127,27 @@ mod tests {
         let app = TuiApp::new();
         let frame = app.frame();
         let snapshot = render_snapshot(&frame);
-        let problem_position = snapshot
+        let instruction_position = snapshot
             .game
             .iter()
-            .position(|line| line == "Problem")
-            .expect("expected Problem label in game snapshot");
-        let drill_position = snapshot
-            .game
-            .iter()
-            .position(|line| line.contains("Drill 001/12"))
-            .expect("expected drill in game snapshot");
-        let prompt_position = snapshot
-            .game
-            .iter()
-            .position(|line| line == "Copy this line exactly:")
-            .expect("expected problem descriptor in game snapshot");
+            .position(|line| line == "do this:")
+            .expect("expected concise problem instruction in game snapshot");
         let prompt_value_position = snapshot
             .game
             .iter()
             .position(|line| line == "fn main() {}")
             .expect("expected prompt in game snapshot");
-        let workbox_position = snapshot
-            .game
-            .iter()
-            .position(|line| line == "Workbox")
-            .expect("expected Workbox label in game snapshot");
         let input_position = snapshot
             .game
             .iter()
             .position(|line| line == "> |")
             .expect("expected input caret in game snapshot");
 
-        assert!(problem_position < drill_position);
-        assert!(drill_position < prompt_position);
-        assert!(prompt_position < prompt_value_position);
-        assert!(prompt_value_position < workbox_position);
-        assert!(workbox_position < input_position);
+        assert!(instruction_position < prompt_value_position);
+        assert!(prompt_value_position < input_position);
+        assert!(!snapshot.game.iter().any(|line| line == "Problem"));
+        assert!(!snapshot.game.iter().any(|line| line == "Workbox"));
+        assert!(!snapshot.game.iter().any(|line| line.contains("Drill")));
         assert!(!snapshot.game.iter().any(|line| line == "Feedback"));
         assert!(!snapshot.game.iter().any(|line| line.contains("PASS")));
         assert!(!snapshot.game.iter().any(|line| line.contains("TRY AGAIN")));
@@ -176,30 +158,38 @@ mod tests {
         let app = TuiApp::new();
         let frame = app.frame();
         let snapshot = render_snapshot(&frame);
-        assert!(!snapshot.game.iter().any(|line| line.contains("READY")));
-        assert!(
-            !snapshot
-                .game
-                .iter()
-                .any(|line| line == "Copy the prompt exactly.")
-        );
-        assert!(
-            snapshot
-                .status
-                .iter()
-                .any(|line| line == "Waiting for input.")
-        );
+        let visible_lines: Vec<&String> = snapshot
+            .game
+            .iter()
+            .chain(snapshot.feedback.iter())
+            .chain(snapshot.bottom_chrome.iter())
+            .collect();
+        for forbidden in [
+            "Passed",
+            "Skipped",
+            "Attempts",
+            "READY",
+            "Enter submit",
+            "Esc quit",
+            "? help",
+        ] {
+            assert!(
+                !visible_lines.iter().any(|line| line.contains(forbidden)),
+                "default render should not contain {forbidden}"
+            );
+        }
+        assert!(snapshot.feedback.is_empty());
     }
 
     #[test]
-    fn render_snapshot_problem_descriptor_precedes_prompt_line() {
+    fn render_snapshot_problem_instruction_is_concise() {
         let app = TuiApp::new();
         let frame = app.frame();
         let snapshot = render_snapshot(&frame);
         let descriptor_position = snapshot
             .game
             .iter()
-            .position(|line| line == "Copy this line exactly:")
+            .position(|line| line == "do this:")
             .expect("expected problem descriptor");
         let prompt_position = snapshot
             .game
@@ -211,29 +201,13 @@ mod tests {
     }
 
     #[test]
-    fn render_snapshot_keeps_stats_and_help_in_footer_chrome() {
+    fn render_snapshot_contains_bottom_center_counter_text() {
         let app = TuiApp::new();
         let frame = app.frame();
         let snapshot = render_snapshot(&frame);
-        assert!(
-            snapshot
-                .footer
-                .iter()
-                .any(|line| line == "Passed 0/12 | Skipped 0 | Attempts 0")
-        );
-        assert!(
-            snapshot
-                .footer
-                .iter()
-                .any(|line| line == "Enter submit | Esc quit | ? help")
-        );
-        assert!(
-            !snapshot
-                .game
-                .iter()
-                .any(|line| line.contains("Passed 0/12"))
-        );
-        assert!(!snapshot.status.iter().any(|line| line == "Commands:"));
+        assert_eq!(snapshot.bottom_chrome, vec!["● 0".to_string()]);
+        assert!(!snapshot.game.iter().any(|line| line.contains("Passed")));
+        assert!(!snapshot.feedback.iter().any(|line| line.contains("Passed")));
     }
 
     #[test]
@@ -270,13 +244,13 @@ mod tests {
         let default_snapshot = render_snapshot(&frame);
         assert!(
             !default_snapshot
-                .status
+                .feedback
                 .iter()
                 .any(|line| line == "Commands:")
         );
         assert!(
             !default_snapshot
-                .status
+                .feedback
                 .iter()
                 .any(|line| line == "Backspace: delete char")
         );
@@ -284,10 +258,15 @@ mod tests {
         app.handle_action(ClientAction::ToggleHelp);
         let frame = app.frame();
         let help_snapshot = render_snapshot(&frame);
-        assert!(help_snapshot.status.iter().any(|line| line == "Commands:"));
         assert!(
             help_snapshot
-                .status
+                .feedback
+                .iter()
+                .any(|line| line == "Commands:")
+        );
+        assert!(
+            help_snapshot
+                .feedback
                 .iter()
                 .any(|line| line == "Enter: submit input")
         );
@@ -304,10 +283,10 @@ mod tests {
         let frame = app.frame();
         let snapshot = render_snapshot(&frame);
 
-        assert!(snapshot.status.iter().any(|line| line == ">> TRY AGAIN"));
-        assert!(snapshot.status.iter().any(|line| line == "Expected:"));
-        assert!(snapshot.status.iter().any(|line| line == "fn main() {}"));
-        assert!(!snapshot.game.iter().any(|line| line == ">> TRY AGAIN"));
+        assert!(snapshot.feedback.iter().any(|line| line == "TRY AGAIN"));
+        assert!(snapshot.feedback.iter().any(|line| line == "Expected:"));
+        assert!(snapshot.feedback.iter().any(|line| line == "fn main() {}"));
+        assert!(!snapshot.game.iter().any(|line| line == "TRY AGAIN"));
         assert!(!snapshot.game.iter().any(|line| line == "Expected:"));
     }
 
@@ -323,13 +302,13 @@ mod tests {
 
         assert!(
             snapshot
-                .status
+                .feedback
                 .iter()
-                .any(|line| line == ">> UNKNOWN COMMAND")
+                .any(|line| line == "UNKNOWN COMMAND")
         );
         assert!(
             snapshot
-                .status
+                .feedback
                 .iter()
                 .any(|line| line == "Type :help for commands.")
         );
@@ -351,20 +330,15 @@ mod tests {
         let frame = app.frame();
         let snapshot = render_snapshot(&frame);
 
-        assert!(snapshot.status.iter().any(|line| line == ">> PASS"));
+        assert!(snapshot.feedback.iter().any(|line| line == "PASS"));
         assert!(
             snapshot
                 .game
                 .iter()
-                .any(|line| line.contains("Drill 002/12"))
-        );
-        assert!(
-            snapshot
-                .game
-                .iter()
-                .any(|line| line.contains("println!(\"Rust Reps\");"))
+                .any(|line| line == "println!(\"Rust Reps\");")
         );
         assert!(snapshot.game.iter().any(|line| line == "> |"));
-        assert!(!snapshot.game.iter().any(|line| line == ">> PASS"));
+        assert!(snapshot.bottom_chrome.iter().any(|line| line == "● 1"));
+        assert!(!snapshot.game.iter().any(|line| line == "PASS"));
     }
 }

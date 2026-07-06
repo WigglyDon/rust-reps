@@ -57,7 +57,7 @@ impl TuiApp {
     }
 
     pub fn frame(&self) -> ClientFrame {
-        project_client_frame(&self.session, &self.ui_state, self.completed)
+        project_client_frame(&self.session, &self.ui_state)
     }
 
     pub fn handle_action(&mut self, action: ClientAction) {
@@ -167,32 +167,17 @@ impl TuiApp {
     }
 }
 
-fn collect_complete_lines(session: &engine::Session) -> Vec<String> {
-    let mut lines = vec!["COMPLETE".to_string(), "Summary:".to_string()];
-    lines.extend(collect_summary_pairs(session));
-    lines
+fn collect_complete_lines(_session: &engine::Session) -> Vec<String> {
+    vec!["COMPLETE".to_string()]
 }
 
-fn collect_summary_lines(action: &str, session: &engine::Session) -> Vec<String> {
-    let mut lines = vec![action.to_string()];
-    if action == "QUIT" || action == "COMPLETE" {
-        lines.push("Summary:".to_string());
-        lines.extend(collect_summary_pairs(session));
-    }
-    lines
-}
-
-fn collect_summary_pairs(session: &engine::Session) -> Vec<String> {
-    vec![
-        format!("Passed: {}/{}", session.passed(), session.total_drills()),
-        format!("Skipped: {}", session.skipped()),
-        format!("Attempts: {}", session.attempts()),
-    ]
+fn collect_summary_lines(action: &str, _session: &engine::Session) -> Vec<String> {
+    vec![action.to_string()]
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{TuiApp, collect_summary_pairs};
+    use super::TuiApp;
     use crate::client::ClientAction;
 
     #[test]
@@ -291,6 +276,18 @@ mod tests {
     }
 
     #[test]
+    fn quit_does_not_increment_completed_rep_counter() {
+        let mut app = TuiApp::new();
+
+        app.handle_action(ClientAction::Quit);
+
+        assert!(app.should_quit());
+        assert_eq!(app.session().passed(), 0);
+        assert_eq!(app.frame().completed_reps_this_run, 0);
+        assert_eq!(app.status_lines(), &["QUIT".to_string()]);
+    }
+
+    #[test]
     fn final_answer_marks_completion_state() {
         let mut app = TuiApp::new();
         for drill_index in 0..12 {
@@ -310,14 +307,9 @@ mod tests {
         assert_eq!(app.session().passed(), 12);
         assert!(app.completed());
         assert!(app.session().is_complete());
-        assert_eq!(app.status_lines()[0].as_str(), "PASS");
-        assert!(app.status_lines().iter().any(|line| line == "Summary:"));
-        assert!(
-            app.status_lines()
-                .iter()
-                .any(|line| line == &format!("Passed: {}/12", app.session().passed()))
+        assert_eq!(
+            app.status_lines(),
+            &["PASS".to_string(), "COMPLETE".to_string()]
         );
-        assert_eq!(collect_summary_pairs(app.session())[1], "Skipped: 0");
-        assert_eq!(collect_summary_pairs(app.session())[2], "Attempts: 12");
     }
 }

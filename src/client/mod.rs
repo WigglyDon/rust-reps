@@ -25,7 +25,7 @@ impl ClientUiState {
             draft_input: String::new(),
             cursor_visible: true,
             help_open: false,
-            status_lines: vec!["Waiting for input.".to_string()],
+            status_lines: Vec::new(),
         }
     }
 
@@ -84,7 +84,7 @@ impl ClientUiState {
 pub struct ClientFrame {
     pub game_window: GameWindowFrame,
     pub status_chrome: StatusChromeFrame,
-    pub progress_chrome: ProgressChromeFrame,
+    pub completed_reps_this_run: usize,
     pub help_chrome: HelpChromeFrame,
 }
 
@@ -96,15 +96,12 @@ pub struct GameWindowFrame {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ProblemView {
-    pub title: String,
-    pub progress_label: String,
     pub instruction: String,
     pub prompt: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct WorkboxView {
-    pub title: String,
     pub input: String,
     pub cursor_visible: bool,
 }
@@ -115,42 +112,24 @@ pub struct StatusChromeFrame {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ProgressChromeFrame {
-    pub line: String,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct HelpChromeFrame {
-    pub default_hint: String,
     pub open: bool,
     pub lines: Vec<String>,
 }
 
-pub fn project_client_frame(
-    session: &engine::Session,
-    ui_state: &ClientUiState,
-    completed: bool,
-) -> ClientFrame {
+pub fn project_client_frame(session: &engine::Session, ui_state: &ClientUiState) -> ClientFrame {
     let snapshot = session.snapshot();
     let exercise = snapshot
         .exercise
         .unwrap_or_else(engine::first_exercise_packet);
-    let progress_label = if completed || snapshot.is_complete {
-        "Complete".to_string()
-    } else {
-        format!("Drill {}/{}", exercise.id, exercise.total)
-    };
 
     ClientFrame {
         game_window: GameWindowFrame {
             problem: ProblemView {
-                title: "Problem".to_string(),
-                progress_label,
-                instruction: exercise.instruction.to_string(),
+                instruction: "do this:".to_string(),
                 prompt: exercise.prompt.to_string(),
             },
             workbox: WorkboxView {
-                title: "Workbox".to_string(),
                 input: ui_state.draft_input().to_string(),
                 cursor_visible: ui_state.cursor_visible(),
             },
@@ -159,37 +138,14 @@ pub fn project_client_frame(
             lines: ui_state
                 .status_lines()
                 .iter()
-                .enumerate()
-                .map(|(index, line)| emphasize_status_line(index, line))
+                .map(|line| line.to_string())
                 .collect(),
         },
-        progress_chrome: ProgressChromeFrame {
-            line: format!(
-                "Passed {}/{} | Skipped {} | Attempts {}",
-                snapshot.stats.passed,
-                snapshot.stats.total_drills,
-                snapshot.stats.skipped,
-                snapshot.stats.attempts
-            ),
-        },
+        completed_reps_this_run: snapshot.stats.passed,
         help_chrome: HelpChromeFrame {
-            default_hint: "Enter submit | Esc quit | ? help".to_string(),
             open: ui_state.help_open(),
             lines: help_lines(ui_state.help_open()),
         },
-    }
-}
-
-fn emphasize_status_line(index: usize, line: &str) -> String {
-    if index == 0 {
-        match line {
-            "PASS" | "TRY AGAIN" | "UNKNOWN COMMAND" | "COMPLETE" | "QUIT" | "STATUS" | "SKIP" => {
-                format!(">> {}", line)
-            }
-            _ => line.to_string(),
-        }
-    } else {
-        line.to_string()
     }
 }
 
@@ -217,19 +173,24 @@ mod tests {
         let session = engine::Session::new();
         let ui_state = ClientUiState::new();
 
-        let frame = project_client_frame(&session, &ui_state, false);
+        let frame = project_client_frame(&session, &ui_state);
 
-        assert_eq!(frame.game_window.problem.title, "Problem");
-        assert_eq!(frame.game_window.problem.progress_label, "Drill 001/12");
-        assert_eq!(
-            frame.game_window.problem.instruction,
-            "Copy this line exactly:"
-        );
+        assert_eq!(frame.game_window.problem.instruction, "do this:");
         assert_eq!(frame.game_window.problem.prompt, "fn main() {}");
     }
 
     #[test]
-    fn frame_projection_uses_exercise_packet_position_and_prompt() {
+    fn initial_client_frame_counter_is_zero() {
+        let session = engine::Session::new();
+        let ui_state = ClientUiState::new();
+
+        let frame = project_client_frame(&session, &ui_state);
+
+        assert_eq!(frame.completed_reps_this_run, 0);
+    }
+
+    #[test]
+    fn correct_answer_increments_counter_to_one() {
         let mut session = engine::Session::new();
         let ui_state = ClientUiState::new();
 
@@ -237,10 +198,70 @@ mod tests {
             session.submit_answer("fn main() {}"),
             engine::SubmitResult::Correct
         ));
-        let frame = project_client_frame(&session, &ui_state, false);
+        let frame = project_client_frame(&session, &ui_state);
 
-        assert_eq!(frame.game_window.problem.progress_label, "Drill 002/12");
+        assert_eq!(frame.completed_reps_this_run, 1);
         assert_eq!(frame.game_window.problem.prompt, "println!(\"Rust Reps\");");
+    }
+
+    #[test]
+    fn multiple_correct_answers_increment_counter_one_two_three() {
+        let mut session = engine::Session::new();
+        let ui_state = ClientUiState::new();
+
+        for (answer, expected_counter) in [
+            ("fn main() {}", 1),
+            ("println!(\"Rust Reps\");", 2),
+            ("let answer = 42;", 3),
+        ] {
+            assert!(matches!(
+                session.submit_answer(answer),
+                engine::SubmitResult::Correct
+            ));
+            let frame = project_client_frame(&session, &ui_state);
+            assert_eq!(frame.completed_reps_this_run, expected_counter);
+        }
+    }
+
+    #[test]
+    fn wrong_answer_does_not_increment_counter() {
+        let mut session = engine::Session::new();
+        let ui_state = ClientUiState::new();
+
+        assert!(matches!(
+            session.submit_answer("wrong"),
+            engine::SubmitResult::TryAgain
+        ));
+        let frame = project_client_frame(&session, &ui_state);
+
+        assert_eq!(frame.completed_reps_this_run, 0);
+    }
+
+    #[test]
+    fn skip_does_not_increment_counter() {
+        let mut session = engine::Session::new();
+        let ui_state = ClientUiState::new();
+
+        let _ = session.skip();
+        let frame = project_client_frame(&session, &ui_state);
+
+        assert_eq!(frame.completed_reps_this_run, 0);
+        assert_eq!(frame.game_window.problem.prompt, "println!(\"Rust Reps\");");
+    }
+
+    #[test]
+    fn new_session_starts_counter_at_zero() {
+        let mut completed_session = engine::Session::new();
+        assert!(matches!(
+            completed_session.submit_answer("fn main() {}"),
+            engine::SubmitResult::Correct
+        ));
+
+        let fresh_session = engine::Session::new();
+        let ui_state = ClientUiState::new();
+        let frame = project_client_frame(&fresh_session, &ui_state);
+
+        assert_eq!(frame.completed_reps_this_run, 0);
     }
 
     #[test]
@@ -250,26 +271,10 @@ mod tests {
         ui_state.apply_action(ClientAction::TypeChar('x'));
         ui_state.apply_action(ClientAction::CursorTick);
 
-        let frame = project_client_frame(&session, &ui_state, false);
+        let frame = project_client_frame(&session, &ui_state);
 
-        assert_eq!(frame.game_window.workbox.title, "Workbox");
         assert_eq!(frame.game_window.workbox.input, "x");
         assert!(!frame.game_window.workbox.cursor_visible);
-    }
-
-    #[test]
-    fn frame_projection_includes_compact_progress_stats() {
-        let mut session = engine::Session::new();
-        let ui_state = ClientUiState::new();
-        let event = session.submit_answer("wrong");
-
-        assert!(matches!(event, engine::SubmitResult::TryAgain));
-        let frame = project_client_frame(&session, &ui_state, false);
-
-        assert_eq!(
-            frame.progress_chrome.line,
-            "Passed 0/12 | Skipped 0 | Attempts 1"
-        );
     }
 
     #[test]
@@ -282,12 +287,12 @@ mod tests {
             "fn main() {}".to_string(),
         ]);
 
-        let frame = project_client_frame(&session, &ui_state, false);
+        let frame = project_client_frame(&session, &ui_state);
 
         assert_eq!(
             frame.status_chrome.lines,
             vec![
-                ">> TRY AGAIN".to_string(),
+                "TRY AGAIN".to_string(),
                 "Expected:".to_string(),
                 "fn main() {}".to_string(),
             ]
