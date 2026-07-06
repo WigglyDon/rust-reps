@@ -18,8 +18,8 @@ You can also start practice mode explicitly:
 cargo run -- play
 ```
 
-In practice mode, `:q` and `:quit` quit successfully. Passing every drill prints `COMPLETE`.
-Practice mode prints a compact summary when it completes or quits; the summary is not saved.
+In practice mode, `:help` shows commands, `:status` shows session status, `:list` shows drills, and `:skip` skips the current drill. `:q` and `:quit` quit successfully. Passing every drill prints `COMPLETE`.
+Practice mode prints a compact summary with passed, skipped, and attempts when it completes or quits; the summary is not saved.
 
 You can list drills, print help/version output, or run one selected drill by id:
 

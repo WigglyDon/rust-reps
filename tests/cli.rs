@@ -49,7 +49,7 @@ const PRACTICE_ALL_CORRECT_INPUT: &str = concat!(
 const PRACTICE_ALL_CORRECT_OUTPUT: &str = concat!(
     "Rusty Drill\n\n",
     "Practice\n",
-    "Type :q to quit.\n\n",
+    "Type :help for commands.\n\n",
     "Drill 001/012\nType exactly:\n\nfn main() {}\n\n>PASS\n\n",
     "Drill 002/012\nType exactly:\n\nprintln!(\"Rusty Drill\");\n\n>PASS\n\n",
     "Drill 003/012\nType exactly:\n\nlet answer = 42;\n\n>PASS\n\n",
@@ -65,21 +65,23 @@ const PRACTICE_ALL_CORRECT_OUTPUT: &str = concat!(
     "COMPLETE\n",
     "Summary:\n",
     "Passed: 12/12\n",
+    "Skipped: 0\n",
     "Attempts: 12\n",
 );
 const PRACTICE_QUIT_OUTPUT: &str = concat!(
     "Rusty Drill\n\n",
     "Practice\n",
-    "Type :q to quit.\n\n",
+    "Type :help for commands.\n\n",
     "Drill 001/012\nType exactly:\n\nfn main() {}\n\n>QUIT\n",
     "Summary:\n",
     "Passed: 0/12\n",
+    "Skipped: 0\n",
     "Attempts: 0\n",
 );
 const PRACTICE_RETRY_THEN_QUIT_OUTPUT: &str = concat!(
     "Rusty Drill\n\n",
     "Practice\n",
-    "Type :q to quit.\n\n",
+    "Type :help for commands.\n\n",
     "Drill 001/012\nType exactly:\n\nfn main() {}\n\n>TRY AGAIN\n",
     "Expected:\n",
     "fn main() {}\n\n",
@@ -87,7 +89,110 @@ const PRACTICE_RETRY_THEN_QUIT_OUTPUT: &str = concat!(
     "Drill 002/012\nType exactly:\n\nprintln!(\"Rusty Drill\");\n\n>QUIT\n",
     "Summary:\n",
     "Passed: 1/12\n",
+    "Skipped: 0\n",
     "Attempts: 2\n",
+);
+const PRACTICE_HELP_THEN_QUIT_OUTPUT: &str = concat!(
+    "Rusty Drill\n\n",
+    "Practice\n",
+    "Type :help for commands.\n\n",
+    "Drill 001/012\nType exactly:\n\nfn main() {}\n\n>Commands:\n",
+    ":help    show commands\n",
+    ":status  show session status\n",
+    ":list    show drills\n",
+    ":skip    skip current drill\n",
+    ":q       quit\n",
+    ":quit    quit\n\n",
+    "Drill 001/012\nType exactly:\n\nfn main() {}\n\n>QUIT\n",
+    "Summary:\n",
+    "Passed: 0/12\n",
+    "Skipped: 0\n",
+    "Attempts: 0\n",
+);
+const PRACTICE_STATUS_THEN_QUIT_OUTPUT: &str = concat!(
+    "Rusty Drill\n\n",
+    "Practice\n",
+    "Type :help for commands.\n\n",
+    "Drill 001/012\nType exactly:\n\nfn main() {}\n\n>Status:\n",
+    "Current: 001/012\n",
+    "Passed: 0/12\n",
+    "Skipped: 0\n",
+    "Attempts: 0\n\n",
+    "Drill 001/012\nType exactly:\n\nfn main() {}\n\n>QUIT\n",
+    "Summary:\n",
+    "Passed: 0/12\n",
+    "Skipped: 0\n",
+    "Attempts: 0\n",
+);
+const PRACTICE_LIST_THEN_QUIT_OUTPUT: &str = concat!(
+    "Rusty Drill\n\n",
+    "Practice\n",
+    "Type :help for commands.\n\n",
+    "Drill 001/012\nType exactly:\n\nfn main() {}\n\n>Available drills:\n",
+    "001  fn main() {}\n",
+    "002  println!(\"Rusty Drill\");\n",
+    "003  let answer = 42;\n",
+    "004  let name = \"Rusty Drill\";\n",
+    "005  let mut score = 0;\n",
+    "006  score += 1;\n",
+    "007  let passed = true;\n",
+    "008  let score: i32 = 0;\n",
+    "009  let scores = [1, 2, 3];\n",
+    "010  fn add_one(x: i32) -> i32 { x + 1 }\n",
+    "011  if score > 0 {}\n",
+    "012  while score < 10 {}\n\n",
+    "Drill 001/012\nType exactly:\n\nfn main() {}\n\n>QUIT\n",
+    "Summary:\n",
+    "Passed: 0/12\n",
+    "Skipped: 0\n",
+    "Attempts: 0\n",
+);
+const PRACTICE_SKIP_THEN_QUIT_OUTPUT: &str = concat!(
+    "Rusty Drill\n\n",
+    "Practice\n",
+    "Type :help for commands.\n\n",
+    "Drill 001/012\nType exactly:\n\nfn main() {}\n\n>SKIP\n\n",
+    "Drill 002/012\nType exactly:\n\nprintln!(\"Rusty Drill\");\n\n>QUIT\n",
+    "Summary:\n",
+    "Passed: 0/12\n",
+    "Skipped: 1\n",
+    "Attempts: 0\n",
+);
+const PRACTICE_SKIP_FINAL_INPUT: &str = concat!(
+    "fn main() {}\n",
+    "println!(\"Rusty Drill\");\n",
+    "let answer = 42;\n",
+    "let name = \"Rusty Drill\";\n",
+    "let mut score = 0;\n",
+    "score += 1;\n",
+    "let passed = true;\n",
+    "let score: i32 = 0;\n",
+    "let scores = [1, 2, 3];\n",
+    "fn add_one(x: i32) -> i32 { x + 1 }\n",
+    "if score > 0 {}\n",
+    ":skip\n",
+);
+const PRACTICE_SKIP_FINAL_OUTPUT: &str = concat!(
+    "Rusty Drill\n\n",
+    "Practice\n",
+    "Type :help for commands.\n\n",
+    "Drill 001/012\nType exactly:\n\nfn main() {}\n\n>PASS\n\n",
+    "Drill 002/012\nType exactly:\n\nprintln!(\"Rusty Drill\");\n\n>PASS\n\n",
+    "Drill 003/012\nType exactly:\n\nlet answer = 42;\n\n>PASS\n\n",
+    "Drill 004/012\nType exactly:\n\nlet name = \"Rusty Drill\";\n\n>PASS\n\n",
+    "Drill 005/012\nType exactly:\n\nlet mut score = 0;\n\n>PASS\n\n",
+    "Drill 006/012\nType exactly:\n\nscore += 1;\n\n>PASS\n\n",
+    "Drill 007/012\nType exactly:\n\nlet passed = true;\n\n>PASS\n\n",
+    "Drill 008/012\nType exactly:\n\nlet score: i32 = 0;\n\n>PASS\n\n",
+    "Drill 009/012\nType exactly:\n\nlet scores = [1, 2, 3];\n\n>PASS\n\n",
+    "Drill 010/012\nType exactly:\n\nfn add_one(x: i32) -> i32 { x + 1 }\n\n>PASS\n\n",
+    "Drill 011/012\nType exactly:\n\nif score > 0 {}\n\n>PASS\n\n",
+    "Drill 012/012\nType exactly:\n\nwhile score < 10 {}\n\n>SKIP\n",
+    "COMPLETE\n",
+    "Summary:\n",
+    "Passed: 11/12\n",
+    "Skipped: 1\n",
+    "Attempts: 11\n",
 );
 
 fn run_rusty_drill(args: &[&str], input: &str) -> Output {
@@ -140,6 +245,66 @@ fn practice_wrong_answer_repeats_then_accepts_correct_answer() {
     assert_eq!(
         String::from_utf8(output.stdout).unwrap(),
         PRACTICE_RETRY_THEN_QUIT_OUTPUT
+    );
+    assert_eq!(String::from_utf8(output.stderr).unwrap(), "");
+}
+
+#[test]
+fn practice_help_repeats_same_drill_then_quits() {
+    let output = run_rusty_drill(&[], ":help\n:q\n");
+
+    assert!(output.status.success());
+    assert_eq!(
+        String::from_utf8(output.stdout).unwrap(),
+        PRACTICE_HELP_THEN_QUIT_OUTPUT
+    );
+    assert_eq!(String::from_utf8(output.stderr).unwrap(), "");
+}
+
+#[test]
+fn practice_status_at_start_repeats_same_drill_then_quits() {
+    let output = run_rusty_drill(&[], ":status\n:q\n");
+
+    assert!(output.status.success());
+    assert_eq!(
+        String::from_utf8(output.stdout).unwrap(),
+        PRACTICE_STATUS_THEN_QUIT_OUTPUT
+    );
+    assert_eq!(String::from_utf8(output.stderr).unwrap(), "");
+}
+
+#[test]
+fn practice_list_repeats_same_drill_then_quits() {
+    let output = run_rusty_drill(&[], ":list\n:q\n");
+
+    assert!(output.status.success());
+    assert_eq!(
+        String::from_utf8(output.stdout).unwrap(),
+        PRACTICE_LIST_THEN_QUIT_OUTPUT
+    );
+    assert_eq!(String::from_utf8(output.stderr).unwrap(), "");
+}
+
+#[test]
+fn practice_skip_advances_then_quits_with_skipped_summary() {
+    let output = run_rusty_drill(&[], ":skip\n:q\n");
+
+    assert!(output.status.success());
+    assert_eq!(
+        String::from_utf8(output.stdout).unwrap(),
+        PRACTICE_SKIP_THEN_QUIT_OUTPUT
+    );
+    assert_eq!(String::from_utf8(output.stderr).unwrap(), "");
+}
+
+#[test]
+fn practice_skip_final_drill_completes_with_skipped_summary() {
+    let output = run_rusty_drill(&[], PRACTICE_SKIP_FINAL_INPUT);
+
+    assert!(output.status.success());
+    assert_eq!(
+        String::from_utf8(output.stdout).unwrap(),
+        PRACTICE_SKIP_FINAL_OUTPUT
     );
     assert_eq!(String::from_utf8(output.stderr).unwrap(), "");
 }
@@ -228,9 +393,11 @@ fn explicit_drill_001_input_exits_successfully_and_prints_pass() {
 fn one_shot_selected_drill_outputs_do_not_include_summary() {
     let drill_001_output = run_rusty_drill(&["001"], "fn main() {}\n");
     let drill_012_output = run_rusty_drill(&["012"], "while score < 10 {}\n");
+    let command_like_output = run_rusty_drill(&["001"], ":help\n");
 
     assert!(drill_001_output.status.success());
     assert!(drill_012_output.status.success());
+    assert!(command_like_output.status.success());
     assert!(
         !String::from_utf8(drill_001_output.stdout)
             .unwrap()
@@ -241,6 +408,9 @@ fn one_shot_selected_drill_outputs_do_not_include_summary() {
             .unwrap()
             .contains("Summary:")
     );
+    let command_like_stdout = String::from_utf8(command_like_output.stdout).unwrap();
+    assert_eq!(command_like_stdout, DRILL_001_TRY_AGAIN_OUTPUT);
+    assert!(!command_like_stdout.contains("Commands:"));
 }
 
 #[test]
@@ -534,6 +704,10 @@ fn stderr_is_empty_for_normal_product_results() {
     let pass_output = run_rusty_drill(&["001"], "fn main() {}\n");
     let try_again_output = run_rusty_drill(&["012"], "while score < 10\n");
     let quit_output = run_rusty_drill(&[], ":q\n");
+    let practice_help_output = run_rusty_drill(&[], ":help\n:q\n");
+    let practice_status_output = run_rusty_drill(&[], ":status\n:q\n");
+    let practice_list_output = run_rusty_drill(&[], ":list\n:q\n");
+    let practice_skip_output = run_rusty_drill(&[], ":skip\n:q\n");
     let list_output = run_rusty_drill(&["--list"], "");
     let help_output = run_rusty_drill(&["--help"], "");
     let version_output = run_rusty_drill(&["--version"], "");
@@ -542,6 +716,10 @@ fn stderr_is_empty_for_normal_product_results() {
     assert!(pass_output.status.success());
     assert!(try_again_output.status.success());
     assert!(quit_output.status.success());
+    assert!(practice_help_output.status.success());
+    assert!(practice_status_output.status.success());
+    assert!(practice_list_output.status.success());
+    assert!(practice_skip_output.status.success());
     assert!(list_output.status.success());
     assert!(help_output.status.success());
     assert!(version_output.status.success());
@@ -549,6 +727,13 @@ fn stderr_is_empty_for_normal_product_results() {
     assert_eq!(String::from_utf8(pass_output.stderr).unwrap(), "");
     assert_eq!(String::from_utf8(try_again_output.stderr).unwrap(), "");
     assert_eq!(String::from_utf8(quit_output.stderr).unwrap(), "");
+    assert_eq!(String::from_utf8(practice_help_output.stderr).unwrap(), "");
+    assert_eq!(
+        String::from_utf8(practice_status_output.stderr).unwrap(),
+        ""
+    );
+    assert_eq!(String::from_utf8(practice_list_output.stderr).unwrap(), "");
+    assert_eq!(String::from_utf8(practice_skip_output.stderr).unwrap(), "");
     assert_eq!(String::from_utf8(list_output.stderr).unwrap(), "");
     assert_eq!(String::from_utf8(help_output.stderr).unwrap(), "");
     assert_eq!(String::from_utf8(version_output.stderr).unwrap(), "");

@@ -17,6 +17,7 @@ enum DrillCommand {
 
 struct PracticeStats {
     passed: usize,
+    skipped: usize,
     attempts: usize,
 }
 
@@ -134,7 +135,7 @@ fn print_practice_header() {
     println!("Rusty Drill");
     println!();
     println!("Practice");
-    println!("Type :q to quit.");
+    println!("Type :help for commands.");
     println!();
 }
 
@@ -150,6 +151,10 @@ fn print_practice_prompt(drill: &Drill) {
 fn print_drill_list() {
     println!("Rusty Drill");
     println!();
+    print_drill_catalog_body();
+}
+
+fn print_drill_catalog_body() {
     println!("Available drills:");
     for drill in DRILLS {
         println!("{}  {}", drill.id, drill.expected);
@@ -183,6 +188,25 @@ fn print_version() {
 fn print_summary(stats: &PracticeStats) {
     println!("Summary:");
     println!("Passed: {}/{}", stats.passed, DRILLS.len());
+    println!("Skipped: {}", stats.skipped);
+    println!("Attempts: {}", stats.attempts);
+}
+
+fn print_practice_commands() {
+    println!("Commands:");
+    println!(":help    show commands");
+    println!(":status  show session status");
+    println!(":list    show drills");
+    println!(":skip    skip current drill");
+    println!(":q       quit");
+    println!(":quit    quit");
+}
+
+fn print_practice_status(current_drill: &Drill, stats: &PracticeStats) {
+    println!("Status:");
+    println!("Current: {}/{:03}", current_drill.id, DRILLS.len());
+    println!("Passed: {}/{}", stats.passed, DRILLS.len());
+    println!("Skipped: {}", stats.skipped);
     println!("Attempts: {}", stats.attempts);
 }
 
@@ -227,6 +251,7 @@ fn run_practice_session() {
 
     let mut stats = PracticeStats {
         passed: 0,
+        skipped: 0,
         attempts: 0,
     };
     let mut index = 0;
@@ -247,6 +272,30 @@ fn run_practice_session() {
             println!("QUIT");
             print_summary(&stats);
             return;
+        }
+        if answer == ":help" {
+            print_practice_commands();
+            println!();
+            continue;
+        }
+        if answer == ":status" {
+            print_practice_status(drill, &stats);
+            println!();
+            continue;
+        }
+        if answer == ":list" {
+            print_drill_catalog_body();
+            println!();
+            continue;
+        }
+        if answer == ":skip" {
+            stats.skipped += 1;
+            println!("SKIP");
+            index += 1;
+            if index < DRILLS.len() {
+                println!();
+            }
+            continue;
         }
 
         stats.attempts += 1;
