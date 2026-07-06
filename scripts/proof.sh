@@ -484,7 +484,57 @@ section "temporary install"
 cargo install --path . --root "$install_root"
 
 expect_stdout "installed version" 'rusty-drill 0.1.0' "$install_root/bin/rusty-drill" --version
+expect_stdout "installed help" 'Rusty Drill
+
+Usage:
+  rusty-drill
+  rusty-drill [DRILL_ID]
+  rusty-drill play
+  rusty-drill --list
+  rusty-drill --help
+  rusty-drill --version
+
+Default:
+  Starts a practice session.
+
+Current drills:
+001  fn main() {}
+002  println!("Rusty Drill");
+003  let answer = 42;
+004  let name = "Rusty Drill";
+005  let mut score = 0;
+006  score += 1;
+007  let passed = true;
+008  let score: i32 = 0;
+009  let scores = [1, 2, 3];
+010  fn add_one(x: i32) -> i32 { x + 1 }
+011  if score > 0 {}
+012  while score < 10 {}' "$install_root/bin/rusty-drill" --help
+expect_stdout "installed list" 'Rusty Drill
+
+Available drills:
+001  fn main() {}
+002  println!("Rusty Drill");
+003  let answer = 42;
+004  let name = "Rusty Drill";
+005  let mut score = 0;
+006  score += 1;
+007  let passed = true;
+008  let score: i32 = 0;
+009  let scores = [1, 2, 3];
+010  fn add_one(x: i32) -> i32 { x + 1 }
+011  if score > 0 {}
+012  while score < 10 {}' "$install_root/bin/rusty-drill" --list
 expect_stdout "installed practice quit" "$practice_quit_output" sh -c 'printf ":q\n" | "$1/bin/rusty-drill"' sh "$install_root"
+expect_stdout "installed practice help then quit" "$practice_help_then_quit_output" sh -c 'printf ":help\n:q\n" | "$1/bin/rusty-drill"' sh "$install_root"
+expect_stdout "installed Drill 001 PASS" 'Rusty Drill
+
+Drill 001
+Type exactly:
+
+fn main() {}
+
+>PASS' sh -c 'printf "fn main() {}\n" | "$1/bin/rusty-drill" 001' sh "$install_root"
 
 expect_stdout "Drill 002 PASS" 'Rusty Drill
 

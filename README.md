@@ -23,6 +23,14 @@ rusty-drill play
 In practice mode, `:help` shows commands, `:status` shows session status, `:list` shows drills, and `:skip` skips the current drill. `:q` and `:quit` quit successfully. Passing every drill prints `COMPLETE`.
 Practice mode prints a compact summary with passed, skipped, and attempts when it completes or quits; the summary is not saved.
 
+Practice commands:
+
+- `:help` shows commands.
+- `:status` shows session status.
+- `:list` shows drills.
+- `:skip` skips the current drill.
+- `:q` / `:quit` quits practice mode.
+
 You can list drills, print help/version output, or run one selected drill by id:
 
 ```sh
@@ -87,7 +95,7 @@ Spaces, punctuation, braces, tabs, casing, Unicode, and internal spacing are not
 cargo install --path .
 ```
 
-Then run:
+## Play
 
 ```sh
 rusty-drill
