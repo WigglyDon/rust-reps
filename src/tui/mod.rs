@@ -1,6 +1,7 @@
 use std::io;
 use std::time::{Duration, Instant};
 
+use crate::client::ClientAction;
 use crossterm::event::{self, Event};
 
 mod app;
@@ -9,7 +10,7 @@ mod render;
 mod terminal;
 
 pub use app::TuiApp;
-pub use input::{UiIntent, classify_key_event};
+pub use input::classify_key_event;
 
 const CURSOR_BLINK_INTERVAL: Duration = Duration::from_millis(500);
 
@@ -53,9 +54,9 @@ fn run_tui_loop(terminal: &mut terminal::TuiTerminal, app: &mut TuiApp) -> io::R
 
             let intent = match event {
                 Event::Key(key) => classify_key_event(key),
-                _ => UiIntent::Ignore,
+                _ => ClientAction::Ignore,
             };
-            app.handle_intent(intent);
+            app.handle_action(intent);
             next_cursor_tick = Instant::now() + CURSOR_BLINK_INTERVAL;
         } else {
             app.tick_cursor();

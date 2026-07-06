@@ -1,13 +1,12 @@
-use crate::{catalog, practice};
-
-use super::input::UiIntent;
+use crate::{
+    catalog,
+    client::{ClientAction, ClientFrame, ClientUiState, project_client_frame},
+    practice,
+};
 
 pub struct TuiApp {
     session: practice::PracticeSession,
-    input: String,
-    status_lines: Vec<String>,
-    show_help_panel: bool,
-    cursor_visible: bool,
+    ui_state: ClientUiState,
     should_quit: bool,
     completed: bool,
 }
@@ -16,37 +15,34 @@ impl TuiApp {
     pub fn new() -> Self {
         Self {
             session: practice::PracticeSession::new(),
-            input: String::new(),
-            status_lines: vec!["Waiting for input.".to_string()],
-            show_help_panel: false,
-            cursor_visible: true,
+            ui_state: ClientUiState::new(),
             should_quit: false,
             completed: false,
         }
     }
 
+    #[cfg(test)]
     pub fn session(&self) -> &practice::PracticeSession {
         &self.session
     }
 
+    #[cfg(test)]
     pub fn input(&self) -> &str {
-        &self.input
+        self.ui_state.draft_input()
     }
 
     pub fn should_quit(&self) -> bool {
         self.should_quit
     }
 
+    #[cfg(test)]
     pub fn completed(&self) -> bool {
         self.completed
     }
 
-    pub fn show_help_panel(&self) -> bool {
-        self.show_help_panel
-    }
-
+    #[cfg(test)]
     pub fn cursor_visible(&self) -> bool {
-        self.cursor_visible
+        self.ui_state.cursor_visible()
     }
 
     pub fn active_drill(&self) -> &'static catalog::Drill {
@@ -55,32 +51,29 @@ impl TuiApp {
             .unwrap_or(&catalog::drills()[0])
     }
 
+    #[cfg(test)]
     pub fn status_lines(&self) -> &[String] {
-        &self.status_lines
+        self.ui_state.status_lines()
     }
 
-    pub fn handle_intent(&mut self, intent: UiIntent) {
-        match intent {
-            UiIntent::Quit => self.quit(),
-            UiIntent::ToggleHelp => {
-                self.show_help_panel = !self.show_help_panel;
-                self.show_cursor();
-            }
-            UiIntent::Backspace => {
-                self.input.pop();
-                self.show_cursor();
-            }
-            UiIntent::Submit => self.submit_current_input(),
-            UiIntent::Append(char) => {
-                self.input.push(char);
-                self.show_cursor();
-            }
-            UiIntent::Ignore => {}
+    pub fn frame(&self) -> ClientFrame {
+        project_client_frame(&self.session, &self.ui_state, self.completed)
+    }
+
+    pub fn handle_action(&mut self, action: ClientAction) {
+        match action {
+            ClientAction::Quit => self.quit(),
+            ClientAction::Submit => self.submit_current_input(),
+            ClientAction::Ignore => {}
+            ClientAction::TypeChar(_)
+            | ClientAction::Backspace
+            | ClientAction::ToggleHelp
+            | ClientAction::CursorTick => self.ui_state.apply_action(action),
         }
     }
 
     pub fn tick_cursor(&mut self) {
-        self.cursor_visible = !self.cursor_visible;
+        self.ui_state.apply_action(ClientAction::CursorTick);
     }
 
     fn submit_current_input(&mut self) {
@@ -88,9 +81,8 @@ impl TuiApp {
             return;
         }
 
-        let submitted = std::mem::take(&mut self.input);
-        self.show_cursor();
-        self.status_lines = match self.session.submit_input(&submitted) {
+        let submitted = self.ui_state.take_draft_input();
+        let status_lines = match self.session.submit_input(&submitted) {
             practice::PracticeEvent::Quit => {
                 self.should_quit = true;
                 collect_summary_lines("QUIT", &self.session)
@@ -155,15 +147,13 @@ impl TuiApp {
                 ]
             }
         };
+        self.ui_state.set_status_lines(status_lines);
     }
 
     fn quit(&mut self) {
         self.should_quit = true;
-        self.status_lines = collect_summary_lines("QUIT", &self.session);
-    }
-
-    fn show_cursor(&mut self) {
-        self.cursor_visible = true;
+        self.ui_state
+            .set_status_lines(collect_summary_lines("QUIT", &self.session));
     }
 }
 
@@ -192,16 +182,16 @@ fn collect_summary_pairs(session: &practice::PracticeSession) -> Vec<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::super::input::UiIntent;
     use super::{TuiApp, collect_summary_pairs};
+    use crate::client::ClientAction;
 
     #[test]
     fn correct_input_advances_and_clears_input() {
         let mut app = TuiApp::new();
         for ch in "fn main() {}".chars() {
-            app.handle_intent(UiIntent::Append(ch));
+            app.handle_action(ClientAction::TypeChar(ch));
         }
-        app.handle_intent(UiIntent::Submit);
+        app.handle_action(ClientAction::Submit);
 
         assert_eq!(app.input(), "");
         assert_eq!(app.session().passed(), 1);
@@ -219,9 +209,9 @@ mod tests {
     fn wrong_input_tracks_attempt_but_stays_on_current_drill() {
         let mut app = TuiApp::new();
         for ch in "wrong".chars() {
-            app.handle_intent(UiIntent::Append(ch));
+            app.handle_action(ClientAction::TypeChar(ch));
         }
-        app.handle_intent(UiIntent::Submit);
+        app.handle_action(ClientAction::Submit);
 
         assert_eq!(app.input(), "");
         assert_eq!(app.session().passed(), 0);
@@ -248,9 +238,9 @@ mod tests {
         let mut app = TuiApp::new();
 
         for ch in "abc".chars() {
-            app.handle_intent(UiIntent::Append(ch));
+            app.handle_action(ClientAction::TypeChar(ch));
         }
-        app.handle_intent(UiIntent::Backspace);
+        app.handle_action(ClientAction::Backspace);
 
         assert_eq!(app.input(), "ab");
     }
@@ -261,8 +251,8 @@ mod tests {
         app.tick_cursor();
         assert!(!app.cursor_visible());
 
-        app.handle_intent(UiIntent::Append('h'));
-        app.handle_intent(UiIntent::Append('i'));
+        app.handle_action(ClientAction::TypeChar('h'));
+        app.handle_action(ClientAction::TypeChar('i'));
 
         assert_eq!(app.input(), "hi");
         assert!(app.cursor_visible());
@@ -270,7 +260,7 @@ mod tests {
         app.tick_cursor();
         assert!(!app.cursor_visible());
 
-        app.handle_intent(UiIntent::Backspace);
+        app.handle_action(ClientAction::Backspace);
         assert_eq!(app.input(), "h");
         assert!(app.cursor_visible());
     }
@@ -299,9 +289,9 @@ mod tests {
                 .current_drill()
                 .expect("expected active drill");
             for ch in drill.expected.chars() {
-                app.handle_intent(UiIntent::Append(ch));
+                app.handle_action(ClientAction::TypeChar(ch));
             }
-            app.handle_intent(UiIntent::Submit);
+            app.handle_action(ClientAction::Submit);
             if drill_index < 11 {
                 continue;
             }

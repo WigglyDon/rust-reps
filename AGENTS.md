@@ -48,7 +48,8 @@
 - `answer`: answer normalization/comparison helpers.
 - `cli`: launch command selection, usage/help/list/version, CLI/tool errors.
 - `practice`: session state transitions and command handling.
-- `tui`: fullscreen terminal rendering, key input loop, and TUI-local cursor blink only.
+- `client`: platform-neutral visual projection, client frame structs, and visual-only UI state.
+- `tui`: terminal adapter, fullscreen rendering, key input loop, and terminal lifecycle only.
 - `tests` / `scripts/proof.sh`: executable behavior evidence.
 - `README`: describe proven behavior only.
 

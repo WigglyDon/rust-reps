@@ -1,4 +1,4 @@
-use crate::tui::app::TuiApp;
+use crate::{client::ClientFrame, tui::app::TuiApp};
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Margin},
@@ -7,6 +7,11 @@ use ratatui::{
 };
 
 pub(crate) fn render_ui(frame: &mut Frame<'_>, app: &TuiApp) {
+    let client_frame = app.frame();
+    render_client_frame(frame, &client_frame);
+}
+
+fn render_client_frame(frame: &mut Frame<'_>, client_frame: &ClientFrame) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
@@ -30,23 +35,23 @@ pub(crate) fn render_ui(frame: &mut Frame<'_>, app: &TuiApp) {
     frame.render_widget(game_block, game_area);
 
     frame.render_widget(
-        Paragraph::new(Text::from(as_lines(problem_lines(app)))),
+        Paragraph::new(Text::from(as_lines(problem_lines(client_frame)))),
         game_chunks[0],
     );
 
     frame.render_widget(
-        Paragraph::new(Text::from(as_lines(workbox_lines(app)))),
+        Paragraph::new(Text::from(as_lines(workbox_lines(client_frame)))),
         game_chunks[1],
     );
 
     frame.render_widget(
-        Paragraph::new(Text::from(as_lines(status_chrome_lines(app))))
+        Paragraph::new(Text::from(as_lines(status_chrome_lines(client_frame))))
             .block(Block::default().borders(Borders::ALL).title("Status")),
         chunks[1],
     );
 
     frame.render_widget(
-        Paragraph::new(Text::from(as_lines(footer_lines(app)))),
+        Paragraph::new(Text::from(as_lines(footer_lines(client_frame)))),
         chunks[2],
     );
 }
@@ -55,79 +60,48 @@ fn as_lines(values: Vec<String>) -> Vec<Line<'static>> {
     values.into_iter().map(Line::from).collect()
 }
 
-fn problem_lines(app: &TuiApp) -> Vec<String> {
-    let drill = app.active_drill();
-    let drill_label = if app.completed() {
-        "Complete".to_string()
-    } else {
-        format!("Drill {}/{}", drill.id, app.session().total_drills())
-    };
-
+fn problem_lines(client_frame: &ClientFrame) -> Vec<String> {
     vec![
-        "Problem".to_string(),
-        drill_label,
+        client_frame.game_window.problem.title.clone(),
+        client_frame.game_window.problem.progress_label.clone(),
         String::new(),
-        "Copy this line exactly:".to_string(),
-        drill.prompt.to_string(),
+        client_frame.game_window.problem.instruction.clone(),
+        client_frame.game_window.problem.prompt.clone(),
     ]
 }
 
-fn workbox_lines(app: &TuiApp) -> Vec<String> {
-    vec!["Workbox".to_string(), String::new(), input_line(app)]
+fn workbox_lines(client_frame: &ClientFrame) -> Vec<String> {
+    vec![
+        client_frame.game_window.workbox.title.clone(),
+        String::new(),
+        input_line(client_frame),
+    ]
 }
 
-fn status_chrome_lines(app: &TuiApp) -> Vec<String> {
-    let mut lines = app
-        .status_lines()
-        .iter()
-        .enumerate()
-        .map(|(index, line)| emphasize_status_line(index, line))
-        .collect::<Vec<_>>();
-    if app.show_help_panel() {
-        lines.extend([
-            "Commands:".to_string(),
-            "Backspace: delete char".to_string(),
-            "Enter: submit input".to_string(),
-            "Esc / Ctrl+C: quit".to_string(),
-            "F1 or ?: toggle this panel".to_string(),
-        ]);
-    }
+fn status_chrome_lines(client_frame: &ClientFrame) -> Vec<String> {
+    let mut lines = client_frame.status_chrome.lines.clone();
+    lines.extend(client_frame.help_chrome.lines.clone());
     lines
 }
 
-fn input_line(app: &TuiApp) -> String {
-    let cursor = if app.cursor_visible() { "|" } else { " " };
-    if app.input().is_empty() {
+fn input_line(client_frame: &ClientFrame) -> String {
+    let cursor = if client_frame.game_window.workbox.cursor_visible {
+        "|"
+    } else {
+        " "
+    };
+    if client_frame.game_window.workbox.input.is_empty() {
         format!("> {}", cursor)
     } else {
-        format!("> {}{}", app.input(), cursor)
+        format!("> {}{}", client_frame.game_window.workbox.input, cursor)
     }
 }
 
-fn footer_lines(app: &TuiApp) -> Vec<String> {
+fn footer_lines(client_frame: &ClientFrame) -> Vec<String> {
     vec![
-        format!(
-            "Passed {}/{} | Skipped {} | Attempts {}",
-            app.session().passed(),
-            app.session().total_drills(),
-            app.session().skipped(),
-            app.session().attempts()
-        ),
-        "Enter submit | Esc quit | ? help".to_string(),
+        client_frame.progress_chrome.line.clone(),
+        client_frame.help_chrome.default_hint.clone(),
     ]
-}
-
-fn emphasize_status_line(index: usize, line: &str) -> String {
-    if index == 0 {
-        match line {
-            "PASS" | "TRY AGAIN" | "UNKNOWN COMMAND" | "COMPLETE" | "QUIT" | "STATUS" | "SKIP" => {
-                format!(">> {}", line)
-            }
-            _ => line.to_string(),
-        }
-    } else {
-        line.to_string()
-    }
 }
 
 #[cfg(test)]
@@ -138,23 +112,24 @@ struct RenderSnapshot {
 }
 
 #[cfg(test)]
-fn render_snapshot(app: &TuiApp) -> RenderSnapshot {
+fn render_snapshot(client_frame: &ClientFrame) -> RenderSnapshot {
     RenderSnapshot {
-        game: [problem_lines(app), workbox_lines(app)].concat(),
-        status: status_chrome_lines(app),
-        footer: footer_lines(app),
+        game: [problem_lines(client_frame), workbox_lines(client_frame)].concat(),
+        status: status_chrome_lines(client_frame),
+        footer: footer_lines(client_frame),
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::render_snapshot;
-    use crate::tui::{TuiApp, UiIntent};
+    use crate::{client::ClientAction, tui::TuiApp};
 
     #[test]
     fn render_snapshot_keeps_only_problem_and_workbox_in_game_window() {
         let app = TuiApp::new();
-        let snapshot = render_snapshot(&app);
+        let frame = app.frame();
+        let snapshot = render_snapshot(&frame);
         let problem_position = snapshot
             .game
             .iter()
@@ -199,7 +174,8 @@ mod tests {
     #[test]
     fn render_snapshot_keeps_status_outside_game_window() {
         let app = TuiApp::new();
-        let snapshot = render_snapshot(&app);
+        let frame = app.frame();
+        let snapshot = render_snapshot(&frame);
         assert!(!snapshot.game.iter().any(|line| line.contains("READY")));
         assert!(
             !snapshot
@@ -218,7 +194,8 @@ mod tests {
     #[test]
     fn render_snapshot_problem_descriptor_precedes_prompt_line() {
         let app = TuiApp::new();
-        let snapshot = render_snapshot(&app);
+        let frame = app.frame();
+        let snapshot = render_snapshot(&frame);
         let descriptor_position = snapshot
             .game
             .iter()
@@ -236,7 +213,8 @@ mod tests {
     #[test]
     fn render_snapshot_keeps_stats_and_help_in_footer_chrome() {
         let app = TuiApp::new();
-        let snapshot = render_snapshot(&app);
+        let frame = app.frame();
+        let snapshot = render_snapshot(&frame);
         assert!(
             snapshot
                 .footer
@@ -262,9 +240,10 @@ mod tests {
     fn render_snapshot_shows_typed_input_text() {
         let mut app = TuiApp::new();
         for ch in "hello".chars() {
-            app.handle_intent(UiIntent::Append(ch));
+            app.handle_action(ClientAction::TypeChar(ch));
         }
-        let snapshot = render_snapshot(&app);
+        let frame = app.frame();
+        let snapshot = render_snapshot(&frame);
 
         assert!(snapshot.game.iter().any(|line| line == "> hello|"));
     }
@@ -273,19 +252,22 @@ mod tests {
     fn render_snapshot_hides_cursor_when_cursor_state_is_hidden() {
         let mut app = TuiApp::new();
         app.tick_cursor();
-        let empty_snapshot = render_snapshot(&app);
+        let frame = app.frame();
+        let empty_snapshot = render_snapshot(&frame);
         assert!(empty_snapshot.game.iter().any(|line| line == ">  "));
 
-        app.handle_intent(UiIntent::Append('x'));
+        app.handle_action(ClientAction::TypeChar('x'));
         app.tick_cursor();
-        let typed_snapshot = render_snapshot(&app);
+        let frame = app.frame();
+        let typed_snapshot = render_snapshot(&frame);
         assert!(typed_snapshot.game.iter().any(|line| line == "> x "));
     }
 
     #[test]
     fn render_snapshot_shows_help_only_when_toggled() {
         let mut app = TuiApp::new();
-        let default_snapshot = render_snapshot(&app);
+        let frame = app.frame();
+        let default_snapshot = render_snapshot(&frame);
         assert!(
             !default_snapshot
                 .status
@@ -299,8 +281,9 @@ mod tests {
                 .any(|line| line == "Backspace: delete char")
         );
 
-        app.handle_intent(UiIntent::ToggleHelp);
-        let help_snapshot = render_snapshot(&app);
+        app.handle_action(ClientAction::ToggleHelp);
+        let frame = app.frame();
+        let help_snapshot = render_snapshot(&frame);
         assert!(help_snapshot.status.iter().any(|line| line == "Commands:"));
         assert!(
             help_snapshot
@@ -315,10 +298,11 @@ mod tests {
     fn render_snapshot_makes_try_again_prominent_with_expected_answer() {
         let mut app = TuiApp::new();
         for ch in "wrong".chars() {
-            app.handle_intent(UiIntent::Append(ch));
+            app.handle_action(ClientAction::TypeChar(ch));
         }
-        app.handle_intent(UiIntent::Submit);
-        let snapshot = render_snapshot(&app);
+        app.handle_action(ClientAction::Submit);
+        let frame = app.frame();
+        let snapshot = render_snapshot(&frame);
 
         assert!(snapshot.status.iter().any(|line| line == ">> TRY AGAIN"));
         assert!(snapshot.status.iter().any(|line| line == "Expected:"));
@@ -331,10 +315,11 @@ mod tests {
     fn render_snapshot_makes_unknown_command_clear() {
         let mut app = TuiApp::new();
         for ch in ":unknown".chars() {
-            app.handle_intent(UiIntent::Append(ch));
+            app.handle_action(ClientAction::TypeChar(ch));
         }
-        app.handle_intent(UiIntent::Submit);
-        let snapshot = render_snapshot(&app);
+        app.handle_action(ClientAction::Submit);
+        let frame = app.frame();
+        let snapshot = render_snapshot(&frame);
 
         assert!(
             snapshot
@@ -360,10 +345,11 @@ mod tests {
     fn render_snapshot_makes_pass_prominent_and_moves_to_next_drill() {
         let mut app = TuiApp::new();
         for ch in "fn main() {}".chars() {
-            app.handle_intent(UiIntent::Append(ch));
+            app.handle_action(ClientAction::TypeChar(ch));
         }
-        app.handle_intent(UiIntent::Submit);
-        let snapshot = render_snapshot(&app);
+        app.handle_action(ClientAction::Submit);
+        let frame = app.frame();
+        let snapshot = render_snapshot(&frame);
 
         assert!(snapshot.status.iter().any(|line| line == ">> PASS"));
         assert!(
