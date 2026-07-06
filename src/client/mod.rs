@@ -1,5 +1,7 @@
 use crate::engine;
 
+const COUNTER_PULSE_TICKS: u8 = 2;
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ClientAction {
     TypeChar(char),
@@ -11,12 +13,42 @@ pub enum ClientAction {
     Ignore,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CodeTokenKind {
+    Keyword,
+    Type,
+    Number,
+    StringLiteral,
+    Macro,
+    Identifier,
+    Punctuation,
+    Whitespace,
+    Comment,
+    Plain,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CodeToken {
+    pub kind: CodeTokenKind,
+    pub text: String,
+}
+
+impl CodeToken {
+    fn new(kind: CodeTokenKind, text: impl Into<String>) -> Self {
+        Self {
+            kind,
+            text: text.into(),
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ClientUiState {
     draft_input: String,
     cursor_visible: bool,
     help_open: bool,
     status_lines: Vec<String>,
+    counter_pulse_ticks_remaining: u8,
 }
 
 impl ClientUiState {
@@ -26,6 +58,7 @@ impl ClientUiState {
             cursor_visible: true,
             help_open: false,
             status_lines: Vec::new(),
+            counter_pulse_ticks_remaining: 0,
         }
     }
 
@@ -45,6 +78,10 @@ impl ClientUiState {
         &self.status_lines
     }
 
+    pub fn counter_pulse_active(&self) -> bool {
+        self.counter_pulse_ticks_remaining > 0
+    }
+
     pub fn apply_action(&mut self, action: ClientAction) {
         match action {
             ClientAction::TypeChar(ch) => {
@@ -61,6 +98,7 @@ impl ClientUiState {
             }
             ClientAction::CursorTick => {
                 self.cursor_visible = !self.cursor_visible;
+                self.advance_counter_pulse();
             }
             ClientAction::Submit | ClientAction::Quit | ClientAction::Ignore => {}
         }
@@ -78,6 +116,14 @@ impl ClientUiState {
     pub fn show_cursor(&mut self) {
         self.cursor_visible = true;
     }
+
+    pub fn start_counter_pulse(&mut self) {
+        self.counter_pulse_ticks_remaining = COUNTER_PULSE_TICKS;
+    }
+
+    fn advance_counter_pulse(&mut self) {
+        self.counter_pulse_ticks_remaining = self.counter_pulse_ticks_remaining.saturating_sub(1);
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -85,6 +131,7 @@ pub struct ClientFrame {
     pub game_window: GameWindowFrame,
     pub status_chrome: StatusChromeFrame,
     pub completed_reps_this_run: usize,
+    pub counter_pulse_active: bool,
     pub help_chrome: HelpChromeFrame,
 }
 
@@ -98,17 +145,37 @@ pub struct GameWindowFrame {
 pub struct ProblemView {
     pub instruction: String,
     pub prompt: String,
+    pub prompt_tokens: Vec<CodeToken>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct WorkboxView {
     pub input: String,
+    pub input_tokens: Vec<CodeToken>,
     pub cursor_visible: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct StatusChromeFrame {
-    pub lines: Vec<String>,
+    pub lines: Vec<StatusLine>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct StatusLine {
+    pub tone: StatusTone,
+    pub text: String,
+    pub code_tokens: Vec<CodeToken>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum StatusTone {
+    Pass,
+    Complete,
+    TryAgain,
+    ExpectedLabel,
+    UnknownCommand,
+    Warning,
+    Plain,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -122,31 +189,200 @@ pub fn project_client_frame(session: &engine::Session, ui_state: &ClientUiState)
     let exercise = snapshot
         .exercise
         .unwrap_or_else(engine::first_exercise_packet);
+    let input = ui_state.draft_input().to_string();
 
     ClientFrame {
         game_window: GameWindowFrame {
             problem: ProblemView {
                 instruction: "do this:".to_string(),
                 prompt: exercise.prompt.to_string(),
+                prompt_tokens: tokenize_rust_line(exercise.prompt),
             },
             workbox: WorkboxView {
-                input: ui_state.draft_input().to_string(),
+                input_tokens: tokenize_rust_line(&input),
+                input,
                 cursor_visible: ui_state.cursor_visible(),
             },
         },
         status_chrome: StatusChromeFrame {
-            lines: ui_state
-                .status_lines()
-                .iter()
-                .map(|line| line.to_string())
-                .collect(),
+            lines: status_lines(ui_state.status_lines()),
         },
         completed_reps_this_run: snapshot.stats.passed,
+        counter_pulse_active: ui_state.counter_pulse_active(),
         help_chrome: HelpChromeFrame {
             open: ui_state.help_open(),
             lines: help_lines(ui_state.help_open()),
         },
     }
+}
+
+pub fn tokenize_rust_line(line: &str) -> Vec<CodeToken> {
+    let chars: Vec<char> = line.chars().collect();
+    let mut tokens = Vec::new();
+    let mut index = 0;
+
+    while index < chars.len() {
+        let ch = chars[index];
+
+        if ch.is_whitespace() {
+            let start = index;
+            while index < chars.len() && chars[index].is_whitespace() {
+                index += 1;
+            }
+            tokens.push(CodeToken::new(
+                CodeTokenKind::Whitespace,
+                chars[start..index].iter().collect::<String>(),
+            ));
+        } else if ch == '/' && chars.get(index + 1) == Some(&'/') {
+            tokens.push(CodeToken::new(
+                CodeTokenKind::Comment,
+                chars[index..].iter().collect::<String>(),
+            ));
+            break;
+        } else if ch == '"' {
+            let start = index;
+            index += 1;
+            let mut escaped = false;
+            while index < chars.len() {
+                let current = chars[index];
+                index += 1;
+                if escaped {
+                    escaped = false;
+                } else if current == '\\' {
+                    escaped = true;
+                } else if current == '"' {
+                    break;
+                }
+            }
+            tokens.push(CodeToken::new(
+                CodeTokenKind::StringLiteral,
+                chars[start..index].iter().collect::<String>(),
+            ));
+        } else if ch.is_ascii_digit() {
+            let start = index;
+            index += 1;
+            while index < chars.len()
+                && (chars[index].is_ascii_alphanumeric() || chars[index] == '_')
+            {
+                index += 1;
+            }
+            tokens.push(CodeToken::new(
+                CodeTokenKind::Number,
+                chars[start..index].iter().collect::<String>(),
+            ));
+        } else if is_identifier_start(ch) {
+            let start = index;
+            index += 1;
+            while index < chars.len() && is_identifier_continue(chars[index]) {
+                index += 1;
+            }
+            let identifier: String = chars[start..index].iter().collect();
+            if chars.get(index) == Some(&'!') {
+                index += 1;
+                tokens.push(CodeToken::new(
+                    CodeTokenKind::Macro,
+                    chars[start..index].iter().collect::<String>(),
+                ));
+            } else if is_keyword(&identifier) {
+                tokens.push(CodeToken::new(CodeTokenKind::Keyword, identifier));
+            } else if is_type_name(&identifier) {
+                tokens.push(CodeToken::new(CodeTokenKind::Type, identifier));
+            } else {
+                tokens.push(CodeToken::new(CodeTokenKind::Identifier, identifier));
+            }
+        } else if ch.is_ascii_punctuation() {
+            let start = index;
+            index += 1;
+            while index < chars.len()
+                && chars[index].is_ascii_punctuation()
+                && chars[index] != '"'
+                && !(chars[index] == '/' && chars.get(index + 1) == Some(&'/'))
+                && !is_identifier_start(chars[index])
+            {
+                index += 1;
+            }
+            tokens.push(CodeToken::new(
+                CodeTokenKind::Punctuation,
+                chars[start..index].iter().collect::<String>(),
+            ));
+        } else {
+            tokens.push(CodeToken::new(CodeTokenKind::Plain, ch.to_string()));
+            index += 1;
+        }
+    }
+
+    tokens
+}
+
+fn status_lines(lines: &[String]) -> Vec<StatusLine> {
+    let mut projected = Vec::new();
+    let mut previous_was_expected_label = false;
+
+    for line in lines {
+        let code_tokens = if previous_was_expected_label {
+            tokenize_rust_line(line)
+        } else {
+            Vec::new()
+        };
+        let tone = if previous_was_expected_label {
+            StatusTone::Plain
+        } else {
+            status_tone(line)
+        };
+
+        projected.push(StatusLine {
+            tone,
+            text: line.to_string(),
+            code_tokens,
+        });
+        previous_was_expected_label = line == "Expected:";
+    }
+
+    projected
+}
+
+fn status_tone(line: &str) -> StatusTone {
+    match line {
+        "PASS" => StatusTone::Pass,
+        "COMPLETE" => StatusTone::Complete,
+        "TRY AGAIN" => StatusTone::TryAgain,
+        "Expected:" => StatusTone::ExpectedLabel,
+        "UNKNOWN COMMAND" => StatusTone::UnknownCommand,
+        "SKIP" | "QUIT" | "STATUS" => StatusTone::Warning,
+        _ => StatusTone::Plain,
+    }
+}
+
+fn is_identifier_start(ch: char) -> bool {
+    ch == '_' || ch.is_ascii_alphabetic()
+}
+
+fn is_identifier_continue(ch: char) -> bool {
+    is_identifier_start(ch) || ch.is_ascii_digit()
+}
+
+fn is_keyword(identifier: &str) -> bool {
+    matches!(
+        identifier,
+        "fn" | "let"
+            | "mut"
+            | "if"
+            | "else"
+            | "while"
+            | "for"
+            | "loop"
+            | "match"
+            | "return"
+            | "true"
+            | "false"
+    )
+}
+
+fn is_type_name(identifier: &str) -> bool {
+    matches!(
+        identifier,
+        "i32" | "u32" | "usize" | "bool" | "String" | "str" | "char"
+    )
 }
 
 fn help_lines(open: bool) -> Vec<String> {
@@ -165,8 +401,108 @@ fn help_lines(open: bool) -> Vec<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{ClientAction, ClientUiState, project_client_frame};
+    use super::{
+        ClientAction, ClientUiState, CodeTokenKind, StatusTone, project_client_frame,
+        tokenize_rust_line,
+    };
     use crate::engine;
+
+    fn token_text(tokens: &[super::CodeToken]) -> String {
+        tokens
+            .iter()
+            .map(|token| token.text.as_str())
+            .collect::<String>()
+    }
+
+    fn token_kinds_and_text(tokens: &[super::CodeToken]) -> Vec<(CodeTokenKind, String)> {
+        tokens
+            .iter()
+            .map(|token| (token.kind.clone(), token.text.clone()))
+            .collect()
+    }
+
+    #[test]
+    fn tokenizer_highlights_main_function_line() {
+        let tokens = tokenize_rust_line("fn main() {}");
+
+        assert_eq!(token_text(&tokens), "fn main() {}");
+        assert!(
+            tokens
+                .iter()
+                .any(|token| token.kind == CodeTokenKind::Keyword && token.text == "fn")
+        );
+        assert!(
+            tokens
+                .iter()
+                .any(|token| token.kind == CodeTokenKind::Identifier && token.text == "main")
+        );
+        assert!(
+            tokens
+                .iter()
+                .any(|token| token.kind == CodeTokenKind::Punctuation && token.text.contains('{'))
+        );
+    }
+
+    #[test]
+    fn tokenizer_highlights_let_type_and_number() {
+        let tokens = tokenize_rust_line("let score: i32 = 0;");
+
+        assert_eq!(token_text(&tokens), "let score: i32 = 0;");
+        assert!(
+            tokens
+                .iter()
+                .any(|token| token.kind == CodeTokenKind::Keyword && token.text == "let")
+        );
+        assert!(
+            tokens
+                .iter()
+                .any(|token| token.kind == CodeTokenKind::Type && token.text == "i32")
+        );
+        assert!(
+            tokens
+                .iter()
+                .any(|token| token.kind == CodeTokenKind::Number && token.text == "0")
+        );
+    }
+
+    #[test]
+    fn tokenizer_highlights_macro_and_string_literal() {
+        let tokens = tokenize_rust_line("println!(\"Rust Reps\");");
+
+        assert_eq!(token_text(&tokens), "println!(\"Rust Reps\");");
+        assert!(
+            tokens
+                .iter()
+                .any(|token| token.kind == CodeTokenKind::Macro && token.text == "println!")
+        );
+        assert!(tokens.iter().any(
+            |token| token.kind == CodeTokenKind::StringLiteral && token.text == "\"Rust Reps\""
+        ));
+    }
+
+    #[test]
+    fn tokenizer_preserves_exact_text_when_concatenated() {
+        for line in [
+            "fn main() {}",
+            "let score: i32 = 0;",
+            "println!(\"Rust Reps\");",
+            "if score > 0 {}",
+            "// note",
+        ] {
+            assert_eq!(token_text(&tokenize_rust_line(line)), line);
+        }
+    }
+
+    #[test]
+    fn tokenizer_handles_unknown_identifiers_safely() {
+        let tokens = tokenize_rust_line("mystery_value @");
+
+        assert_eq!(token_text(&tokens), "mystery_value @");
+        assert_eq!(
+            token_kinds_and_text(&tokens)[0],
+            (CodeTokenKind::Identifier, "mystery_value".to_string())
+        );
+    }
 
     #[test]
     fn frame_projection_includes_problem_prompt() {
@@ -177,6 +513,10 @@ mod tests {
 
         assert_eq!(frame.game_window.problem.instruction, "do this:");
         assert_eq!(frame.game_window.problem.prompt, "fn main() {}");
+        assert_eq!(
+            token_text(&frame.game_window.problem.prompt_tokens),
+            "fn main() {}"
+        );
     }
 
     #[test]
@@ -187,6 +527,22 @@ mod tests {
         let frame = project_client_frame(&session, &ui_state);
 
         assert_eq!(frame.completed_reps_this_run, 0);
+        assert!(!frame.counter_pulse_active);
+    }
+
+    #[test]
+    fn counter_pulse_state_expires_after_fixed_ticks() {
+        let mut ui_state = ClientUiState::new();
+
+        assert!(!ui_state.counter_pulse_active());
+        ui_state.start_counter_pulse();
+        assert!(ui_state.counter_pulse_active());
+
+        ui_state.apply_action(ClientAction::CursorTick);
+        assert!(ui_state.counter_pulse_active());
+
+        ui_state.apply_action(ClientAction::CursorTick);
+        assert!(!ui_state.counter_pulse_active());
     }
 
     #[test]
@@ -262,6 +618,7 @@ mod tests {
         let frame = project_client_frame(&fresh_session, &ui_state);
 
         assert_eq!(frame.completed_reps_this_run, 0);
+        assert!(!frame.counter_pulse_active);
     }
 
     #[test]
@@ -274,6 +631,7 @@ mod tests {
         let frame = project_client_frame(&session, &ui_state);
 
         assert_eq!(frame.game_window.workbox.input, "x");
+        assert_eq!(token_text(&frame.game_window.workbox.input_tokens), "x");
         assert!(!frame.game_window.workbox.cursor_visible);
     }
 
@@ -290,11 +648,24 @@ mod tests {
         let frame = project_client_frame(&session, &ui_state);
 
         assert_eq!(
-            frame.status_chrome.lines,
+            frame
+                .status_chrome
+                .lines
+                .iter()
+                .map(|line| (
+                    &line.tone,
+                    line.text.as_str(),
+                    token_text(&line.code_tokens)
+                ))
+                .collect::<Vec<_>>(),
             vec![
-                "TRY AGAIN".to_string(),
-                "Expected:".to_string(),
-                "fn main() {}".to_string(),
+                (&StatusTone::TryAgain, "TRY AGAIN", String::new()),
+                (&StatusTone::ExpectedLabel, "Expected:", String::new()),
+                (
+                    &StatusTone::Plain,
+                    "fn main() {}",
+                    "fn main() {}".to_string()
+                ),
             ]
         );
         assert_eq!(frame.game_window.problem.prompt, "fn main() {}");

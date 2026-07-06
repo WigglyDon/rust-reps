@@ -49,8 +49,8 @@
 - `cli`: launch command selection, usage/help/list/version, CLI/tool errors.
 - `engine`: pure game/session simulation, state transitions, and exercise-shaped packets.
 - `practice`: plain terminal adapter, stdin/stdout, and in-session command handling.
-- `client`: platform-neutral visual projection from engine packets, client frame structs, and visual-only UI state.
-- `tui`: terminal adapter/projection, fullscreen rendering, key input loop, and terminal lifecycle only.
+- `client`: platform-neutral visual projection from engine packets, semantic code tokens, client frame structs, and visual-only UI state.
+- `tui`: terminal adapter/projection, theme/color mapping, fullscreen rendering, key input loop, and terminal lifecycle only.
 - `tests` / `scripts/proof.sh`: executable behavior evidence.
 - `README`: describe proven behavior only.
 

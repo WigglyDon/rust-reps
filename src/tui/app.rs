@@ -134,6 +134,7 @@ impl TuiApp {
         } else {
             match self.session.submit_answer(&submitted) {
                 engine::SubmitResult::Correct => {
+                    self.ui_state.start_counter_pulse();
                     if self.session.is_complete() {
                         self.completed = true;
                         let mut lines = Vec::from(["PASS".to_string()]);
@@ -181,6 +182,14 @@ mod tests {
     use crate::client::ClientAction;
 
     #[test]
+    fn new_session_starts_without_counter_pulse() {
+        let app = TuiApp::new();
+
+        assert_eq!(app.frame().completed_reps_this_run, 0);
+        assert!(!app.frame().counter_pulse_active);
+    }
+
+    #[test]
     fn correct_input_advances_and_clears_input() {
         let mut app = TuiApp::new();
         for ch in "fn main() {}".chars() {
@@ -191,6 +200,7 @@ mod tests {
         assert_eq!(app.input(), "");
         assert_eq!(app.session().passed(), 1);
         assert_eq!(app.session().attempts(), 1);
+        assert!(app.frame().counter_pulse_active);
         assert_eq!(
             app.session()
                 .current_exercise()
@@ -198,6 +208,23 @@ mod tests {
                 .id,
             "002"
         );
+    }
+
+    #[test]
+    fn successful_answer_counter_pulse_expires_after_fixed_ticks() {
+        let mut app = TuiApp::new();
+        for ch in "fn main() {}".chars() {
+            app.handle_action(ClientAction::TypeChar(ch));
+        }
+        app.handle_action(ClientAction::Submit);
+
+        assert!(app.frame().counter_pulse_active);
+
+        app.tick_cursor();
+        assert!(app.frame().counter_pulse_active);
+
+        app.tick_cursor();
+        assert!(!app.frame().counter_pulse_active);
     }
 
     #[test]
@@ -211,6 +238,7 @@ mod tests {
         assert_eq!(app.input(), "");
         assert_eq!(app.session().passed(), 0);
         assert_eq!(app.session().attempts(), 1);
+        assert!(!app.frame().counter_pulse_active);
         assert_eq!(
             app.session()
                 .current_exercise()
@@ -226,6 +254,20 @@ mod tests {
                 "fn main() {}".to_string(),
             ]
         );
+    }
+
+    #[test]
+    fn skip_does_not_start_counter_pulse() {
+        let mut app = TuiApp::new();
+        for ch in ":skip".chars() {
+            app.handle_action(ClientAction::TypeChar(ch));
+        }
+        app.handle_action(ClientAction::Submit);
+
+        assert_eq!(app.session().passed(), 0);
+        assert_eq!(app.session().skipped(), 1);
+        assert_eq!(app.frame().completed_reps_this_run, 0);
+        assert!(!app.frame().counter_pulse_active);
     }
 
     #[test]
