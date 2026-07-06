@@ -267,6 +267,54 @@ const PRACTICE_SKIP_THEN_STATUS_THEN_QUIT_OUTPUT: &str = concat!(
     "Attempts: 0\n",
 );
 
+const PRACTICE_UNKNOWN_THEN_QUIT_OUTPUT: &str = concat!(
+    "Rust Reps\n\n",
+    "Practice\n",
+    "Exact typing practice.\n",
+    "Answers must match exactly.\n",
+    "Type :help for commands and :q to quit.\n\n",
+    "Drill 001/012\nType exactly:\n\nfn main() {}\n\n>UNKNOWN COMMAND\nType :help for commands.\n\n",
+    "Drill 001/012\nType exactly:\n\nfn main() {}\n\n>QUIT\n",
+    "Summary:\n",
+    "Passed: 0/12\n",
+    "Skipped: 0\n",
+    "Attempts: 0\n",
+);
+
+const PRACTICE_UNKNOWN_THEN_STATUS_THEN_QUIT_OUTPUT: &str = concat!(
+    "Rust Reps\n\n",
+    "Practice\n",
+    "Exact typing practice.\n",
+    "Answers must match exactly.\n",
+    "Type :help for commands and :q to quit.\n\n",
+    "Drill 001/012\nType exactly:\n\nfn main() {}\n\n>UNKNOWN COMMAND\nType :help for commands.\n\n",
+    "Drill 001/012\nType exactly:\n\nfn main() {}\n\n>Status:\n",
+    "Current: 001/012\n",
+    "Passed: 0/12\n",
+    "Skipped: 0\n",
+    "Attempts: 0\n\n",
+    "Drill 001/012\nType exactly:\n\nfn main() {}\n\n>QUIT\n",
+    "Summary:\n",
+    "Passed: 0/12\n",
+    "Skipped: 0\n",
+    "Attempts: 0\n",
+);
+
+const PRACTICE_UNKNOWN_THEN_CORRECT_THEN_QUIT_OUTPUT: &str = concat!(
+    "Rust Reps\n\n",
+    "Practice\n",
+    "Exact typing practice.\n",
+    "Answers must match exactly.\n",
+    "Type :help for commands and :q to quit.\n\n",
+    "Drill 001/012\nType exactly:\n\nfn main() {}\n\n>UNKNOWN COMMAND\nType :help for commands.\n\n",
+    "Drill 001/012\nType exactly:\n\nfn main() {}\n\n>PASS\n\n",
+    "Drill 002/012\nType exactly:\n\nprintln!(\"Rust Reps\");\n\n>QUIT\n",
+    "Summary:\n",
+    "Passed: 1/12\n",
+    "Skipped: 0\n",
+    "Attempts: 1\n",
+);
+
 const PRACTICE_SKIP_FINAL_INPUT: &str = concat!(
     "fn main() {}\n",
     "println!(\"Rust Reps\");\n",
@@ -485,6 +533,42 @@ fn practice_help_then_status_then_quits() {
 }
 
 #[test]
+fn practice_unknown_then_status_then_quits() {
+    let output = run_rust_reps(&[], ":unknown\n:status\n:q\n");
+
+    assert!(output.status.success());
+    assert_eq!(
+        String::from_utf8(output.stdout).unwrap(),
+        PRACTICE_UNKNOWN_THEN_STATUS_THEN_QUIT_OUTPUT
+    );
+    assert_eq!(String::from_utf8(output.stderr).unwrap(), "");
+}
+
+#[test]
+fn practice_unknown_then_correct_answer_then_quits() {
+    let output = run_rust_reps(&[], ":unknown\nfn main() {}\n:q\n");
+
+    assert!(output.status.success());
+    assert_eq!(
+        String::from_utf8(output.stdout).unwrap(),
+        PRACTICE_UNKNOWN_THEN_CORRECT_THEN_QUIT_OUTPUT
+    );
+    assert_eq!(String::from_utf8(output.stderr).unwrap(), "");
+}
+
+#[test]
+fn practice_stats_typo_treated_as_unknown_command() {
+    let output = run_rust_reps(&[], ":stats\n:q\n");
+
+    assert!(output.status.success());
+    assert_eq!(
+        String::from_utf8(output.stdout).unwrap(),
+        PRACTICE_UNKNOWN_THEN_QUIT_OUTPUT
+    );
+    assert_eq!(String::from_utf8(output.stderr).unwrap(), "");
+}
+
+#[test]
 fn practice_status_at_start_repeats_same_drill_then_quits() {
     let output = run_rust_reps(&[], ":status\n:q\n");
 
@@ -675,6 +759,18 @@ fn explicit_drill_001_input_exits_successfully_and_prints_pass() {
 #[test]
 fn one_shot_wrong_answer_exits_successfully_and_prints_try_again() {
     let output = run_rust_reps(&["001"], "wrong\n");
+
+    assert!(output.status.success());
+    assert_eq!(
+        String::from_utf8(output.stdout).unwrap(),
+        DRILL_001_TRY_AGAIN_OUTPUT
+    );
+    assert_eq!(String::from_utf8(output.stderr).unwrap(), "");
+}
+
+#[test]
+fn one_shot_help_is_wrong_answer() {
+    let output = run_rust_reps(&["001"], ":help\n");
 
     assert!(output.status.success());
     assert_eq!(

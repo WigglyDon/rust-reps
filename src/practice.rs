@@ -64,6 +64,11 @@ fn print_practice_commands() {
     println!(":quit    quit");
 }
 
+fn print_unknown_practice_command() {
+    println!("UNKNOWN COMMAND");
+    println!("Type :help for commands.");
+}
+
 pub fn run_one_shot_drill(drill: &catalog::Drill) {
     catalog::print_one_shot_prompt(drill);
     flush_stdout_or_exit();
@@ -118,6 +123,11 @@ pub fn run_practice_session() {
             if index < catalog::drills().len() {
                 println!();
             }
+            continue;
+        }
+        if answer.starts_with(':') {
+            print_unknown_practice_command();
+            println!();
             continue;
         }
 
