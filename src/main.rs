@@ -7,10 +7,16 @@ mod presentation;
 mod tui;
 
 use std::env;
+use std::io::{self, IsTerminal};
 use std::process;
 
 fn main() {
     let args: Vec<String> = env::args().skip(1).collect();
+    if should_launch_tui_by_default(&args) {
+        run_tui_or_exit();
+        return;
+    }
+
     let arg_refs: Vec<&str> = args.iter().map(String::as_str).collect();
     let command = match cli::select_command(&arg_refs) {
         Ok(command) => command,
@@ -39,12 +45,28 @@ fn main() {
             return;
         }
         cli::DrillCommand::Tui => {
-            if let Err(err) = tui::run_tui() {
-                eprintln!("error: {}", err);
-                process::exit(1);
-            }
+            run_tui_or_exit();
             return;
         }
+    }
+}
+
+fn should_launch_tui_by_default(args: &[String]) -> bool {
+    should_launch_tui_for(
+        args.is_empty(),
+        io::stdin().is_terminal(),
+        io::stdout().is_terminal(),
+    )
+}
+
+fn should_launch_tui_for(no_args: bool, stdin_is_terminal: bool, stdout_is_terminal: bool) -> bool {
+    no_args && stdin_is_terminal && stdout_is_terminal
+}
+
+fn run_tui_or_exit() {
+    if let Err(err) = tui::run_tui() {
+        eprintln!("error: {}", err);
+        process::exit(1);
     }
 }
 
@@ -90,8 +112,28 @@ mod tests {
     }
 
     #[test]
+    fn interactive_empty_args_selects_tui_default() {
+        assert!(super::should_launch_tui_for(true, true, true));
+        assert!(!super::should_launch_tui_for(true, false, true));
+        assert!(!super::should_launch_tui_for(true, true, false));
+        assert!(!super::should_launch_tui_for(false, true, true));
+    }
+
+    #[test]
     fn play_arg_selects_practice() {
         match cli::select_command(&["play"]).unwrap() {
+            cli::DrillCommand::Practice => {}
+            cli::DrillCommand::Run(_) => panic!("expected practice command"),
+            cli::DrillCommand::List => panic!("expected practice command"),
+            cli::DrillCommand::Help => panic!("expected practice command"),
+            cli::DrillCommand::Version => panic!("expected practice command"),
+            cli::DrillCommand::Tui => panic!("expected practice command"),
+        }
+    }
+
+    #[test]
+    fn plain_arg_selects_practice() {
+        match cli::select_command(&["plain"]).unwrap() {
             cli::DrillCommand::Practice => {}
             cli::DrillCommand::Run(_) => panic!("expected practice command"),
             cli::DrillCommand::List => panic!("expected practice command"),

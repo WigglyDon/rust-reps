@@ -67,6 +67,7 @@ fn problem_lines(app: &TuiApp) -> Vec<String> {
         "Problem".to_string(),
         drill_label,
         String::new(),
+        "Copy this line exactly:".to_string(),
         drill.prompt.to_string(),
     ]
 }
@@ -95,10 +96,11 @@ fn status_chrome_lines(app: &TuiApp) -> Vec<String> {
 }
 
 fn input_line(app: &TuiApp) -> String {
+    let cursor = if app.cursor_visible() { "|" } else { " " };
     if app.input().is_empty() {
-        "> |  copy prompt here".to_string()
+        format!("> {}", cursor)
     } else {
-        format!("> {}|", app.input())
+        format!("> {}{}", app.input(), cursor)
     }
 }
 
@@ -166,6 +168,11 @@ mod tests {
         let prompt_position = snapshot
             .game
             .iter()
+            .position(|line| line == "Copy this line exactly:")
+            .expect("expected problem descriptor in game snapshot");
+        let prompt_value_position = snapshot
+            .game
+            .iter()
             .position(|line| line == "fn main() {}")
             .expect("expected prompt in game snapshot");
         let workbox_position = snapshot
@@ -176,12 +183,13 @@ mod tests {
         let input_position = snapshot
             .game
             .iter()
-            .position(|line| line == "> |  copy prompt here")
+            .position(|line| line == "> |")
             .expect("expected input caret in game snapshot");
 
         assert!(problem_position < drill_position);
         assert!(drill_position < prompt_position);
-        assert!(prompt_position < workbox_position);
+        assert!(prompt_position < prompt_value_position);
+        assert!(prompt_value_position < workbox_position);
         assert!(workbox_position < input_position);
         assert!(!snapshot.game.iter().any(|line| line == "Feedback"));
         assert!(!snapshot.game.iter().any(|line| line.contains("PASS")));
@@ -203,8 +211,26 @@ mod tests {
             snapshot
                 .status
                 .iter()
-                .any(|line| line == "Copy the prompt exactly.")
+                .any(|line| line == "Waiting for input.")
         );
+    }
+
+    #[test]
+    fn render_snapshot_problem_descriptor_precedes_prompt_line() {
+        let app = TuiApp::new();
+        let snapshot = render_snapshot(&app);
+        let descriptor_position = snapshot
+            .game
+            .iter()
+            .position(|line| line == "Copy this line exactly:")
+            .expect("expected problem descriptor");
+        let prompt_position = snapshot
+            .game
+            .iter()
+            .position(|line| line == "fn main() {}")
+            .expect("expected prompt line");
+
+        assert!(descriptor_position < prompt_position);
     }
 
     #[test]
@@ -241,6 +267,19 @@ mod tests {
         let snapshot = render_snapshot(&app);
 
         assert!(snapshot.game.iter().any(|line| line == "> hello|"));
+    }
+
+    #[test]
+    fn render_snapshot_hides_cursor_when_cursor_state_is_hidden() {
+        let mut app = TuiApp::new();
+        app.tick_cursor();
+        let empty_snapshot = render_snapshot(&app);
+        assert!(empty_snapshot.game.iter().any(|line| line == ">  "));
+
+        app.handle_intent(UiIntent::Append('x'));
+        app.tick_cursor();
+        let typed_snapshot = render_snapshot(&app);
+        assert!(typed_snapshot.game.iter().any(|line| line == "> x "));
     }
 
     #[test]
@@ -339,12 +378,7 @@ mod tests {
                 .iter()
                 .any(|line| line.contains("println!(\"Rust Reps\");"))
         );
-        assert!(
-            snapshot
-                .game
-                .iter()
-                .any(|line| line == "> |  copy prompt here")
-        );
+        assert!(snapshot.game.iter().any(|line| line == "> |"));
         assert!(!snapshot.game.iter().any(|line| line == ">> PASS"));
     }
 }

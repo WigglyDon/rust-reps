@@ -11,15 +11,19 @@ After local install, the command is `rust-reps` (`rust-reps.exe` on Windows).
 ```sh
 cargo install --path . --force
 rust-reps
+rust-reps plain
 rust-reps 001
 rust-reps --list
 rust-reps --help
 rust-reps --version
-rust-reps tui
 cargo uninstall rust-reps
 ```
 
-`rust-reps` without arguments starts the practice session.
+`rust-reps` without arguments starts the fullscreen TUI when run in an interactive terminal.
+
+When stdin/stdout are piped, `rust-reps` uses deterministic plain practice mode.
+
+`rust-reps plain` always starts deterministic plain practice mode.
 
 `rust-reps 001` runs just drill 001 in one-shot mode.
 
@@ -29,16 +33,14 @@ cargo uninstall rust-reps
 
 `rust-reps --version` prints `rust-reps 0.1.0`.
 
-### Optional Fullscreen TUI
+### Fullscreen TUI
 
-`rust-reps tui` starts an optional fullscreen terminal mode.
-It uses the same drill and answer truth as plain mode, but renders with a layout:
+`rust-reps` starts fullscreen terminal mode in an interactive terminal.
+It uses the same drill and answer truth as plain mode, but renders a simple game window:
 
-- Title
-- current drill
-- expected answer and input line
-- session summary (`Passed`, `Skipped`, `Attempts`)
-- result/help output
+- top half: problem
+- bottom half: workbox
+- status and summary outside the game window
 
 Keys:
 - type normal characters to build input
@@ -48,11 +50,11 @@ Keys:
 - `F1` or `?` toggles help panel
 - `Tab` is currently ignored
 
-TUI is optional and does not replace the plain CLI behavior.
+Plain mode remains available with `rust-reps plain` and for piped stdin.
 
 ## Practice Mode
 
-By default, `rust-reps` starts practice mode with drills in fixed order.
+`rust-reps plain` starts practice mode with drills in fixed order.
 
 - `PASS` means exact answer match and advances to the next drill.
 - `TRY AGAIN` means a wrong answer and repeats the same drill.
@@ -124,6 +126,7 @@ Exact answers are literal and deterministic:
 
 ```sh
 cargo run
+cargo run -- plain
 cargo run -- 001
 cargo test
 ./scripts/proof.sh
@@ -172,9 +175,9 @@ rust-reps --version
 
 ## Project Boundaries
 
-- Core behavior currently uses `ratatui` + `crossterm` for optional `tui`.
+- Core behavior currently uses `ratatui` + `crossterm` for interactive fullscreen TUI.
 - Core practice flow stays terminal-first plain `stdout`/`stderr`.
 - No persistence
 - No random mode
 - No compilation validation
-- TUI is optional and additive.
+- Plain practice remains available through `plain` and piped stdin.

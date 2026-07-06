@@ -1,4 +1,5 @@
 use std::io;
+use std::time::{Duration, Instant};
 
 use crossterm::event::{self, Event};
 
@@ -9,6 +10,8 @@ mod terminal;
 
 pub use app::TuiApp;
 pub use input::{UiIntent, classify_key_event};
+
+const CURSOR_BLINK_INTERVAL: Duration = Duration::from_millis(500);
 
 pub fn run_tui() -> io::Result<()> {
     let mut terminal = terminal::TuiTerminal::enter()?;
@@ -29,6 +32,8 @@ pub fn run_tui() -> io::Result<()> {
 }
 
 fn run_tui_loop(terminal: &mut terminal::TuiTerminal, app: &mut TuiApp) -> io::Result<()> {
+    let mut next_cursor_tick = Instant::now() + CURSOR_BLINK_INTERVAL;
+
     loop {
         terminal
             .terminal
@@ -38,16 +43,24 @@ fn run_tui_loop(terminal: &mut terminal::TuiTerminal, app: &mut TuiApp) -> io::R
             break;
         }
 
-        let event = match event::read() {
-            Ok(event) => event,
-            Err(err) => return Err(err),
-        };
+        let now = Instant::now();
+        let timeout = next_cursor_tick.saturating_duration_since(now);
+        if event::poll(timeout)? {
+            let event = match event::read() {
+                Ok(event) => event,
+                Err(err) => return Err(err),
+            };
 
-        let intent = match event {
-            Event::Key(key) => classify_key_event(key),
-            _ => UiIntent::Ignore,
-        };
-        app.handle_intent(intent);
+            let intent = match event {
+                Event::Key(key) => classify_key_event(key),
+                _ => UiIntent::Ignore,
+            };
+            app.handle_intent(intent);
+            next_cursor_tick = Instant::now() + CURSOR_BLINK_INTERVAL;
+        } else {
+            app.tick_cursor();
+            next_cursor_tick = Instant::now() + CURSOR_BLINK_INTERVAL;
+        }
     }
 
     Ok(())

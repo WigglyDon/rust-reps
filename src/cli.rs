@@ -15,7 +15,7 @@ pub fn select_command(args: &[&str]) -> Result<DrillCommand, String> {
     }
 
     let id = args.first().copied().unwrap_or("play");
-    if id == "play" {
+    if id == "play" || id == "plain" {
         return Ok(DrillCommand::Practice);
     }
     if id == "--list" {

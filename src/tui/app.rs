@@ -7,6 +7,7 @@ pub struct TuiApp {
     input: String,
     status_lines: Vec<String>,
     show_help_panel: bool,
+    cursor_visible: bool,
     should_quit: bool,
     completed: bool,
 }
@@ -16,8 +17,9 @@ impl TuiApp {
         Self {
             session: practice::PracticeSession::new(),
             input: String::new(),
-            status_lines: vec!["Copy the prompt exactly.".to_string()],
+            status_lines: vec!["Waiting for input.".to_string()],
             show_help_panel: false,
+            cursor_visible: true,
             should_quit: false,
             completed: false,
         }
@@ -43,6 +45,10 @@ impl TuiApp {
         self.show_help_panel
     }
 
+    pub fn cursor_visible(&self) -> bool {
+        self.cursor_visible
+    }
+
     pub fn active_drill(&self) -> &'static catalog::Drill {
         self.session
             .current_drill()
@@ -56,16 +62,25 @@ impl TuiApp {
     pub fn handle_intent(&mut self, intent: UiIntent) {
         match intent {
             UiIntent::Quit => self.quit(),
-            UiIntent::ToggleHelp => self.show_help_panel = !self.show_help_panel,
+            UiIntent::ToggleHelp => {
+                self.show_help_panel = !self.show_help_panel;
+                self.show_cursor();
+            }
             UiIntent::Backspace => {
                 self.input.pop();
+                self.show_cursor();
             }
             UiIntent::Submit => self.submit_current_input(),
             UiIntent::Append(char) => {
                 self.input.push(char);
+                self.show_cursor();
             }
             UiIntent::Ignore => {}
         }
+    }
+
+    pub fn tick_cursor(&mut self) {
+        self.cursor_visible = !self.cursor_visible;
     }
 
     fn submit_current_input(&mut self) {
@@ -74,6 +89,7 @@ impl TuiApp {
         }
 
         let submitted = std::mem::take(&mut self.input);
+        self.show_cursor();
         self.status_lines = match self.session.submit_input(&submitted) {
             practice::PracticeEvent::Quit => {
                 self.should_quit = true;
@@ -144,6 +160,10 @@ impl TuiApp {
     fn quit(&mut self) {
         self.should_quit = true;
         self.status_lines = collect_summary_lines("QUIT", &self.session);
+    }
+
+    fn show_cursor(&mut self) {
+        self.cursor_visible = true;
     }
 }
 
@@ -238,13 +258,36 @@ mod tests {
     #[test]
     fn app_input_buffer_tracks_characters_and_backspace() {
         let mut app = TuiApp::new();
+        app.tick_cursor();
+        assert!(!app.cursor_visible());
+
         app.handle_intent(UiIntent::Append('h'));
         app.handle_intent(UiIntent::Append('i'));
 
         assert_eq!(app.input(), "hi");
+        assert!(app.cursor_visible());
+
+        app.tick_cursor();
+        assert!(!app.cursor_visible());
 
         app.handle_intent(UiIntent::Backspace);
         assert_eq!(app.input(), "h");
+        assert!(app.cursor_visible());
+    }
+
+    #[test]
+    fn cursor_tick_toggles_visibility_without_session_changes() {
+        let mut app = TuiApp::new();
+        assert!(app.cursor_visible());
+        assert_eq!(app.session().attempts(), 0);
+
+        app.tick_cursor();
+        assert!(!app.cursor_visible());
+        assert_eq!(app.session().attempts(), 0);
+
+        app.tick_cursor();
+        assert!(app.cursor_visible());
+        assert_eq!(app.session().attempts(), 0);
     }
 
     #[test]

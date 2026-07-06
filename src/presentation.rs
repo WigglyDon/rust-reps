@@ -12,15 +12,16 @@ pub fn print_help_text() {
     print_app_header();
     println!("Usage:");
     println!("  rust-reps");
+    println!("  rust-reps plain");
     println!("  rust-reps [DRILL_ID]");
     println!("  rust-reps play");
     println!("  rust-reps --list");
-    println!("  rust-reps tui");
     println!("  rust-reps --help");
     println!("  rust-reps --version");
     println!();
     println!("Default:");
-    println!("  Starts a practice session.");
+    println!("  Starts fullscreen TUI in an interactive terminal.");
+    println!("  Uses plain practice mode when stdin/stdout are piped.");
     println!();
 }
 

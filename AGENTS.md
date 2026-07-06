@@ -14,7 +14,9 @@
 - Plain CLI output remains the baseline proof oracle; TUI uses the same session truth.
 
 ## Current Behavior Contract
-- `rust-reps` starts practice mode.
+- `rust-reps` starts fullscreen TUI in an interactive terminal.
+- Piped `rust-reps` starts plain practice mode.
+- `rust-reps plain` starts plain practice mode.
 - `rust-reps 001` runs one-shot drill 001.
 - Practice commands:
   - `:help`, `:status`, `:list`, `:skip`, `:q`, `:quit`.
@@ -42,11 +44,11 @@
 ## Module Ownership
 - `curriculum`: curriculum data schema (`DrillSpec`, enums) and static drill data.
 - `catalog`: public catalog API, rendering, and curriculum validation tests.
-- `main`: process orchestration only.
+- `main`: process orchestration and interactive default decision only.
 - `answer`: answer normalization/comparison helpers.
 - `cli`: launch command selection, usage/help/list/version, CLI/tool errors.
 - `practice`: session state transitions and command handling.
-- `tui`: fullscreen terminal rendering and key input loop only.
+- `tui`: fullscreen terminal rendering, key input loop, and TUI-local cursor blink only.
 - `tests` / `scripts/proof.sh`: executable behavior evidence.
 - `README`: describe proven behavior only.
 

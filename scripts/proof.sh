@@ -1122,15 +1122,16 @@ expect_stdout "help" 'Rust Reps
 
 Usage:
   rust-reps
+  rust-reps plain
   rust-reps [DRILL_ID]
   rust-reps play
   rust-reps --list
-  rust-reps tui
   rust-reps --help
   rust-reps --version
 
 Default:
-  Starts a practice session.
+  Starts fullscreen TUI in an interactive terminal.
+  Uses plain practice mode when stdin/stdout are piped.
 
 Current drills:
 001  fn main() {}
@@ -1151,15 +1152,16 @@ expect_stdout "short help" 'Rust Reps
 
 Usage:
   rust-reps
+  rust-reps plain
   rust-reps [DRILL_ID]
   rust-reps play
   rust-reps --list
-  rust-reps tui
   rust-reps --help
   rust-reps --version
 
 Default:
-  Starts a practice session.
+  Starts fullscreen TUI in an interactive terminal.
+  Uses plain practice mode when stdin/stdout are piped.
 
 Current drills:
 001  fn main() {}
@@ -1193,15 +1195,16 @@ expect_stdout "installed help" 'Rust Reps
 
 Usage:
   rust-reps
+  rust-reps plain
   rust-reps [DRILL_ID]
   rust-reps play
   rust-reps --list
-  rust-reps tui
   rust-reps --help
   rust-reps --version
 
 Default:
-  Starts a practice session.
+  Starts fullscreen TUI in an interactive terminal.
+  Uses plain practice mode when stdin/stdout are piped.
 
 Current drills:
 001  fn main() {}
