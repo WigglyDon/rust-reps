@@ -97,6 +97,23 @@ rust-reps
 cargo uninstall rust-reps
 ```
 
+After `cargo install --path . --force`, run:
+
+```sh
+command -v rust-reps
+rust-reps --version
+rust-reps
+```
+
+If `command -v rust-reps` prints nothing, `~/.cargo/bin` is probably not on your `PATH` yet (the binary is usually at `$HOME/.cargo/bin/rust-reps`).
+Try opening a new terminal first. If needed, add Cargo’s bin directory:
+
+```sh
+export PATH="$HOME/.cargo/bin:$PATH"
+```
+
+Then run `command -v rust-reps` and `rust-reps --version` again.
+
 ## Developer Mode
 
 ```sh
