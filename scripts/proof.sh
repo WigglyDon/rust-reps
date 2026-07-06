@@ -120,9 +120,9 @@ section "tests"
 cargo test
 
 practice_all_correct_input='fn main() {}
-println!("Rusty Drill");
+println!("Rust Reps");
 let answer = 42;
-let name = "Rusty Drill";
+let name = "Rust Reps";
 let mut score = 0;
 score += 1;
 let passed = true;
@@ -133,7 +133,7 @@ if score > 0 {}
 while score < 10 {}
 '
 
-practice_all_correct_output='Rusty Drill
+practice_all_correct_output='Rust Reps
 
 Practice
 Type :help for commands.
@@ -148,7 +148,7 @@ fn main() {}
 Drill 002/012
 Type exactly:
 
-println!("Rusty Drill");
+println!("Rust Reps");
 
 >PASS
 
@@ -162,7 +162,7 @@ let answer = 42;
 Drill 004/012
 Type exactly:
 
-let name = "Rusty Drill";
+let name = "Rust Reps";
 
 >PASS
 
@@ -228,7 +228,7 @@ Passed: 12/12
 Skipped: 0
 Attempts: 12'
 
-practice_quit_output='Rusty Drill
+practice_quit_output='Rust Reps
 
 Practice
 Type :help for commands.
@@ -244,7 +244,7 @@ Passed: 0/12
 Skipped: 0
 Attempts: 0'
 
-practice_retry_then_quit_output='Rusty Drill
+practice_retry_then_quit_output='Rust Reps
 
 Practice
 Type :help for commands.
@@ -268,7 +268,7 @@ fn main() {}
 Drill 002/012
 Type exactly:
 
-println!("Rusty Drill");
+println!("Rust Reps");
 
 >QUIT
 Summary:
@@ -276,7 +276,7 @@ Passed: 1/12
 Skipped: 0
 Attempts: 2'
 
-practice_help_then_quit_output='Rusty Drill
+practice_help_then_quit_output='Rust Reps
 
 Practice
 Type :help for commands.
@@ -305,7 +305,7 @@ Passed: 0/12
 Skipped: 0
 Attempts: 0'
 
-practice_status_then_quit_output='Rusty Drill
+practice_status_then_quit_output='Rust Reps
 
 Practice
 Type :help for commands.
@@ -332,7 +332,7 @@ Passed: 0/12
 Skipped: 0
 Attempts: 0'
 
-practice_list_then_quit_output='Rusty Drill
+practice_list_then_quit_output='Rust Reps
 
 Practice
 Type :help for commands.
@@ -344,9 +344,9 @@ fn main() {}
 
 >Available drills:
 001  fn main() {}
-002  println!("Rusty Drill");
+002  println!("Rust Reps");
 003  let answer = 42;
-004  let name = "Rusty Drill";
+004  let name = "Rust Reps";
 005  let mut score = 0;
 006  score += 1;
 007  let passed = true;
@@ -367,7 +367,7 @@ Passed: 0/12
 Skipped: 0
 Attempts: 0'
 
-practice_skip_then_quit_output='Rusty Drill
+practice_skip_then_quit_output='Rust Reps
 
 Practice
 Type :help for commands.
@@ -382,7 +382,7 @@ fn main() {}
 Drill 002/012
 Type exactly:
 
-println!("Rusty Drill");
+println!("Rust Reps");
 
 >QUIT
 Summary:
@@ -399,7 +399,7 @@ expect_stdout "practice list then quit" "$practice_list_then_quit_output" sh -c 
 expect_stdout "practice skip then quit" "$practice_skip_then_quit_output" sh -c "printf ':skip\\n:q\\n' | cargo run -q"
 expect_stdout "practice retry then quit" "$practice_retry_then_quit_output" sh -c "printf 'fn main(){}\\nfn main() {}\\n:q\\n' | cargo run -q"
 
-expect_stdout "Drill 001 explicit PASS" 'Rusty Drill
+expect_stdout "Drill 001 explicit PASS" 'Rust Reps
 
 Drill 001
 Type exactly:
@@ -408,13 +408,13 @@ fn main() {}
 
 >PASS' sh -c "printf 'fn main() {}\\n' | cargo run -q -- 001"
 
-expect_stdout "list" 'Rusty Drill
+expect_stdout "list" 'Rust Reps
 
 Available drills:
 001  fn main() {}
-002  println!("Rusty Drill");
+002  println!("Rust Reps");
 003  let answer = 42;
-004  let name = "Rusty Drill";
+004  let name = "Rust Reps";
 005  let mut score = 0;
 006  score += 1;
 007  let passed = true;
@@ -424,24 +424,24 @@ Available drills:
 011  if score > 0 {}
 012  while score < 10 {}' cargo run -q -- --list
 
-expect_stdout "help" 'Rusty Drill
+expect_stdout "help" 'Rust Reps
 
 Usage:
-  rusty-drill
-  rusty-drill [DRILL_ID]
-  rusty-drill play
-  rusty-drill --list
-  rusty-drill --help
-  rusty-drill --version
+  rust-reps
+  rust-reps [DRILL_ID]
+  rust-reps play
+  rust-reps --list
+  rust-reps --help
+  rust-reps --version
 
 Default:
   Starts a practice session.
 
 Current drills:
 001  fn main() {}
-002  println!("Rusty Drill");
+002  println!("Rust Reps");
 003  let answer = 42;
-004  let name = "Rusty Drill";
+004  let name = "Rust Reps";
 005  let mut score = 0;
 006  score += 1;
 007  let passed = true;
@@ -451,24 +451,24 @@ Current drills:
 011  if score > 0 {}
 012  while score < 10 {}' cargo run -q -- --help
 
-expect_stdout "short help" 'Rusty Drill
+expect_stdout "short help" 'Rust Reps
 
 Usage:
-  rusty-drill
-  rusty-drill [DRILL_ID]
-  rusty-drill play
-  rusty-drill --list
-  rusty-drill --help
-  rusty-drill --version
+  rust-reps
+  rust-reps [DRILL_ID]
+  rust-reps play
+  rust-reps --list
+  rust-reps --help
+  rust-reps --version
 
 Default:
   Starts a practice session.
 
 Current drills:
 001  fn main() {}
-002  println!("Rusty Drill");
+002  println!("Rust Reps");
 003  let answer = 42;
-004  let name = "Rusty Drill";
+004  let name = "Rust Reps";
 005  let mut score = 0;
 006  score += 1;
 007  let passed = true;
@@ -478,30 +478,30 @@ Current drills:
 011  if score > 0 {}
 012  while score < 10 {}' cargo run -q -- -h
 
-expect_stdout "version" 'rusty-drill 0.1.0' cargo run -q -- --version
+expect_stdout "version" 'rust-reps 0.1.0' cargo run -q -- --version
 
 section "temporary install"
 cargo install --path . --root "$install_root"
 
-expect_stdout "installed version" 'rusty-drill 0.1.0' "$install_root/bin/rusty-drill" --version
-expect_stdout "installed help" 'Rusty Drill
+expect_stdout "installed version" 'rust-reps 0.1.0' "$install_root/bin/rust-reps" --version
+expect_stdout "installed help" 'Rust Reps
 
 Usage:
-  rusty-drill
-  rusty-drill [DRILL_ID]
-  rusty-drill play
-  rusty-drill --list
-  rusty-drill --help
-  rusty-drill --version
+  rust-reps
+  rust-reps [DRILL_ID]
+  rust-reps play
+  rust-reps --list
+  rust-reps --help
+  rust-reps --version
 
 Default:
   Starts a practice session.
 
 Current drills:
 001  fn main() {}
-002  println!("Rusty Drill");
+002  println!("Rust Reps");
 003  let answer = 42;
-004  let name = "Rusty Drill";
+004  let name = "Rust Reps";
 005  let mut score = 0;
 006  score += 1;
 007  let passed = true;
@@ -509,14 +509,14 @@ Current drills:
 009  let scores = [1, 2, 3];
 010  fn add_one(x: i32) -> i32 { x + 1 }
 011  if score > 0 {}
-012  while score < 10 {}' "$install_root/bin/rusty-drill" --help
-expect_stdout "installed list" 'Rusty Drill
+012  while score < 10 {}' "$install_root/bin/rust-reps" --help
+expect_stdout "installed list" 'Rust Reps
 
 Available drills:
 001  fn main() {}
-002  println!("Rusty Drill");
+002  println!("Rust Reps");
 003  let answer = 42;
-004  let name = "Rusty Drill";
+004  let name = "Rust Reps";
 005  let mut score = 0;
 006  score += 1;
 007  let passed = true;
@@ -524,28 +524,28 @@ Available drills:
 009  let scores = [1, 2, 3];
 010  fn add_one(x: i32) -> i32 { x + 1 }
 011  if score > 0 {}
-012  while score < 10 {}' "$install_root/bin/rusty-drill" --list
-expect_stdout "installed practice quit" "$practice_quit_output" sh -c 'printf ":q\n" | "$1/bin/rusty-drill"' sh "$install_root"
-expect_stdout "installed practice help then quit" "$practice_help_then_quit_output" sh -c 'printf ":help\n:q\n" | "$1/bin/rusty-drill"' sh "$install_root"
-expect_stdout "installed Drill 001 PASS" 'Rusty Drill
+012  while score < 10 {}' "$install_root/bin/rust-reps" --list
+expect_stdout "installed practice quit" "$practice_quit_output" sh -c 'printf ":q\n" | "$1/bin/rust-reps"' sh "$install_root"
+expect_stdout "installed practice help then quit" "$practice_help_then_quit_output" sh -c 'printf ":help\n:q\n" | "$1/bin/rust-reps"' sh "$install_root"
+expect_stdout "installed Drill 001 PASS" 'Rust Reps
 
 Drill 001
 Type exactly:
 
 fn main() {}
 
->PASS' sh -c 'printf "fn main() {}\n" | "$1/bin/rusty-drill" 001' sh "$install_root"
+>PASS' sh -c 'printf "fn main() {}\n" | "$1/bin/rust-reps" 001' sh "$install_root"
 
-expect_stdout "Drill 002 PASS" 'Rusty Drill
+expect_stdout "Drill 002 PASS" 'Rust Reps
 
 Drill 002
 Type exactly:
 
-println!("Rusty Drill");
+println!("Rust Reps");
 
->PASS' sh -c "printf 'println!(\"Rusty Drill\");\\n' | cargo run -q -- 002"
+>PASS' sh -c "printf 'println!(\"Rust Reps\");\\n' | cargo run -q -- 002"
 
-expect_stdout "Drill 006 PASS" 'Rusty Drill
+expect_stdout "Drill 006 PASS" 'Rust Reps
 
 Drill 006
 Type exactly:
@@ -554,7 +554,7 @@ score += 1;
 
 >PASS' sh -c "printf 'score += 1;\\n' | cargo run -q -- 006"
 
-expect_stdout "Drill 007 PASS" 'Rusty Drill
+expect_stdout "Drill 007 PASS" 'Rust Reps
 
 Drill 007
 Type exactly:
@@ -563,7 +563,7 @@ let passed = true;
 
 >PASS' sh -c "printf 'let passed = true;\\n' | cargo run -q -- 007"
 
-expect_stdout "Drill 008 PASS" 'Rusty Drill
+expect_stdout "Drill 008 PASS" 'Rust Reps
 
 Drill 008
 Type exactly:
@@ -572,7 +572,7 @@ let score: i32 = 0;
 
 >PASS' sh -c "printf 'let score: i32 = 0;\\n' | cargo run -q -- 008"
 
-expect_stdout "Drill 009 PASS" 'Rusty Drill
+expect_stdout "Drill 009 PASS" 'Rust Reps
 
 Drill 009
 Type exactly:
@@ -581,7 +581,7 @@ let scores = [1, 2, 3];
 
 >PASS' sh -c "printf 'let scores = [1, 2, 3];\\n' | cargo run -q -- 009"
 
-expect_stdout "Drill 010 PASS" 'Rusty Drill
+expect_stdout "Drill 010 PASS" 'Rust Reps
 
 Drill 010
 Type exactly:
@@ -590,7 +590,7 @@ fn add_one(x: i32) -> i32 { x + 1 }
 
 >PASS' sh -c "printf 'fn add_one(x: i32) -> i32 { x + 1 }\\n' | cargo run -q -- 010"
 
-expect_stdout "Drill 011 PASS" 'Rusty Drill
+expect_stdout "Drill 011 PASS" 'Rust Reps
 
 Drill 011
 Type exactly:
@@ -599,7 +599,7 @@ if score > 0 {}
 
 >PASS' sh -c "printf 'if score > 0 {}\\n' | cargo run -q -- 011"
 
-expect_stdout "Drill 012 PASS" 'Rusty Drill
+expect_stdout "Drill 012 PASS" 'Rust Reps
 
 Drill 012
 Type exactly:
@@ -608,7 +608,7 @@ while score < 10 {}
 
 >PASS' sh -c "printf 'while score < 10 {}\\n' | cargo run -q -- 012"
 
-expect_stdout "Drill 006 TRY AGAIN" 'Rusty Drill
+expect_stdout "Drill 006 TRY AGAIN" 'Rust Reps
 
 Drill 006
 Type exactly:
@@ -619,7 +619,7 @@ score += 1;
 Expected:
 score += 1;' sh -c "printf 'score += 1\\n' | cargo run -q -- 006"
 
-expect_stdout "Drill 012 TRY AGAIN" 'Rusty Drill
+expect_stdout "Drill 012 TRY AGAIN" 'Rust Reps
 
 Drill 012
 Type exactly:

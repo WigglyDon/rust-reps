@@ -3,5 +3,5 @@
 version = 4
 
 [[package]]
-name = "rusty-drill"
+name = "rust-reps"
 version = "0.1.0"

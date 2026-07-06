@@ -1,23 +1,23 @@
-# Rusty Drill
+# Rust Reps
 
 A terminal-first Rust learning/drill CLI that teaches through tiny exact typing reps.
 
 ## Current Behavior
 
-Rusty Drill starts a practice session and asks the user to type exact answers.
+Rust Reps starts a practice session and asks the user to type exact answers.
 
-After local install, the command is `rusty-drill` (`rusty-drill.exe` on Windows).
+After local install, the command is `rust-reps` (`rust-reps.exe` on Windows).
 
 By default, it starts practice mode:
 
 ```sh
-rusty-drill
+rust-reps
 ```
 
 You can also start practice mode explicitly:
 
 ```sh
-rusty-drill play
+rust-reps play
 ```
 
 In practice mode, `:help` shows commands, `:status` shows session status, `:list` shows drills, and `:skip` skips the current drill. `:q` and `:quit` quit successfully. Passing every drill prints `COMPLETE`.
@@ -34,29 +34,29 @@ Practice commands:
 You can list drills, print help/version output, or run one selected drill by id:
 
 ```sh
-rusty-drill --help
-rusty-drill --list
-rusty-drill --version
-rusty-drill 001
-rusty-drill 002
-rusty-drill 003
-rusty-drill 004
-rusty-drill 005
-rusty-drill 006
-rusty-drill 007
-rusty-drill 008
-rusty-drill 009
-rusty-drill 010
-rusty-drill 011
-rusty-drill 012
+rust-reps --help
+rust-reps --list
+rust-reps --version
+rust-reps 001
+rust-reps 002
+rust-reps 003
+rust-reps 004
+rust-reps 005
+rust-reps 006
+rust-reps 007
+rust-reps 008
+rust-reps 009
+rust-reps 010
+rust-reps 011
+rust-reps 012
 ```
 
 Current drills:
 
 - `001` expects `fn main() {}`
-- `002` expects `println!("Rusty Drill");`
+- `002` expects `println!("Rust Reps");`
 - `003` expects `let answer = 42;`
-- `004` expects `let name = "Rusty Drill";`
+- `004` expects `let name = "Rust Reps";`
 - `005` expects `let mut score = 0;`
 - `006` expects `score += 1;`
 - `007` expects `let passed = true;`
@@ -66,7 +66,7 @@ Current drills:
 - `011` expects `if score > 0 {}`
 - `012` expects `while score < 10 {}`
 
-Rusty Drill reads one line from standard input. For the exact answer, it prints:
+Rust Reps reads one line from standard input. For the exact answer, it prints:
 
 ```text
 PASS
@@ -98,13 +98,13 @@ cargo install --path .
 ## Play
 
 ```sh
-rusty-drill
+rust-reps
 ```
 
 Uninstall:
 
 ```sh
-cargo uninstall rusty-drill
+cargo uninstall rust-reps
 ```
 
 ## Developer Run

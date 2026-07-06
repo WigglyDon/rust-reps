@@ -28,7 +28,7 @@ const DRILLS: &[Drill] = &[
     },
     Drill {
         id: "002",
-        expected: "println!(\"Rusty Drill\");",
+        expected: "println!(\"Rust Reps\");",
     },
     Drill {
         id: "003",
@@ -36,7 +36,7 @@ const DRILLS: &[Drill] = &[
     },
     Drill {
         id: "004",
-        expected: "let name = \"Rusty Drill\";",
+        expected: "let name = \"Rust Reps\";",
     },
     Drill {
         id: "005",
@@ -121,7 +121,7 @@ fn select_command(args: &[&str]) -> Result<DrillCommand, String> {
 }
 
 fn print_prompt(drill: &Drill) {
-    println!("Rusty Drill");
+    println!("Rust Reps");
     println!();
     println!("Drill {}", drill.id);
     println!("Type exactly:");
@@ -132,7 +132,7 @@ fn print_prompt(drill: &Drill) {
 }
 
 fn print_practice_header() {
-    println!("Rusty Drill");
+    println!("Rust Reps");
     println!();
     println!("Practice");
     println!("Type :help for commands.");
@@ -149,7 +149,7 @@ fn print_practice_prompt(drill: &Drill) {
 }
 
 fn print_drill_list() {
-    println!("Rusty Drill");
+    println!("Rust Reps");
     println!();
     print_drill_catalog_body();
 }
@@ -162,15 +162,15 @@ fn print_drill_catalog_body() {
 }
 
 fn print_help() {
-    println!("Rusty Drill");
+    println!("Rust Reps");
     println!();
     println!("Usage:");
-    println!("  rusty-drill");
-    println!("  rusty-drill [DRILL_ID]");
-    println!("  rusty-drill play");
-    println!("  rusty-drill --list");
-    println!("  rusty-drill --help");
-    println!("  rusty-drill --version");
+    println!("  rust-reps");
+    println!("  rust-reps [DRILL_ID]");
+    println!("  rust-reps play");
+    println!("  rust-reps --list");
+    println!("  rust-reps --help");
+    println!("  rust-reps --version");
     println!();
     println!("Default:");
     println!("  Starts a practice session.");
