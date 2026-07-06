@@ -1127,6 +1127,7 @@ Usage:
   rust-reps [DRILL_ID]
   rust-reps play
   rust-reps --list
+  rust-reps tui
   rust-reps --help
   rust-reps --version
 
@@ -1155,6 +1156,7 @@ Usage:
   rust-reps [DRILL_ID]
   rust-reps play
   rust-reps --list
+  rust-reps tui
   rust-reps --help
   rust-reps --version
 
@@ -1196,6 +1198,7 @@ Usage:
   rust-reps [DRILL_ID]
   rust-reps play
   rust-reps --list
+  rust-reps tui
   rust-reps --help
   rust-reps --version
 

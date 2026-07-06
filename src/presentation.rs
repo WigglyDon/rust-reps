@@ -15,6 +15,7 @@ pub fn print_help_text() {
     println!("  rust-reps [DRILL_ID]");
     println!("  rust-reps play");
     println!("  rust-reps --list");
+    println!("  rust-reps tui");
     println!("  rust-reps --help");
     println!("  rust-reps --version");
     println!();

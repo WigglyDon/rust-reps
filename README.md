@@ -15,6 +15,7 @@ rust-reps 001
 rust-reps --list
 rust-reps --help
 rust-reps --version
+rust-reps tui
 cargo uninstall rust-reps
 ```
 
@@ -27,6 +28,27 @@ cargo uninstall rust-reps
 `rust-reps --help` prints all CLI forms.
 
 `rust-reps --version` prints `rust-reps 0.1.0`.
+
+### Optional Fullscreen TUI
+
+`rust-reps tui` starts an optional fullscreen terminal mode.
+It uses the same drill and answer truth as plain mode, but renders with a layout:
+
+- Title
+- current drill
+- expected answer and input line
+- session summary (`Passed`, `Skipped`, `Attempts`)
+- result/help output
+
+Keys:
+- type normal characters to build input
+- `Backspace` deletes
+- `Enter` submits
+- `Esc` or `Ctrl-C` quits
+- `F1` or `?` toggles help panel
+- `Tab` is currently ignored
+
+TUI is optional and does not replace the plain CLI behavior.
 
 ## Practice Mode
 
@@ -150,8 +172,9 @@ rust-reps --version
 
 ## Project Boundaries
 
-- Standard library only (`no dependencies`)
+- Core behavior currently uses `ratatui` + `crossterm` for optional `tui`.
+- Core practice flow stays terminal-first plain `stdout`/`stderr`.
 - No persistence
 - No random mode
 - No compilation validation
-- No TUI/GUI
+- TUI is optional and additive.

@@ -3,6 +3,7 @@ mod catalog;
 mod cli;
 mod practice;
 mod presentation;
+mod tui;
 
 use std::env;
 use std::process;
@@ -34,6 +35,13 @@ fn main() {
         }
         cli::DrillCommand::Version => {
             cli::print_version();
+            return;
+        }
+        cli::DrillCommand::Tui => {
+            if let Err(err) = tui::run_tui() {
+                eprintln!("error: {}", err);
+                process::exit(1);
+            }
             return;
         }
     }
@@ -76,6 +84,7 @@ mod tests {
             cli::DrillCommand::List => panic!("expected practice command"),
             cli::DrillCommand::Help => panic!("expected practice command"),
             cli::DrillCommand::Version => panic!("expected practice command"),
+            cli::DrillCommand::Tui => panic!("expected practice command"),
         }
     }
 
@@ -87,6 +96,7 @@ mod tests {
             cli::DrillCommand::List => panic!("expected practice command"),
             cli::DrillCommand::Help => panic!("expected practice command"),
             cli::DrillCommand::Version => panic!("expected practice command"),
+            cli::DrillCommand::Tui => panic!("expected practice command"),
         }
     }
 
@@ -101,6 +111,7 @@ mod tests {
             cli::DrillCommand::List => panic!("expected Drill 001"),
             cli::DrillCommand::Help => panic!("expected Drill 001"),
             cli::DrillCommand::Version => panic!("expected Drill 001"),
+            cli::DrillCommand::Tui => panic!("expected Drill 001"),
         }
     }
 
@@ -115,6 +126,7 @@ mod tests {
             cli::DrillCommand::List => panic!("expected Drill 012"),
             cli::DrillCommand::Help => panic!("expected Drill 012"),
             cli::DrillCommand::Version => panic!("expected Drill 012"),
+            cli::DrillCommand::Tui => panic!("expected Drill 012"),
         }
     }
 
@@ -126,6 +138,7 @@ mod tests {
             cli::DrillCommand::Run(_) => panic!("expected list command"),
             cli::DrillCommand::Help => panic!("expected list command"),
             cli::DrillCommand::Version => panic!("expected list command"),
+            cli::DrillCommand::Tui => panic!("expected list command"),
         }
     }
 
@@ -137,6 +150,7 @@ mod tests {
             cli::DrillCommand::Run(_) => panic!("expected help command"),
             cli::DrillCommand::List => panic!("expected help command"),
             cli::DrillCommand::Version => panic!("expected help command"),
+            cli::DrillCommand::Tui => panic!("expected help command"),
         }
     }
 
@@ -148,6 +162,7 @@ mod tests {
             cli::DrillCommand::Run(_) => panic!("expected help command"),
             cli::DrillCommand::List => panic!("expected help command"),
             cli::DrillCommand::Version => panic!("expected help command"),
+            cli::DrillCommand::Tui => panic!("expected help command"),
         }
     }
 
@@ -159,6 +174,7 @@ mod tests {
             cli::DrillCommand::Run(_) => panic!("expected version command"),
             cli::DrillCommand::List => panic!("expected version command"),
             cli::DrillCommand::Help => panic!("expected version command"),
+            cli::DrillCommand::Tui => panic!("expected version command"),
         }
     }
 
@@ -190,6 +206,18 @@ mod tests {
     fn too_many_version_args_errors() {
         let err = cli::select_command(&["--version", "extra"]).err().unwrap();
         assert_eq!(err, "expected at most one argument");
+    }
+
+    #[test]
+    fn tui_arg_selects_tui_command() {
+        match cli::select_command(&["tui"]).unwrap() {
+            cli::DrillCommand::Tui => {}
+            cli::DrillCommand::Practice => panic!("expected tui command"),
+            cli::DrillCommand::Run(_) => panic!("expected tui command"),
+            cli::DrillCommand::List => panic!("expected tui command"),
+            cli::DrillCommand::Help => panic!("expected tui command"),
+            cli::DrillCommand::Version => panic!("expected tui command"),
+        }
     }
 
     #[test]

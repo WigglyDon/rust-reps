@@ -11,6 +11,7 @@
 - Source behavior, tests, proof script, and CLI transcripts outrank summaries.
 - Wrong answers are product results (e.g., `TRY AGAIN`), not crashes.
 - Tool/parsing errors are for CLI errors only: print to `stderr` and exit nonzero.
+- Plain CLI output remains the baseline proof oracle; TUI uses the same session truth.
 
 ## Current Behavior Contract
 - `rust-reps` starts practice mode.
@@ -43,19 +44,24 @@
 - `catalog`: drill IDs, prompts, expected answers, and list rendering data.
 - `answer`: answer normalization/comparison helpers.
 - `cli`: launch command selection, usage/help/list/version, CLI/tool errors.
-- `practice`: session state transitions, commands, completion/quit behavior.
+- `practice`: session state transitions and command handling.
+- `tui`: fullscreen terminal rendering and key input loop only.
 - `tests` / `scripts/proof.sh`: executable behavior evidence.
 - `README`: describe proven behavior only.
 
 ## Forbidden Scope (without explicit approval)
-- No external crates.
-- No TUI/GUI.
+- No additional crates beyond this packet's explicit approval.
+- No alternative TUI frameworks or GUI.
 - No persistence.
 - No random mode.
 - No hidden tests.
 - No drill additions.
 - No compilation validation feature.
 - No broad refactors; proof behavior must stay exact.
+
+## Approved Dependencies
+- `ratatui` (for fullscreen TUI rendering/input loop)
+- `crossterm` (terminal control for fullscreen TUI)
 
 ## Verification Gates
 - `cargo fmt --check`
