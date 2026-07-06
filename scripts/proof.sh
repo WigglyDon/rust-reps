@@ -10,11 +10,9 @@ section() {
     printf '%s\n' "--- $1 ---"
 }
 
-cargo_home=$(mktemp -d)
 install_root=$(mktemp -d)
 
 cleanup() {
-    rm -rf "$cargo_home"
     rm -rf "$install_root"
 }
 
@@ -1186,7 +1184,7 @@ expect_stdout "one-shot CRLF correct" "$drill_001_crlf_pass_output" sh -c "print
 expect_stdout "one-shot help as wrong answer" "$drill_001_try_again_output" sh -c "printf ':help\\n' | cargo run -q -- 001"
 
 section "temporary install"
-CARGO_HOME="$cargo_home" cargo install --path . --force --root "$install_root"
+CARGO_NET_OFFLINE=true cargo install --locked --path . --force --root "$install_root"
 
 expect_stdout "installed command path" "$install_root/bin/rust-reps" env PATH="$install_root/bin:$PATH" sh -c 'command -v rust-reps'
 expect_stdout "installed version" 'rust-reps 0.1.0' env PATH="$install_root/bin:$PATH" rust-reps --version
