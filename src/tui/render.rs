@@ -38,10 +38,13 @@ fn rep_lines(app: &TuiApp) -> Vec<String> {
     let mut lines = vec![
         drill_label,
         String::new(),
-        drill.expected.to_string(),
+        "Prompt".to_string(),
+        drill.prompt.to_string(),
         String::new(),
+        "Workbox".to_string(),
         input_line(app),
         String::new(),
+        "Feedback".to_string(),
     ];
     lines.extend(status_lines(app));
     lines
@@ -68,7 +71,7 @@ fn status_lines(app: &TuiApp) -> Vec<String> {
 
 fn input_line(app: &TuiApp) -> String {
     if app.input().is_empty() {
-        "> |  type answer".to_string()
+        "> |  copy prompt here".to_string()
     } else {
         format!("> {}|", app.input())
     }
@@ -90,8 +93,9 @@ fn footer_lines(app: &TuiApp) -> Vec<String> {
 fn emphasize_status_line(index: usize, line: &str) -> String {
     if index == 0 {
         match line {
-            "PASS" | "TRY AGAIN" | "UNKNOWN COMMAND" | "COMPLETE" | "QUIT" | "STATUS" | "READY"
-            | "SKIP" => format!(">> {}", line),
+            "PASS" | "TRY AGAIN" | "UNKNOWN COMMAND" | "COMPLETE" | "QUIT" | "STATUS" | "SKIP" => {
+                format!(">> {}", line)
+            }
             _ => line.to_string(),
         }
     } else {
@@ -124,21 +128,48 @@ mod tests {
             .expect("expected drill in rep snapshot");
         let expected_position = lines
             .iter()
+            .position(|line| line == "Prompt")
+            .expect("expected Prompt label in rep snapshot");
+        let prompt_value_position = lines
+            .iter()
             .position(|line| line.contains("println!(\"Rust Reps\");"))
-            .expect("expected answer in rep snapshot");
+            .expect("expected prompt in rep snapshot");
+        let workbox_position = lines
+            .iter()
+            .position(|line| line == "Workbox")
+            .expect("expected Workbox label in rep snapshot");
         let input_position = lines
             .iter()
-            .position(|line| line == "> |  type answer")
+            .position(|line| line == "> |  copy prompt here")
             .expect("expected input caret in rep snapshot");
+        let feedback_position = lines
+            .iter()
+            .position(|line| line == "Feedback")
+            .expect("expected Feedback label in rep snapshot");
         let status_position = lines
             .iter()
             .position(|line| line == ">> PASS")
             .expect("expected PASS in rep snapshot");
 
         assert!(drill_position < expected_position);
-        assert!(expected_position < input_position);
-        assert!(input_position < status_position);
+        assert!(expected_position < prompt_value_position);
+        assert!(prompt_value_position < workbox_position);
+        assert!(workbox_position < input_position);
+        assert!(input_position < feedback_position);
+        assert!(feedback_position < status_position);
         assert!(!lines.iter().any(|line| line == "Commands:"));
+    }
+
+    #[test]
+    fn render_snapshot_uses_task_language_by_default() {
+        let app = TuiApp::new();
+        let lines = render_lines_for_snapshot(&app);
+        assert!(!lines.iter().any(|line| line.contains("READY")));
+        assert!(lines.iter().any(|line| line == "Prompt"));
+        assert!(lines.iter().any(|line| line == "Workbox"));
+        assert!(lines.iter().any(|line| line == "Feedback"));
+        assert!(lines.iter().any(|line| line == "Copy the prompt exactly."));
+        assert!(lines.iter().any(|line| line == "> |  copy prompt here"));
     }
 
     #[test]
@@ -155,8 +186,6 @@ mod tests {
                 .iter()
                 .any(|line| line == "Enter submit | Esc quit | ? help")
         );
-        assert!(lines.iter().any(|line| line == "> |  type answer"));
-        assert!(lines.iter().any(|line| line == ">> READY"));
         assert!(!lines.iter().any(|line| line == "Backspace: delete char"));
     }
 
@@ -203,6 +232,19 @@ mod tests {
     }
 
     #[test]
+    fn render_snapshot_makes_unknown_command_clear() {
+        let mut app = TuiApp::new();
+        for ch in ":unknown".chars() {
+            app.handle_intent(UiIntent::Append(ch));
+        }
+        app.handle_intent(UiIntent::Submit);
+        let lines = render_lines_for_snapshot(&app);
+
+        assert!(lines.iter().any(|line| line == ">> UNKNOWN COMMAND"));
+        assert!(lines.iter().any(|line| line == "Type :help for commands."));
+    }
+
+    #[test]
     fn render_snapshot_makes_pass_prominent_and_moves_to_next_drill() {
         let mut app = TuiApp::new();
         for ch in "fn main() {}".chars() {
@@ -218,6 +260,6 @@ mod tests {
                 .iter()
                 .any(|line| line.contains("println!(\"Rust Reps\");"))
         );
-        assert!(lines.iter().any(|line| line == "> |  type answer"));
+        assert!(lines.iter().any(|line| line == "> |  copy prompt here"));
     }
 }

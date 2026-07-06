@@ -16,7 +16,7 @@ impl TuiApp {
         Self {
             session: practice::PracticeSession::new(),
             input: String::new(),
-            status_lines: vec!["READY".to_string()],
+            status_lines: vec!["Copy the prompt exactly.".to_string()],
             show_help_panel: false,
             should_quit: false,
             completed: false,
