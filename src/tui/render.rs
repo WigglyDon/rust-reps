@@ -215,17 +215,13 @@ fn bottom_chrome_lines(client_frame: &ClientFrame) -> Vec<Line<'static>> {
         Span::styled(symbol, counter_symbol_style(client_frame.counter_reward)),
         Span::styled(
             format!(" {}", client_frame.completed_reps_this_run),
-            counter_number_style(),
+            counter_number_style(client_frame.counter_reward),
         ),
     ])]
 }
 
 fn counter_symbol(reward: CounterRewardFrame) -> &'static str {
-    if reward.active && reward.intensity >= 72 {
-        "✓"
-    } else {
-        "●"
-    }
+    if reward.active { "✓" } else { "●" }
 }
 
 fn code_spans(tokens: &[CodeToken]) -> Vec<Span<'static>> {
@@ -282,30 +278,30 @@ fn status_tone_style(tone: StatusTone) -> Style {
 }
 
 fn counter_symbol_style(reward: CounterRewardFrame) -> Style {
-    let color = if reward.active && reward.intensity >= 72 {
-        blend_color(
-            theme().success_soft,
-            theme().success_bright,
-            reward.intensity,
-        )
-    } else {
-        blend_color(theme().success, theme().success_soft, reward.intensity)
-    };
+    let color = blend_color(
+        theme().success_soft,
+        theme().success_bright,
+        reward.intensity,
+    );
     Style::default()
         .fg(color)
         .bg(theme().background)
         .add_modifier(Modifier::BOLD)
 }
 
-fn counter_number_style() -> Style {
+fn counter_number_style(reward: CounterRewardFrame) -> Style {
     Style::default()
-        .fg(theme().success)
+        .fg(blend_color(
+            theme().success_soft,
+            theme().success_bright,
+            reward.intensity,
+        ))
         .bg(theme().background)
         .add_modifier(Modifier::BOLD)
 }
 
 fn bottom_chrome_alignment() -> Alignment {
-    Alignment::Left
+    Alignment::Center
 }
 
 fn caret_style() -> Style {
@@ -387,7 +383,7 @@ fn line_text(line: &Line<'_>) -> String {
 
 #[cfg(test)]
 mod tests {
-    use std::time::Instant;
+    use std::time::{Duration, Instant};
 
     use super::{
         FEEDBACK_CHROME_HEIGHT, border_style, bottom_chrome_alignment, bottom_chrome_lines,
@@ -395,7 +391,10 @@ mod tests {
         render_snapshot, status_tone_style, theme,
     };
     use crate::{
-        client::{COUNTER_REWARD_DURATION, ClientAction, CounterRewardFrame, StatusTone},
+        client::{
+            COUNTER_REWARD_ATTACK_DURATION, COUNTER_REWARD_DURATION, COUNTER_REWARD_HOLD_DURATION,
+            ClientAction, CounterRewardFrame, StatusTone,
+        },
         tui::TuiApp,
     };
     use ratatui::layout::{Alignment, Rect};
@@ -506,12 +505,12 @@ mod tests {
     }
 
     #[test]
-    fn render_snapshot_contains_bottom_left_counter_text() {
+    fn render_snapshot_contains_centered_counter_text() {
         let app = TuiApp::new();
         let frame = app.frame();
         let snapshot = render_snapshot(&frame);
         assert_eq!(snapshot.bottom_chrome, vec!["● 0".to_string()]);
-        assert_eq!(bottom_chrome_alignment(), Alignment::Left);
+        assert_eq!(bottom_chrome_alignment(), Alignment::Center);
         assert!(!snapshot.game.iter().any(|line| line.contains("Passed")));
         assert!(!snapshot.feedback.iter().any(|line| line.contains("Passed")));
     }
@@ -524,22 +523,22 @@ mod tests {
         let line = lines.first().expect("expected bottom counter line");
 
         assert_eq!(line.spans[0].content.as_ref(), "●");
-        assert_eq!(line.spans[0].style.fg, Some(theme().success));
+        assert_eq!(line.spans[0].style.fg, Some(theme().success_soft));
         assert!(line.spans[0].style.add_modifier.contains(Modifier::BOLD));
         assert_eq!(line.spans[1].content.as_ref(), " 0");
-        assert_eq!(line.spans[1].style.fg, Some(theme().success));
+        assert_eq!(line.spans[1].style.fg, Some(theme().success_soft));
         assert!(line.spans[1].style.add_modifier.contains(Modifier::BOLD));
     }
 
     #[test]
-    fn reward_peak_counter_symbol_is_checkmark_bright_and_bold_while_number_stays_stable() {
+    fn reward_peak_counter_symbol_and_number_are_checkmark_bright_and_bold() {
         let mut app = TuiApp::new();
         let now = test_now();
         for ch in "fn main() {}".chars() {
             app.handle_action(ClientAction::TypeChar(ch));
         }
         app.handle_action_at(ClientAction::Submit, now);
-        let frame = app.frame_at(now + COUNTER_REWARD_DURATION / 2);
+        let frame = app.frame_at(now + COUNTER_REWARD_ATTACK_DURATION);
         let lines = bottom_chrome_lines(&frame);
         let line = lines.first().expect("expected bottom counter line");
 
@@ -547,11 +546,12 @@ mod tests {
         assert_eq!(line.spans[0].style.fg, Some(theme().success_bright));
         assert!(line.spans[0].style.add_modifier.contains(Modifier::BOLD));
         assert_eq!(line.spans[1].content.as_ref(), " 1");
-        assert_eq!(line.spans[1].style.fg, Some(theme().success));
+        assert_eq!(line.spans[1].style.fg, Some(theme().success_bright));
+        assert!(line.spans[1].style.add_modifier.contains(Modifier::BOLD));
     }
 
     #[test]
-    fn reward_counter_sequence_rises_peaks_falls_and_settles() {
+    fn reward_counter_sequence_hits_fast_holds_then_releases_slowly() {
         let mut app = TuiApp::new();
         let now = test_now();
         for ch in "fn main() {}".chars() {
@@ -561,33 +561,36 @@ mod tests {
         let frame = app.frame_at(now);
         let lines = bottom_chrome_lines(&frame);
         let line = lines.first().expect("expected bottom counter line");
-        assert_eq!(line.spans[0].content.as_ref(), "●");
-        assert_eq!(line.spans[0].style.fg, Some(theme().success));
+        assert_eq!(line.spans[0].content.as_ref(), "✓");
+        assert_eq!(line.spans[0].style.fg, Some(theme().success_soft));
 
-        let frame = app.frame_at(now + COUNTER_REWARD_DURATION / 4);
+        let frame = app.frame_at(now + COUNTER_REWARD_ATTACK_DURATION);
         let lines = bottom_chrome_lines(&frame);
         let line = lines.first().expect("expected bottom counter line");
-        assert_eq!(line.spans[0].content.as_ref(), "●");
-        assert_ne!(line.spans[0].style.fg, Some(theme().success));
+        assert_eq!(line.spans[0].content.as_ref(), "✓");
+        assert_eq!(line.spans[0].style.fg, Some(theme().success_bright));
+        assert_eq!(line.spans[1].style.fg, Some(theme().success_bright));
 
-        let frame = app.frame_at(now + COUNTER_REWARD_DURATION / 2);
+        let frame =
+            app.frame_at(now + COUNTER_REWARD_ATTACK_DURATION + (COUNTER_REWARD_HOLD_DURATION / 2));
         let lines = bottom_chrome_lines(&frame);
         let line = lines.first().expect("expected bottom counter line");
         assert_eq!(line.spans[0].content.as_ref(), "✓");
         assert_eq!(line.spans[0].style.fg, Some(theme().success_bright));
         assert_eq!(line.spans[1].content.as_ref(), " 1");
 
-        let frame = app.frame_at(now + (COUNTER_REWARD_DURATION / 4) * 3);
+        let frame = app.frame_at(now + COUNTER_REWARD_DURATION - Duration::from_millis(200));
         let lines = bottom_chrome_lines(&frame);
         let line = lines.first().expect("expected bottom counter line");
-        assert_eq!(line.spans[0].content.as_ref(), "●");
-        assert_ne!(line.spans[0].style.fg, Some(theme().success));
+        assert_eq!(line.spans[0].content.as_ref(), "✓");
+        assert_ne!(line.spans[0].style.fg, Some(theme().success_bright));
+        assert_eq!(line.spans[1].content.as_ref(), " 1");
 
         let frame = app.frame_at(now + COUNTER_REWARD_DURATION);
         let lines = bottom_chrome_lines(&frame);
         let line = lines.first().expect("expected bottom counter line");
         assert_eq!(line.spans[0].content.as_ref(), "●");
-        assert_eq!(line.spans[0].style.fg, Some(theme().success));
+        assert_eq!(line.spans[0].style.fg, Some(theme().success_soft));
     }
 
     #[test]
@@ -603,7 +606,7 @@ mod tests {
         let line = lines.first().expect("expected bottom counter line");
 
         assert_eq!(line.spans[0].content.as_ref(), "●");
-        assert_eq!(line.spans[0].style.fg, Some(theme().success));
+        assert_eq!(line.spans[0].style.fg, Some(theme().success_soft));
         assert_eq!(line.spans[1].content.as_ref(), " 1");
     }
 

@@ -203,7 +203,10 @@ mod tests {
     use std::time::{Duration, Instant};
 
     use super::TuiApp;
-    use crate::client::{COUNTER_REWARD_DURATION, ClientAction};
+    use crate::client::{
+        COUNTER_REWARD_ATTACK_DURATION, COUNTER_REWARD_DURATION, COUNTER_REWARD_HOLD_DURATION,
+        ClientAction,
+    };
 
     fn test_now() -> Instant {
         Instant::now()
@@ -255,14 +258,23 @@ mod tests {
             app.frame_at(now + Duration::from_millis(50))
                 .counter_reward_active
         );
+        assert_eq!(
+            app.frame_at(now + COUNTER_REWARD_ATTACK_DURATION)
+                .counter_reward
+                .intensity,
+            100
+        );
+        assert_eq!(
+            app.frame_at(now + COUNTER_REWARD_ATTACK_DURATION + (COUNTER_REWARD_HOLD_DURATION / 2))
+                .counter_reward
+                .intensity,
+            100
+        );
         assert!(
-            app.frame_at(now + COUNTER_REWARD_DURATION / 2)
+            app.frame_at(now + COUNTER_REWARD_DURATION - Duration::from_millis(100))
                 .counter_reward
                 .intensity
-                > app
-                    .frame_at(now + Duration::from_millis(50))
-                    .counter_reward
-                    .intensity
+                < 10
         );
 
         let expired_at = now + COUNTER_REWARD_DURATION;

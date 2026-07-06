@@ -42,7 +42,10 @@ impl CodeToken {
     }
 }
 
-pub const COUNTER_REWARD_DURATION: Duration = Duration::from_millis(650);
+pub const COUNTER_REWARD_ATTACK_DURATION: Duration = Duration::from_millis(120);
+pub const COUNTER_REWARD_HOLD_DURATION: Duration = Duration::from_millis(180);
+pub const COUNTER_REWARD_RELEASE_DURATION: Duration = Duration::from_millis(1_000);
+pub const COUNTER_REWARD_DURATION: Duration = Duration::from_millis(1_300);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct CounterRewardFrame {
@@ -98,24 +101,46 @@ impl CounterRewardAnimation {
 
         CounterRewardFrame {
             active: true,
-            intensity: reward_intensity(elapsed, self.duration),
+            intensity: reward_intensity_at(elapsed),
         }
     }
 }
 
-fn reward_intensity(elapsed: Duration, duration: Duration) -> u8 {
-    if duration.is_zero() || elapsed >= duration {
+fn reward_intensity_at(elapsed: Duration) -> u8 {
+    if elapsed >= COUNTER_REWARD_DURATION {
         return 0;
     }
 
-    let progress = elapsed.as_secs_f32() / duration.as_secs_f32();
-    let triangle = if progress <= 0.5 {
-        progress * 2.0
+    let release_starts_at = COUNTER_REWARD_ATTACK_DURATION + COUNTER_REWARD_HOLD_DURATION;
+    let intensity = if elapsed < COUNTER_REWARD_ATTACK_DURATION {
+        ease_out_cubic(duration_progress(elapsed, COUNTER_REWARD_ATTACK_DURATION))
+    } else if elapsed < release_starts_at {
+        1.0
     } else {
-        (1.0 - progress) * 2.0
+        let release_elapsed = elapsed.saturating_sub(release_starts_at);
+        1.0 - smoothstep(duration_progress(
+            release_elapsed,
+            COUNTER_REWARD_RELEASE_DURATION,
+        ))
     };
-    let eased = triangle * triangle * (3.0 - 2.0 * triangle);
-    (eased * 100.0).round().clamp(0.0, 100.0) as u8
+
+    (intensity * 100.0).round().clamp(0.0, 100.0) as u8
+}
+
+fn duration_progress(elapsed: Duration, duration: Duration) -> f32 {
+    if duration.is_zero() {
+        return 1.0;
+    }
+
+    (elapsed.as_secs_f32() / duration.as_secs_f32()).clamp(0.0, 1.0)
+}
+
+fn ease_out_cubic(progress: f32) -> f32 {
+    1.0 - (1.0 - progress).powi(3)
+}
+
+fn smoothstep(progress: f32) -> f32 {
+    progress * progress * (3.0 - (2.0 * progress))
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -503,7 +528,8 @@ mod tests {
     use std::time::{Duration, Instant};
 
     use super::{
-        COUNTER_REWARD_DURATION, ClientAction, ClientUiState, CodeTokenKind, StatusTone,
+        COUNTER_REWARD_ATTACK_DURATION, COUNTER_REWARD_DURATION, COUNTER_REWARD_HOLD_DURATION,
+        COUNTER_REWARD_RELEASE_DURATION, ClientAction, ClientUiState, CodeTokenKind, StatusTone,
         project_client_frame, project_client_frame_at, tokenize_rust_line,
     };
     use crate::engine;
@@ -638,7 +664,7 @@ mod tests {
     }
 
     #[test]
-    fn reward_animation_intensity_rises_peaks_and_falls_from_time() {
+    fn reward_attack_reaches_high_intensity_quickly() {
         let mut ui_state = ClientUiState::new();
         let now = test_now();
 
@@ -646,19 +672,39 @@ mod tests {
         ui_state.start_counter_reward(now);
 
         let start = ui_state.counter_reward_frame_at(now);
-        let rising = ui_state.counter_reward_frame_at(now + COUNTER_REWARD_DURATION / 4);
-        let peak = ui_state.counter_reward_frame_at(now + COUNTER_REWARD_DURATION / 2);
-        let falling = ui_state.counter_reward_frame_at(now + (COUNTER_REWARD_DURATION / 4) * 3);
+        let quick_hit = ui_state.counter_reward_frame_at(now + COUNTER_REWARD_ATTACK_DURATION / 2);
+        let attack_end = ui_state.counter_reward_frame_at(now + COUNTER_REWARD_ATTACK_DURATION);
 
         assert!(start.active);
         assert_eq!(start.intensity, 0);
-        assert!(rising.active);
-        assert!(rising.intensity > start.intensity);
-        assert!(peak.active);
-        assert_eq!(peak.intensity, 100);
-        assert!(falling.active);
-        assert!(falling.intensity < peak.intensity);
-        assert!(falling.intensity > start.intensity);
+        assert!(quick_hit.active);
+        assert!(quick_hit.intensity >= 80);
+        assert!(attack_end.active);
+        assert_eq!(attack_end.intensity, 100);
+    }
+
+    #[test]
+    fn reward_holds_peak_briefly_then_releases_slowly() {
+        let mut ui_state = ClientUiState::new();
+        let now = test_now();
+        ui_state.start_counter_reward(now);
+
+        let hold_mid = ui_state.counter_reward_frame_at(
+            now + COUNTER_REWARD_ATTACK_DURATION + (COUNTER_REWARD_HOLD_DURATION / 2),
+        );
+        let release_starts_at = COUNTER_REWARD_ATTACK_DURATION + COUNTER_REWARD_HOLD_DURATION;
+        let early_release =
+            ui_state.counter_reward_frame_at(now + release_starts_at + Duration::from_millis(250));
+        let late_release =
+            ui_state.counter_reward_frame_at(now + release_starts_at + Duration::from_millis(800));
+
+        assert_eq!(hold_mid.intensity, 100);
+        assert!(COUNTER_REWARD_RELEASE_DURATION > COUNTER_REWARD_ATTACK_DURATION);
+        assert!(early_release.active);
+        assert!(late_release.active);
+        assert!(early_release.intensity < hold_mid.intensity);
+        assert!(early_release.intensity > late_release.intensity);
+        assert!(late_release.intensity > 0);
     }
 
     #[test]
