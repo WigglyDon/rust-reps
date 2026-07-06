@@ -1,4 +1,5 @@
 use std::io::Write;
+use std::path::PathBuf;
 use std::process::{Command, Output, Stdio};
 
 const DRILL_001_PASS_OUTPUT: &str =
@@ -197,13 +198,14 @@ const PRACTICE_SKIP_FINAL_OUTPUT: &str = concat!(
 );
 
 fn run_rust_reps(args: &[&str], input: &str) -> Output {
-    let mut child = Command::new(env!("CARGO_BIN_EXE_rust-reps"))
+    let binary = rust_reps_binary();
+    let mut child = Command::new(&binary)
         .args(args)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
-        .expect("failed to start rust-reps");
+        .unwrap_or_else(|err| panic!("failed to start rust-reps at {}: {err}", binary.display()));
 
     let mut stdin = child.stdin.take().expect("failed to open stdin");
     stdin
@@ -212,6 +214,18 @@ fn run_rust_reps(args: &[&str], input: &str) -> Output {
     drop(stdin);
 
     child.wait_with_output().expect("failed to wait for output")
+}
+
+fn rust_reps_binary() -> PathBuf {
+    let mut path = std::env::current_exe().expect("failed to locate current test executable");
+    path.pop();
+
+    if path.file_name().and_then(|name| name.to_str()) == Some("deps") {
+        path.pop();
+    }
+
+    path.push(format!("rust-reps{}", std::env::consts::EXE_SUFFIX));
+    path
 }
 
 #[test]

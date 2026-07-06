@@ -10,9 +10,11 @@ section() {
     printf '%s\n' "--- $1 ---"
 }
 
+cargo_home=$(mktemp -d)
 install_root=$(mktemp -d)
 
 cleanup() {
+    rm -rf "$cargo_home"
     rm -rf "$install_root"
 }
 
@@ -481,9 +483,10 @@ Current drills:
 expect_stdout "version" 'rust-reps 0.1.0' cargo run -q -- --version
 
 section "temporary install"
-cargo install --path . --root "$install_root"
+CARGO_HOME="$cargo_home" cargo install --path . --force --root "$install_root"
 
-expect_stdout "installed version" 'rust-reps 0.1.0' "$install_root/bin/rust-reps" --version
+expect_stdout "installed command path" "$install_root/bin/rust-reps" env PATH="$install_root/bin:$PATH" sh -c 'command -v rust-reps'
+expect_stdout "installed version" 'rust-reps 0.1.0' env PATH="$install_root/bin:$PATH" rust-reps --version
 expect_stdout "installed help" 'Rust Reps
 
 Usage:
@@ -509,7 +512,7 @@ Current drills:
 009  let scores = [1, 2, 3];
 010  fn add_one(x: i32) -> i32 { x + 1 }
 011  if score > 0 {}
-012  while score < 10 {}' "$install_root/bin/rust-reps" --help
+012  while score < 10 {}' env PATH="$install_root/bin:$PATH" rust-reps --help
 expect_stdout "installed list" 'Rust Reps
 
 Available drills:
@@ -524,9 +527,9 @@ Available drills:
 009  let scores = [1, 2, 3];
 010  fn add_one(x: i32) -> i32 { x + 1 }
 011  if score > 0 {}
-012  while score < 10 {}' "$install_root/bin/rust-reps" --list
-expect_stdout "installed practice quit" "$practice_quit_output" sh -c 'printf ":q\n" | "$1/bin/rust-reps"' sh "$install_root"
-expect_stdout "installed practice help then quit" "$practice_help_then_quit_output" sh -c 'printf ":help\n:q\n" | "$1/bin/rust-reps"' sh "$install_root"
+012  while score < 10 {}' env PATH="$install_root/bin:$PATH" rust-reps --list
+expect_stdout "installed practice quit" "$practice_quit_output" env PATH="$install_root/bin:$PATH" sh -c 'printf ":q\n" | rust-reps'
+expect_stdout "installed practice help then quit" "$practice_help_then_quit_output" env PATH="$install_root/bin:$PATH" sh -c 'printf ":help\n:q\n" | rust-reps'
 expect_stdout "installed Drill 001 PASS" 'Rust Reps
 
 Drill 001
@@ -534,7 +537,7 @@ Type exactly:
 
 fn main() {}
 
->PASS' sh -c 'printf "fn main() {}\n" | "$1/bin/rust-reps" 001' sh "$install_root"
+>PASS' env PATH="$install_root/bin:$PATH" sh -c 'printf "fn main() {}\n" | rust-reps 001'
 
 expect_stdout "Drill 002 PASS" 'Rust Reps
 

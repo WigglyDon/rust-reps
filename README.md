@@ -89,45 +89,20 @@ A trailing LF or CRLF from pressing Enter is ignored.
 
 Spaces, punctuation, braces, tabs, casing, Unicode, and internal spacing are not normalized.
 
-## Install
+## Player Mode
 
 ```sh
-cargo install --path .
-```
-
-## Play
-
-```sh
+cargo install --path . --force
 rust-reps
-```
-
-Uninstall:
-
-```sh
 cargo uninstall rust-reps
 ```
 
-## Developer Run
+## Developer Mode
 
 ```sh
 cargo run
-cargo run -- play
-cargo run -- --help
-cargo run -- --list
-cargo run -- --version
 cargo run -- 001
-cargo run -- 012
-```
-
-## Test
-
-```sh
 cargo test
-```
-
-## Local Proof
-
-```sh
 ./scripts/proof.sh
 ```
 
