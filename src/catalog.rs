@@ -33,8 +33,35 @@ pub fn find_drill(id: &str) -> Option<&'static Drill> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::curriculum::{TaskType, Validator};
+    use crate::curriculum::{DRILL_SHARDS, TaskType, Validator};
     use std::collections::HashSet;
+
+    #[test]
+    fn curriculum_has_registered_shards() {
+        assert!(!DRILL_SHARDS.is_empty());
+    }
+
+    #[test]
+    fn no_registered_shard_is_empty() {
+        for (index, shard) in DRILL_SHARDS.iter().enumerate() {
+            assert!(
+                !shard.is_empty(),
+                "expected registered shard {} to be non-empty",
+                index
+            );
+        }
+    }
+
+    #[test]
+    fn drills_include_every_registered_shard_drill() {
+        let catalog_drill_ids: Vec<&str> = drills().iter().map(|drill| drill.id).collect();
+        let flat_shard_ids: Vec<&str> = DRILL_SHARDS
+            .iter()
+            .flat_map(|shard| shard.iter())
+            .map(|drill| drill.id)
+            .collect();
+        assert_eq!(catalog_drill_ids, flat_shard_ids);
+    }
 
     #[test]
     fn drill_ids_are_unique() {

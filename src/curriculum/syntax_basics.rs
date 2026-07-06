@@ -1,44 +1,11 @@
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub enum Track {
-    RustSyntax,
-}
-
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub enum Stage {
-    Copy,
-}
-
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub enum TaskType {
-    TypeExact,
-}
-
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub enum Validator {
-    Exact,
-}
-
-#[derive(Copy, Clone)]
-pub struct DrillSpec {
-    pub id: &'static str,
-    pub track: Track,
-    pub skill: &'static str,
-    pub stage: Stage,
-    pub task_type: TaskType,
-    pub difficulty: u8,
-    pub prompt: &'static str,
-    pub expected: &'static str,
-    pub validator: Validator,
-    pub prerequisites: &'static [&'static str],
-    pub tags: &'static [&'static str],
-}
+use crate::curriculum::{RepSpec, Stage, TaskType, Track, Validator};
 
 const SKILL_CORE_SYNTAX: &str = "core_syntax";
 const NO_PREREQUISITES: &[&str] = &[];
 const NO_TAGS: &[&str] = &[];
 
-pub const DRILLS: &[DrillSpec] = &[
-    DrillSpec {
+pub const REPS: &[RepSpec] = &[
+    RepSpec {
         id: "001",
         track: Track::RustSyntax,
         skill: SKILL_CORE_SYNTAX,
@@ -51,7 +18,7 @@ pub const DRILLS: &[DrillSpec] = &[
         prerequisites: NO_PREREQUISITES,
         tags: NO_TAGS,
     },
-    DrillSpec {
+    RepSpec {
         id: "002",
         track: Track::RustSyntax,
         skill: SKILL_CORE_SYNTAX,
@@ -64,7 +31,7 @@ pub const DRILLS: &[DrillSpec] = &[
         prerequisites: NO_PREREQUISITES,
         tags: NO_TAGS,
     },
-    DrillSpec {
+    RepSpec {
         id: "003",
         track: Track::RustSyntax,
         skill: SKILL_CORE_SYNTAX,
@@ -77,7 +44,7 @@ pub const DRILLS: &[DrillSpec] = &[
         prerequisites: NO_PREREQUISITES,
         tags: NO_TAGS,
     },
-    DrillSpec {
+    RepSpec {
         id: "004",
         track: Track::RustSyntax,
         skill: SKILL_CORE_SYNTAX,
@@ -90,7 +57,7 @@ pub const DRILLS: &[DrillSpec] = &[
         prerequisites: NO_PREREQUISITES,
         tags: NO_TAGS,
     },
-    DrillSpec {
+    RepSpec {
         id: "005",
         track: Track::RustSyntax,
         skill: SKILL_CORE_SYNTAX,
@@ -103,7 +70,7 @@ pub const DRILLS: &[DrillSpec] = &[
         prerequisites: NO_PREREQUISITES,
         tags: NO_TAGS,
     },
-    DrillSpec {
+    RepSpec {
         id: "006",
         track: Track::RustSyntax,
         skill: SKILL_CORE_SYNTAX,
@@ -116,7 +83,7 @@ pub const DRILLS: &[DrillSpec] = &[
         prerequisites: NO_PREREQUISITES,
         tags: NO_TAGS,
     },
-    DrillSpec {
+    RepSpec {
         id: "007",
         track: Track::RustSyntax,
         skill: SKILL_CORE_SYNTAX,
@@ -129,7 +96,7 @@ pub const DRILLS: &[DrillSpec] = &[
         prerequisites: NO_PREREQUISITES,
         tags: NO_TAGS,
     },
-    DrillSpec {
+    RepSpec {
         id: "008",
         track: Track::RustSyntax,
         skill: SKILL_CORE_SYNTAX,
@@ -142,7 +109,7 @@ pub const DRILLS: &[DrillSpec] = &[
         prerequisites: NO_PREREQUISITES,
         tags: NO_TAGS,
     },
-    DrillSpec {
+    RepSpec {
         id: "009",
         track: Track::RustSyntax,
         skill: SKILL_CORE_SYNTAX,
@@ -155,7 +122,7 @@ pub const DRILLS: &[DrillSpec] = &[
         prerequisites: NO_PREREQUISITES,
         tags: NO_TAGS,
     },
-    DrillSpec {
+    RepSpec {
         id: "010",
         track: Track::RustSyntax,
         skill: SKILL_CORE_SYNTAX,
@@ -168,7 +135,7 @@ pub const DRILLS: &[DrillSpec] = &[
         prerequisites: NO_PREREQUISITES,
         tags: NO_TAGS,
     },
-    DrillSpec {
+    RepSpec {
         id: "011",
         track: Track::RustSyntax,
         skill: SKILL_CORE_SYNTAX,
@@ -181,7 +148,7 @@ pub const DRILLS: &[DrillSpec] = &[
         prerequisites: NO_PREREQUISITES,
         tags: NO_TAGS,
     },
-    DrillSpec {
+    RepSpec {
         id: "012",
         track: Track::RustSyntax,
         skill: SKILL_CORE_SYNTAX,
