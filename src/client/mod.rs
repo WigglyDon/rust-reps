@@ -1,3 +1,5 @@
+use std::time::{Duration, Instant};
+
 use crate::engine;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -40,35 +42,80 @@ impl CodeToken {
     }
 }
 
+pub const COUNTER_REWARD_DURATION: Duration = Duration::from_millis(650);
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum CounterRewardPhase {
-    IdleDot,
-    Rise1,
-    Rise2,
-    PeakCheck,
-    HoldCheck,
-    Fall1,
-    Fall2,
-    SettleDot,
+pub struct CounterRewardFrame {
+    pub active: bool,
+    pub intensity: u8,
 }
 
-impl CounterRewardPhase {
-    pub fn is_active(self) -> bool {
-        self != Self::IdleDot
-    }
-
-    fn next(self) -> Self {
-        match self {
-            Self::IdleDot => Self::IdleDot,
-            Self::Rise1 => Self::Rise2,
-            Self::Rise2 => Self::PeakCheck,
-            Self::PeakCheck => Self::HoldCheck,
-            Self::HoldCheck => Self::Fall1,
-            Self::Fall1 => Self::Fall2,
-            Self::Fall2 => Self::SettleDot,
-            Self::SettleDot => Self::IdleDot,
+impl CounterRewardFrame {
+    fn idle() -> Self {
+        Self {
+            active: false,
+            intensity: 0,
         }
     }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct CounterRewardAnimation {
+    started_at: Option<Instant>,
+    duration: Duration,
+}
+
+impl CounterRewardAnimation {
+    fn new() -> Self {
+        Self {
+            started_at: None,
+            duration: COUNTER_REWARD_DURATION,
+        }
+    }
+
+    fn start(&mut self, now: Instant) {
+        self.started_at = Some(now);
+    }
+
+    fn clear(&mut self) {
+        self.started_at = None;
+    }
+
+    fn settle(&mut self, now: Instant) {
+        if !self.frame_at(now).active {
+            self.clear();
+        }
+    }
+
+    fn frame_at(self, now: Instant) -> CounterRewardFrame {
+        let Some(started_at) = self.started_at else {
+            return CounterRewardFrame::idle();
+        };
+        let elapsed = now.saturating_duration_since(started_at);
+        if elapsed >= self.duration {
+            return CounterRewardFrame::idle();
+        }
+
+        CounterRewardFrame {
+            active: true,
+            intensity: reward_intensity(elapsed, self.duration),
+        }
+    }
+}
+
+fn reward_intensity(elapsed: Duration, duration: Duration) -> u8 {
+    if duration.is_zero() || elapsed >= duration {
+        return 0;
+    }
+
+    let progress = elapsed.as_secs_f32() / duration.as_secs_f32();
+    let triangle = if progress <= 0.5 {
+        progress * 2.0
+    } else {
+        (1.0 - progress) * 2.0
+    };
+    let eased = triangle * triangle * (3.0 - 2.0 * triangle);
+    (eased * 100.0).round().clamp(0.0, 100.0) as u8
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -77,7 +124,7 @@ pub struct ClientUiState {
     cursor_visible: bool,
     help_open: bool,
     status_lines: Vec<String>,
-    counter_reward_phase: CounterRewardPhase,
+    counter_reward: CounterRewardAnimation,
 }
 
 impl ClientUiState {
@@ -87,7 +134,7 @@ impl ClientUiState {
             cursor_visible: true,
             help_open: false,
             status_lines: Vec::new(),
-            counter_reward_phase: CounterRewardPhase::IdleDot,
+            counter_reward: CounterRewardAnimation::new(),
         }
     }
 
@@ -107,12 +154,12 @@ impl ClientUiState {
         &self.status_lines
     }
 
-    pub fn counter_reward_phase(&self) -> CounterRewardPhase {
-        self.counter_reward_phase
+    pub fn counter_reward_frame_at(&self, now: Instant) -> CounterRewardFrame {
+        self.counter_reward.frame_at(now)
     }
 
-    pub fn counter_reward_active(&self) -> bool {
-        self.counter_reward_phase.is_active()
+    pub fn counter_reward_active_at(&self, now: Instant) -> bool {
+        self.counter_reward_frame_at(now).active
     }
 
     pub fn apply_action(&mut self, action: ClientAction) {
@@ -131,7 +178,6 @@ impl ClientUiState {
             }
             ClientAction::CursorTick => {
                 self.cursor_visible = !self.cursor_visible;
-                self.advance_counter_reward();
             }
             ClientAction::Submit | ClientAction::Quit | ClientAction::Ignore => {}
         }
@@ -150,16 +196,16 @@ impl ClientUiState {
         self.cursor_visible = true;
     }
 
-    pub fn start_counter_reward(&mut self) {
-        self.counter_reward_phase = CounterRewardPhase::Rise1;
+    pub fn start_counter_reward(&mut self, now: Instant) {
+        self.counter_reward.start(now);
     }
 
     pub fn clear_counter_reward(&mut self) {
-        self.counter_reward_phase = CounterRewardPhase::IdleDot;
+        self.counter_reward.clear();
     }
 
-    fn advance_counter_reward(&mut self) {
-        self.counter_reward_phase = self.counter_reward_phase.next();
+    pub fn settle_counter_reward(&mut self, now: Instant) {
+        self.counter_reward.settle(now);
     }
 }
 
@@ -168,7 +214,7 @@ pub struct ClientFrame {
     pub game_window: GameWindowFrame,
     pub status_chrome: StatusChromeFrame,
     pub completed_reps_this_run: usize,
-    pub counter_reward_phase: CounterRewardPhase,
+    pub counter_reward: CounterRewardFrame,
     pub counter_reward_active: bool,
     pub help_chrome: HelpChromeFrame,
 }
@@ -222,12 +268,22 @@ pub struct HelpChromeFrame {
     pub lines: Vec<String>,
 }
 
+#[cfg(test)]
 pub fn project_client_frame(session: &engine::Session, ui_state: &ClientUiState) -> ClientFrame {
+    project_client_frame_at(session, ui_state, Instant::now())
+}
+
+pub fn project_client_frame_at(
+    session: &engine::Session,
+    ui_state: &ClientUiState,
+    now: Instant,
+) -> ClientFrame {
     let snapshot = session.snapshot();
     let exercise = snapshot
         .exercise
         .unwrap_or_else(engine::first_exercise_packet);
     let input = ui_state.draft_input().to_string();
+    let counter_reward = ui_state.counter_reward_frame_at(now);
 
     ClientFrame {
         game_window: GameWindowFrame {
@@ -246,8 +302,8 @@ pub fn project_client_frame(session: &engine::Session, ui_state: &ClientUiState)
             lines: status_lines(ui_state.status_lines()),
         },
         completed_reps_this_run: snapshot.stats.passed,
-        counter_reward_phase: ui_state.counter_reward_phase(),
-        counter_reward_active: ui_state.counter_reward_active(),
+        counter_reward,
+        counter_reward_active: counter_reward.active,
         help_chrome: HelpChromeFrame {
             open: ui_state.help_open(),
             lines: help_lines(ui_state.help_open()),
@@ -444,9 +500,11 @@ fn help_lines(open: bool) -> Vec<String> {
 
 #[cfg(test)]
 mod tests {
+    use std::time::{Duration, Instant};
+
     use super::{
-        ClientAction, ClientUiState, CodeTokenKind, CounterRewardPhase, StatusTone,
-        project_client_frame, tokenize_rust_line,
+        COUNTER_REWARD_DURATION, ClientAction, ClientUiState, CodeTokenKind, StatusTone,
+        project_client_frame, project_client_frame_at, tokenize_rust_line,
     };
     use crate::engine;
 
@@ -462,6 +520,10 @@ mod tests {
             .iter()
             .map(|token| (token.kind.clone(), token.text.clone()))
             .collect()
+    }
+
+    fn test_now() -> Instant {
+        Instant::now()
     }
 
     #[test]
@@ -566,51 +628,62 @@ mod tests {
     fn initial_client_frame_counter_is_zero() {
         let session = engine::Session::new();
         let ui_state = ClientUiState::new();
+        let now = test_now();
 
-        let frame = project_client_frame(&session, &ui_state);
+        let frame = project_client_frame_at(&session, &ui_state, now);
 
         assert_eq!(frame.completed_reps_this_run, 0);
-        assert_eq!(frame.counter_reward_phase, CounterRewardPhase::IdleDot);
+        assert_eq!(frame.counter_reward.intensity, 0);
         assert!(!frame.counter_reward_active);
     }
 
     #[test]
-    fn counter_reward_phase_progresses_through_full_pulse_sequence() {
+    fn reward_animation_intensity_rises_peaks_and_falls_from_time() {
         let mut ui_state = ClientUiState::new();
+        let now = test_now();
 
-        assert_eq!(ui_state.counter_reward_phase(), CounterRewardPhase::IdleDot);
-        assert!(!ui_state.counter_reward_active());
-        ui_state.start_counter_reward();
-        assert_eq!(ui_state.counter_reward_phase(), CounterRewardPhase::Rise1);
-        assert!(ui_state.counter_reward_active());
+        assert!(!ui_state.counter_reward_active_at(now));
+        ui_state.start_counter_reward(now);
 
-        for phase in [
-            CounterRewardPhase::Rise2,
-            CounterRewardPhase::PeakCheck,
-            CounterRewardPhase::HoldCheck,
-            CounterRewardPhase::Fall1,
-            CounterRewardPhase::Fall2,
-            CounterRewardPhase::SettleDot,
-        ] {
-            ui_state.apply_action(ClientAction::CursorTick);
-            assert_eq!(ui_state.counter_reward_phase(), phase);
-            assert!(ui_state.counter_reward_active());
-        }
+        let start = ui_state.counter_reward_frame_at(now);
+        let rising = ui_state.counter_reward_frame_at(now + COUNTER_REWARD_DURATION / 4);
+        let peak = ui_state.counter_reward_frame_at(now + COUNTER_REWARD_DURATION / 2);
+        let falling = ui_state.counter_reward_frame_at(now + (COUNTER_REWARD_DURATION / 4) * 3);
 
-        ui_state.apply_action(ClientAction::CursorTick);
-        assert_eq!(ui_state.counter_reward_phase(), CounterRewardPhase::IdleDot);
-        assert!(!ui_state.counter_reward_active());
+        assert!(start.active);
+        assert_eq!(start.intensity, 0);
+        assert!(rising.active);
+        assert!(rising.intensity > start.intensity);
+        assert!(peak.active);
+        assert_eq!(peak.intensity, 100);
+        assert!(falling.active);
+        assert!(falling.intensity < peak.intensity);
+        assert!(falling.intensity > start.intensity);
+    }
+
+    #[test]
+    fn reward_animation_expires_after_duration() {
+        let mut ui_state = ClientUiState::new();
+        let now = test_now();
+
+        ui_state.start_counter_reward(now);
+        assert!(ui_state.counter_reward_active_at(now + Duration::from_millis(1)));
+        assert!(!ui_state.counter_reward_active_at(now + COUNTER_REWARD_DURATION));
+
+        ui_state.settle_counter_reward(now + COUNTER_REWARD_DURATION);
+        assert!(!ui_state.counter_reward_active_at(now + COUNTER_REWARD_DURATION));
     }
 
     #[test]
     fn counter_reward_state_can_be_cleared_without_session_truth() {
         let mut ui_state = ClientUiState::new();
+        let now = test_now();
 
-        ui_state.start_counter_reward();
-        assert!(ui_state.counter_reward_active());
+        ui_state.start_counter_reward(now);
+        assert!(ui_state.counter_reward_active_at(now));
 
         ui_state.clear_counter_reward();
-        assert!(!ui_state.counter_reward_active());
+        assert!(!ui_state.counter_reward_active_at(now));
     }
 
     #[test]
@@ -683,10 +756,11 @@ mod tests {
 
         let fresh_session = engine::Session::new();
         let ui_state = ClientUiState::new();
-        let frame = project_client_frame(&fresh_session, &ui_state);
+        let now = test_now();
+        let frame = project_client_frame_at(&fresh_session, &ui_state, now);
 
         assert_eq!(frame.completed_reps_this_run, 0);
-        assert_eq!(frame.counter_reward_phase, CounterRewardPhase::IdleDot);
+        assert_eq!(frame.counter_reward.intensity, 0);
         assert!(!frame.counter_reward_active);
     }
 

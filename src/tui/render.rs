@@ -1,5 +1,5 @@
 use crate::{
-    client::{ClientFrame, CodeToken, CodeTokenKind, CounterRewardPhase, StatusLine, StatusTone},
+    client::{ClientFrame, CodeToken, CodeTokenKind, CounterRewardFrame, StatusLine, StatusTone},
     tui::app::TuiApp,
 };
 use ratatui::{
@@ -29,8 +29,6 @@ struct TuiTheme {
     success: Color,
     success_bright: Color,
     success_soft: Color,
-    success_glow_low: Color,
-    success_glow_mid: Color,
     danger: Color,
     warning: Color,
     caret: Color,
@@ -52,16 +50,14 @@ fn theme() -> TuiTheme {
         success: Color::Rgb(88, 224, 135),
         success_bright: Color::Rgb(158, 255, 187),
         success_soft: Color::Rgb(116, 238, 158),
-        success_glow_low: Color::Rgb(70, 104, 86),
-        success_glow_mid: Color::Rgb(74, 143, 102),
         danger: Color::Rgb(255, 92, 105),
         warning: Color::Rgb(235, 178, 86),
         caret: Color::Rgb(116, 241, 157),
     }
 }
 
-pub(crate) fn render_ui(frame: &mut Frame<'_>, app: &TuiApp) {
-    let client_frame = app.frame();
+pub(crate) fn render_ui(frame: &mut Frame<'_>, app: &TuiApp, now: std::time::Instant) {
+    let client_frame = app.frame_at(now);
     render_client_frame(frame, &client_frame);
 }
 
@@ -75,7 +71,7 @@ fn render_client_frame(frame: &mut Frame<'_>, client_frame: &ClientFrame) {
     let game_block = Block::default()
         .borders(Borders::ALL)
         .style(Style::default().bg(theme.panel))
-        .border_style(border_style(client_frame.counter_reward_phase));
+        .border_style(border_style(client_frame.counter_reward));
     let game_area = chunks[0];
     let game_body = game_area.inner(Margin {
         vertical: 1,
@@ -132,20 +128,15 @@ fn base_style() -> Style {
     Style::default().fg(theme().text).bg(theme().background)
 }
 
-fn border_style(reward_phase: CounterRewardPhase) -> Style {
-    match reward_phase {
-        CounterRewardPhase::IdleDot => Style::default().fg(theme().border).bg(theme().panel),
-        CounterRewardPhase::Rise1 | CounterRewardPhase::SettleDot => Style::default()
-            .fg(theme().success_glow_low)
-            .bg(theme().panel),
-        CounterRewardPhase::Rise2 | CounterRewardPhase::Fall2 => Style::default()
-            .fg(theme().success_glow_mid)
-            .bg(theme().panel),
-        CounterRewardPhase::PeakCheck | CounterRewardPhase::HoldCheck => {
-            Style::default().fg(theme().success).bg(theme().panel)
-        }
-        CounterRewardPhase::Fall1 => Style::default().fg(theme().success_soft).bg(theme().panel),
-    }
+fn border_style(reward: CounterRewardFrame) -> Style {
+    let intensity = if reward.active {
+        reward.intensity.min(85)
+    } else {
+        0
+    };
+    Style::default()
+        .fg(blend_color(theme().border, theme().success_soft, intensity))
+        .bg(theme().panel)
 }
 
 fn problem_lines(client_frame: &ClientFrame) -> Vec<Line<'static>> {
@@ -219,12 +210,9 @@ fn feedback_line(status_line: StatusLine) -> Option<Line<'static>> {
 }
 
 fn bottom_chrome_lines(client_frame: &ClientFrame) -> Vec<Line<'static>> {
-    let symbol = counter_symbol(client_frame.counter_reward_phase);
+    let symbol = counter_symbol(client_frame.counter_reward);
     vec![Line::from(vec![
-        Span::styled(
-            symbol,
-            counter_symbol_style(client_frame.counter_reward_phase),
-        ),
+        Span::styled(symbol, counter_symbol_style(client_frame.counter_reward)),
         Span::styled(
             format!(" {}", client_frame.completed_reps_this_run),
             counter_number_style(),
@@ -232,16 +220,11 @@ fn bottom_chrome_lines(client_frame: &ClientFrame) -> Vec<Line<'static>> {
     ])]
 }
 
-fn counter_symbol(reward_phase: CounterRewardPhase) -> &'static str {
-    match reward_phase {
-        CounterRewardPhase::PeakCheck
-        | CounterRewardPhase::HoldCheck
-        | CounterRewardPhase::Fall1 => "✓",
-        CounterRewardPhase::IdleDot
-        | CounterRewardPhase::Rise1
-        | CounterRewardPhase::Rise2
-        | CounterRewardPhase::Fall2
-        | CounterRewardPhase::SettleDot => "●",
+fn counter_symbol(reward: CounterRewardFrame) -> &'static str {
+    if reward.active && reward.intensity >= 72 {
+        "✓"
+    } else {
+        "●"
     }
 }
 
@@ -298,29 +281,20 @@ fn status_tone_style(tone: StatusTone) -> Style {
     }
 }
 
-fn counter_symbol_style(reward_phase: CounterRewardPhase) -> Style {
-    match reward_phase {
-        CounterRewardPhase::IdleDot => Style::default()
-            .fg(theme().success)
-            .bg(theme().background)
-            .add_modifier(Modifier::BOLD),
-        CounterRewardPhase::Rise1 | CounterRewardPhase::SettleDot => Style::default()
-            .fg(theme().success)
-            .bg(theme().background)
-            .add_modifier(Modifier::BOLD),
-        CounterRewardPhase::Rise2 | CounterRewardPhase::Fall2 => Style::default()
-            .fg(theme().success_soft)
-            .bg(theme().background)
-            .add_modifier(Modifier::BOLD),
-        CounterRewardPhase::PeakCheck | CounterRewardPhase::HoldCheck => Style::default()
-            .fg(theme().success_bright)
-            .bg(theme().background)
-            .add_modifier(Modifier::BOLD),
-        CounterRewardPhase::Fall1 => Style::default()
-            .fg(theme().success_soft)
-            .bg(theme().background)
-            .add_modifier(Modifier::BOLD),
-    }
+fn counter_symbol_style(reward: CounterRewardFrame) -> Style {
+    let color = if reward.active && reward.intensity >= 72 {
+        blend_color(
+            theme().success_soft,
+            theme().success_bright,
+            reward.intensity,
+        )
+    } else {
+        blend_color(theme().success, theme().success_soft, reward.intensity)
+    };
+    Style::default()
+        .fg(color)
+        .bg(theme().background)
+        .add_modifier(Modifier::BOLD)
 }
 
 fn counter_number_style() -> Style {
@@ -354,6 +328,27 @@ fn problem_header_style() -> Style {
 
 fn editor_gutter_style() -> Style {
     Style::default().fg(theme().muted).bg(theme().panel)
+}
+
+fn blend_color(from: Color, to: Color, intensity: u8) -> Color {
+    let intensity = intensity.min(100) as u16;
+    match (from, to) {
+        (Color::Rgb(from_red, from_green, from_blue), Color::Rgb(to_red, to_green, to_blue)) => {
+            Color::Rgb(
+                blend_channel(from_red, to_red, intensity),
+                blend_channel(from_green, to_green, intensity),
+                blend_channel(from_blue, to_blue, intensity),
+            )
+        }
+        (_, _) if intensity >= 50 => to,
+        _ => from,
+    }
+}
+
+fn blend_channel(from: u8, to: u8, intensity: u16) -> u8 {
+    let from = from as u16;
+    let to = to as u16;
+    (((from * (100 - intensity)) + (to * intensity)) / 100) as u8
 }
 
 #[cfg(test)]
@@ -392,17 +387,23 @@ fn line_text(line: &Line<'_>) -> String {
 
 #[cfg(test)]
 mod tests {
+    use std::time::Instant;
+
     use super::{
         FEEDBACK_CHROME_HEIGHT, border_style, bottom_chrome_alignment, bottom_chrome_lines,
         feedback_chrome_lines, feedback_height, layout_chunks, line_text, problem_lines,
         render_snapshot, status_tone_style, theme,
     };
     use crate::{
-        client::{ClientAction, CounterRewardPhase, StatusTone},
+        client::{COUNTER_REWARD_DURATION, ClientAction, CounterRewardFrame, StatusTone},
         tui::TuiApp,
     };
     use ratatui::layout::{Alignment, Rect};
     use ratatui::style::Modifier;
+
+    fn test_now() -> Instant {
+        Instant::now()
+    }
 
     #[test]
     fn render_snapshot_keeps_only_problem_and_workbox_in_game_window() {
@@ -533,13 +534,12 @@ mod tests {
     #[test]
     fn reward_peak_counter_symbol_is_checkmark_bright_and_bold_while_number_stays_stable() {
         let mut app = TuiApp::new();
+        let now = test_now();
         for ch in "fn main() {}".chars() {
             app.handle_action(ClientAction::TypeChar(ch));
         }
-        app.handle_action(ClientAction::Submit);
-        app.tick_cursor();
-        app.tick_cursor();
-        let frame = app.frame();
+        app.handle_action_at(ClientAction::Submit, now);
+        let frame = app.frame_at(now + COUNTER_REWARD_DURATION / 2);
         let lines = bottom_chrome_lines(&frame);
         let line = lines.first().expect("expected bottom counter line");
 
@@ -553,48 +553,37 @@ mod tests {
     #[test]
     fn reward_counter_sequence_rises_peaks_falls_and_settles() {
         let mut app = TuiApp::new();
+        let now = test_now();
         for ch in "fn main() {}".chars() {
             app.handle_action(ClientAction::TypeChar(ch));
         }
-        app.handle_action(ClientAction::Submit);
-        let frame = app.frame();
+        app.handle_action_at(ClientAction::Submit, now);
+        let frame = app.frame_at(now);
         let lines = bottom_chrome_lines(&frame);
         let line = lines.first().expect("expected bottom counter line");
         assert_eq!(line.spans[0].content.as_ref(), "●");
         assert_eq!(line.spans[0].style.fg, Some(theme().success));
 
-        app.tick_cursor();
-        let frame = app.frame();
+        let frame = app.frame_at(now + COUNTER_REWARD_DURATION / 4);
         let lines = bottom_chrome_lines(&frame);
         let line = lines.first().expect("expected bottom counter line");
         assert_eq!(line.spans[0].content.as_ref(), "●");
-        assert_eq!(line.spans[0].style.fg, Some(theme().success_soft));
+        assert_ne!(line.spans[0].style.fg, Some(theme().success));
 
-        app.tick_cursor();
-        let frame = app.frame();
+        let frame = app.frame_at(now + COUNTER_REWARD_DURATION / 2);
         let lines = bottom_chrome_lines(&frame);
         let line = lines.first().expect("expected bottom counter line");
         assert_eq!(line.spans[0].content.as_ref(), "✓");
         assert_eq!(line.spans[0].style.fg, Some(theme().success_bright));
         assert_eq!(line.spans[1].content.as_ref(), " 1");
 
-        app.tick_cursor();
-        app.tick_cursor();
-        let frame = app.frame();
-        let lines = bottom_chrome_lines(&frame);
-        let line = lines.first().expect("expected bottom counter line");
-        assert_eq!(line.spans[0].content.as_ref(), "✓");
-        assert_eq!(line.spans[0].style.fg, Some(theme().success_soft));
-
-        app.tick_cursor();
-        let frame = app.frame();
+        let frame = app.frame_at(now + (COUNTER_REWARD_DURATION / 4) * 3);
         let lines = bottom_chrome_lines(&frame);
         let line = lines.first().expect("expected bottom counter line");
         assert_eq!(line.spans[0].content.as_ref(), "●");
-        assert_eq!(line.spans[0].style.fg, Some(theme().success_soft));
+        assert_ne!(line.spans[0].style.fg, Some(theme().success));
 
-        app.tick_cursor();
-        let frame = app.frame();
+        let frame = app.frame_at(now + COUNTER_REWARD_DURATION);
         let lines = bottom_chrome_lines(&frame);
         let line = lines.first().expect("expected bottom counter line");
         assert_eq!(line.spans[0].content.as_ref(), "●");
@@ -604,14 +593,12 @@ mod tests {
     #[test]
     fn reward_counter_symbol_returns_to_normal_dot_after_ticks() {
         let mut app = TuiApp::new();
+        let now = test_now();
         for ch in "fn main() {}".chars() {
             app.handle_action(ClientAction::TypeChar(ch));
         }
-        app.handle_action(ClientAction::Submit);
-        for _ in 0..7 {
-            app.tick_cursor();
-        }
-        let frame = app.frame();
+        app.handle_action_at(ClientAction::Submit, now);
+        let frame = app.frame_at(now + COUNTER_REWARD_DURATION);
         let lines = bottom_chrome_lines(&frame);
         let line = lines.first().expect("expected bottom counter line");
 
@@ -622,22 +609,28 @@ mod tests {
 
     #[test]
     fn border_style_maps_reward_settle_phases() {
-        let idle = border_style(CounterRewardPhase::IdleDot);
-        let rise1 = border_style(CounterRewardPhase::Rise1);
-        let rise2 = border_style(CounterRewardPhase::Rise2);
-        let peak = border_style(CounterRewardPhase::PeakCheck);
-        let fall1 = border_style(CounterRewardPhase::Fall1);
-        let fall2 = border_style(CounterRewardPhase::Fall2);
-        let settle = border_style(CounterRewardPhase::SettleDot);
+        let idle = border_style(CounterRewardFrame {
+            active: false,
+            intensity: 0,
+        });
+        let low = border_style(CounterRewardFrame {
+            active: true,
+            intensity: 25,
+        });
+        let medium = border_style(CounterRewardFrame {
+            active: true,
+            intensity: 55,
+        });
+        let peak = border_style(CounterRewardFrame {
+            active: true,
+            intensity: 100,
+        });
 
         assert_eq!(idle.fg, Some(theme().border));
-        assert_eq!(rise1.fg, Some(theme().success_glow_low));
-        assert_eq!(rise2.fg, Some(theme().success_glow_mid));
-        assert_eq!(peak.fg, Some(theme().success));
-        assert_eq!(fall1.fg, Some(theme().success_soft));
-        assert_eq!(fall2.fg, Some(theme().success_glow_mid));
-        assert_eq!(settle.fg, Some(theme().success_glow_low));
-        for style in [rise1, rise2, peak, fall1, fall2, settle] {
+        assert_ne!(low.fg, idle.fg);
+        assert_ne!(medium.fg, low.fg);
+        assert_ne!(peak.fg, medium.fg);
+        for style in [low, medium, peak] {
             assert!(!style.add_modifier.contains(Modifier::BOLD));
         }
         assert_ne!(peak.fg, idle.fg);
@@ -864,11 +857,12 @@ mod tests {
     #[test]
     fn render_snapshot_hides_pass_and_shows_reward_checkmark_after_success() {
         let mut app = TuiApp::new();
+        let now = test_now();
         for ch in "fn main() {}".chars() {
             app.handle_action(ClientAction::TypeChar(ch));
         }
-        app.handle_action(ClientAction::Submit);
-        let frame = app.frame();
+        app.handle_action_at(ClientAction::Submit, now);
+        let frame = app.frame_at(now + COUNTER_REWARD_DURATION / 2);
         let snapshot = render_snapshot(&frame);
 
         assert!(!snapshot.feedback.iter().any(|line| line == "PASS"));
@@ -879,7 +873,7 @@ mod tests {
                 .any(|line| line == "println!(\"Rust Reps\");")
         );
         assert!(snapshot.game.iter().any(|line| line == "1 │ |"));
-        assert!(snapshot.bottom_chrome.iter().any(|line| line == "● 1"));
+        assert!(snapshot.bottom_chrome.iter().any(|line| line == "✓ 1"));
         assert!(!snapshot.game.iter().any(|line| line == "PASS"));
     }
 }

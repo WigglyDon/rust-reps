@@ -5,14 +5,18 @@ use crate::client::ClientAction;
 use crossterm::event::{self, Event};
 
 mod app;
+mod frame_scheduler;
 mod input;
 mod render;
 mod terminal;
+
+use frame_scheduler::FrameScheduler;
 
 pub use app::TuiApp;
 pub use input::classify_key_event;
 
 const CURSOR_BLINK_INTERVAL: Duration = Duration::from_millis(500);
+const TARGET_FRAME_RATE: u16 = 60;
 
 pub fn run_tui() -> io::Result<()> {
     let mut terminal = terminal::TuiTerminal::enter()?;
@@ -33,34 +37,64 @@ pub fn run_tui() -> io::Result<()> {
 }
 
 fn run_tui_loop(terminal: &mut terminal::TuiTerminal, app: &mut TuiApp) -> io::Result<()> {
+    let mut frame_scheduler = FrameScheduler::new(TARGET_FRAME_RATE);
+    frame_scheduler.request_redraw_now(Instant::now());
     let mut next_cursor_tick = Instant::now() + CURSOR_BLINK_INTERVAL;
 
     loop {
-        terminal
-            .terminal
-            .draw(|frame| render::render_ui(frame, app))?;
+        let now = Instant::now();
+        if frame_scheduler.consume_due_redraw(now) {
+            app.settle_animations(now);
+            terminal
+                .terminal
+                .draw(|frame| render::render_ui(frame, app, now))?;
 
-        if app.should_quit() {
-            break;
+            if app.should_quit() {
+                break;
+            }
+
+            if app.counter_reward_active_at(now) {
+                frame_scheduler.request_redraw_after(now, frame_scheduler.min_frame_interval());
+            }
+
+            continue;
         }
 
         let now = Instant::now();
-        let timeout = next_cursor_tick.saturating_duration_since(now);
+        if now >= next_cursor_tick {
+            app.tick_cursor();
+            next_cursor_tick = now + CURSOR_BLINK_INTERVAL;
+            frame_scheduler.request_redraw_now(now);
+            continue;
+        }
+
+        let cursor_wait = next_cursor_tick.saturating_duration_since(now);
+        let timeout = frame_scheduler
+            .next_wait_duration(now)
+            .map(|frame_wait| frame_wait.min(cursor_wait))
+            .unwrap_or(cursor_wait);
+
         if event::poll(timeout)? {
             let event = match event::read() {
                 Ok(event) => event,
                 Err(err) => return Err(err),
             };
+            let action_at = Instant::now();
 
             let intent = match event {
                 Event::Key(key) => classify_key_event(key),
                 _ => ClientAction::Ignore,
             };
-            app.handle_action(intent);
-            next_cursor_tick = Instant::now() + CURSOR_BLINK_INTERVAL;
+            app.handle_action_at(intent, action_at);
+            next_cursor_tick = action_at + CURSOR_BLINK_INTERVAL;
+            frame_scheduler.request_redraw_now(action_at);
         } else {
-            app.tick_cursor();
-            next_cursor_tick = Instant::now() + CURSOR_BLINK_INTERVAL;
+            let timeout_at = Instant::now();
+            if timeout_at >= next_cursor_tick {
+                app.tick_cursor();
+                next_cursor_tick = timeout_at + CURSOR_BLINK_INTERVAL;
+                frame_scheduler.request_redraw_now(timeout_at);
+            }
         }
     }
 
