@@ -16,8 +16,8 @@ impl TuiApp {
         Self {
             session: practice::PracticeSession::new(),
             input: String::new(),
-            status_lines: vec!["Type an exact answer and press Enter".to_string()],
-            show_help_panel: true,
+            status_lines: vec!["READY".to_string()],
+            show_help_panel: false,
             should_quit: false,
             completed: false,
         }
@@ -88,6 +88,7 @@ impl TuiApp {
                 ":quit    quit".to_string(),
             ],
             practice::PracticeEvent::Status => vec![
+                "STATUS".to_string(),
                 format!(
                     "Current: {}/{}",
                     self.active_drill().id,

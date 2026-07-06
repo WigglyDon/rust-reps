@@ -50,8 +50,7 @@ pub(crate) fn render_ui(frame: &mut Frame<'_>, app: &TuiApp) {
     );
 
     frame.render_widget(
-        Paragraph::new("F1 or ? for command panel")
-            .block(Block::default().borders(Borders::ALL).title("Mode")),
+        Paragraph::new("? / F1 help").block(Block::default().borders(Borders::ALL).title("Mode")),
         chunks[4],
     );
 
@@ -67,18 +66,12 @@ fn as_lines(values: Vec<String>) -> Vec<Line<'static>> {
 }
 
 fn header_lines(app: &TuiApp) -> Vec<String> {
-    let mut lines = vec![
-        "Rust Reps".to_string(),
-        "Type-based typing practice".to_string(),
-    ];
-
-    if app.completed() {
-        lines.push("Session complete • Press Esc or Ctrl+C to quit".to_string());
+    let state = if app.completed() {
+        "Complete"
     } else {
-        lines.push("Press Esc or Ctrl+C to quit".to_string());
-    }
-
-    lines
+        "Practice"
+    };
+    vec!["Rust Reps".to_string(), state.to_string()]
 }
 
 fn drill_lines(app: &TuiApp) -> Vec<String> {
@@ -103,20 +96,22 @@ fn session_lines(app: &TuiApp) -> Vec<String> {
 }
 
 fn input_lines(app: &TuiApp) -> Vec<String> {
-    let input_text = if app.input().is_empty() {
-        "<empty>".to_string()
+    let input_line = if app.input().is_empty() {
+        "> |  type answer".to_string()
     } else {
-        app.input().to_string()
+        format!("> {}|", app.input())
     };
 
-    vec![
-        "Type answer input:".to_string(),
-        format!("> {}", input_text),
-    ]
+    vec!["Input focus".to_string(), input_line]
 }
 
 fn output_lines(app: &TuiApp) -> Vec<String> {
-    let mut lines = app.status_lines().iter().cloned().collect::<Vec<_>>();
+    let mut lines = app
+        .status_lines()
+        .iter()
+        .enumerate()
+        .map(|(index, line)| emphasize_status_line(index, line))
+        .collect::<Vec<_>>();
     if app.show_help_panel() {
         lines.extend([
             "Commands:".to_string(),
@@ -127,6 +122,18 @@ fn output_lines(app: &TuiApp) -> Vec<String> {
         ]);
     }
     lines
+}
+
+fn emphasize_status_line(index: usize, line: &str) -> String {
+    if index == 0 {
+        match line {
+            "PASS" | "TRY AGAIN" | "UNKNOWN COMMAND" | "COMPLETE" | "QUIT" | "STATUS" | "READY"
+            | "SKIP" => format!(">> {}", line),
+            _ => line.to_string(),
+        }
+    } else {
+        line.to_string()
+    }
 }
 
 #[cfg(test)]
@@ -163,10 +170,10 @@ mod tests {
                 .any(|line| line.contains("println!(\"Rust Reps\");"))
         );
         assert!(lines.iter().any(|line| line == "Passed: 1/12"));
-        assert!(lines.iter().any(|line| line == "PASS"));
-        assert!(lines.iter().any(|line| line == "Commands:"));
-        assert!(lines.iter().any(|line| line == "Type answer input:"));
-        assert!(lines.iter().any(|line| line.ends_with("<empty>")));
+        assert!(lines.iter().any(|line| line == ">> PASS"));
+        assert!(!lines.iter().any(|line| line == "Commands:"));
+        assert!(lines.iter().any(|line| line == "Input focus"));
+        assert!(lines.iter().any(|line| line == "> |  type answer"));
     }
 
     #[test]
@@ -176,8 +183,9 @@ mod tests {
         assert!(lines.iter().any(|line| line == "Skipped: 0"));
         assert!(lines.iter().any(|line| line == "Attempts: 0"));
         assert!(lines.iter().any(|line| line.contains("Drill 001/12")));
-        assert!(lines.iter().any(|line| line.ends_with("<empty>")));
-        assert!(lines.iter().any(|line| line == "Type answer input:"));
+        assert!(lines.iter().any(|line| line == "> |  type answer"));
+        assert!(lines.iter().any(|line| line == "Input focus"));
+        assert!(lines.iter().any(|line| line == ">> READY"));
     }
 
     #[test]
@@ -188,7 +196,38 @@ mod tests {
         }
         let lines = render_lines_for_snapshot(&app);
 
-        assert!(lines.iter().any(|line| line == "Type answer input:"));
-        assert!(lines.iter().any(|line| line == "> hello"));
+        assert!(lines.iter().any(|line| line == "Input focus"));
+        assert!(lines.iter().any(|line| line == "> hello|"));
+    }
+
+    #[test]
+    fn render_snapshot_shows_help_only_when_toggled() {
+        let mut app = TuiApp::new();
+        let default_lines = render_lines_for_snapshot(&app);
+        assert!(!default_lines.iter().any(|line| line == "Commands:"));
+        assert!(
+            !default_lines
+                .iter()
+                .any(|line| line == "Backspace: delete char")
+        );
+
+        app.handle_intent(UiIntent::ToggleHelp);
+        let help_lines = render_lines_for_snapshot(&app);
+        assert!(help_lines.iter().any(|line| line == "Commands:"));
+        assert!(help_lines.iter().any(|line| line == "Enter: submit input"));
+    }
+
+    #[test]
+    fn render_snapshot_makes_try_again_prominent_with_expected_answer() {
+        let mut app = TuiApp::new();
+        for ch in "wrong".chars() {
+            app.handle_intent(UiIntent::Append(ch));
+        }
+        app.handle_intent(UiIntent::Submit);
+        let lines = render_lines_for_snapshot(&app);
+
+        assert!(lines.iter().any(|line| line == ">> TRY AGAIN"));
+        assert!(lines.iter().any(|line| line == "Expected:"));
+        assert!(lines.iter().any(|line| line == "fn main() {}"));
     }
 }
