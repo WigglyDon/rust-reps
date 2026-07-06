@@ -441,6 +441,18 @@ fn explicit_drill_001_input_exits_successfully_and_prints_pass() {
 }
 
 #[test]
+fn one_shot_wrong_answer_exits_successfully_and_prints_try_again() {
+    let output = run_rust_reps(&["001"], "wrong\n");
+
+    assert!(output.status.success());
+    assert_eq!(
+        String::from_utf8(output.stdout).unwrap(),
+        DRILL_001_TRY_AGAIN_OUTPUT
+    );
+    assert_eq!(String::from_utf8(output.stderr).unwrap(), "");
+}
+
+#[test]
 fn one_shot_selected_drill_outputs_do_not_include_summary() {
     let drill_001_output = run_rust_reps(&["001"], "fn main() {}\n");
     let drill_012_output = run_rust_reps(&["012"], "while score < 10 {}\n");

@@ -135,6 +135,17 @@ if score > 0 {}
 while score < 10 {}
 '
 
+drill_001_try_again_output='Rust Reps
+
+Drill 001
+Type exactly:
+
+fn main() {}
+
+>TRY AGAIN
+Expected:
+fn main() {}'
+
 practice_all_correct_output='Rust Reps
 
 Practice
@@ -439,6 +450,7 @@ expect_stdout "practice quit" "$practice_quit_output" sh -c "printf ':q\\n' | ca
 expect_stdout "practice help then quit" "$practice_help_then_quit_output" sh -c "printf ':help\\n:q\\n' | cargo run -q"
 expect_stdout "practice status then quit" "$practice_status_then_quit_output" sh -c "printf ':status\\n:q\\n' | cargo run -q"
 expect_stdout "practice list then quit" "$practice_list_then_quit_output" sh -c "printf ':list\\n:q\\n' | cargo run -q"
+expect_stdout "practice quit command" "$practice_quit_output" sh -c "printf ':quit\\n' | cargo run -q"
 expect_stdout "practice skip then quit" "$practice_skip_then_quit_output" sh -c "printf ':skip\\n:q\\n' | cargo run -q"
 expect_stdout "practice retry then quit" "$practice_retry_then_quit_output" sh -c "printf 'fn main(){}\\nfn main() {}\\n:q\\n' | cargo run -q"
 expect_stdout "practice wrong then quit" "$practice_wrong_then_quit_output" sh -c "printf 'wrong\\n:q\\n' | cargo run -q"
@@ -523,6 +535,8 @@ Current drills:
 012  while score < 10 {}' cargo run -q -- -h
 
 expect_stdout "version" 'rust-reps 0.1.0' cargo run -q -- --version
+
+expect_stdout "one-shot wrong" "$drill_001_try_again_output" sh -c "printf 'wrong\\n' | cargo run -q -- 001"
 
 section "temporary install"
 CARGO_HOME="$cargo_home" cargo install --path . --force --root "$install_root"
