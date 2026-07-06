@@ -3,6 +3,7 @@ mod catalog;
 mod cli;
 mod client;
 mod curriculum;
+mod engine;
 mod practice;
 mod presentation;
 mod tui;

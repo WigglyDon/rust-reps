@@ -1,11 +1,11 @@
 use crate::{
-    catalog,
+    answer, catalog,
     client::{ClientAction, ClientFrame, ClientUiState, project_client_frame},
-    practice,
+    engine,
 };
 
 pub struct TuiApp {
-    session: practice::PracticeSession,
+    session: engine::Session,
     ui_state: ClientUiState,
     should_quit: bool,
     completed: bool,
@@ -14,7 +14,7 @@ pub struct TuiApp {
 impl TuiApp {
     pub fn new() -> Self {
         Self {
-            session: practice::PracticeSession::new(),
+            session: engine::Session::new(),
             ui_state: ClientUiState::new(),
             should_quit: false,
             completed: false,
@@ -22,7 +22,7 @@ impl TuiApp {
     }
 
     #[cfg(test)]
-    pub fn session(&self) -> &practice::PracticeSession {
+    pub fn session(&self) -> &engine::Session {
         &self.session
     }
 
@@ -82,20 +82,23 @@ impl TuiApp {
         }
 
         let submitted = self.ui_state.take_draft_input();
-        let status_lines = match self.session.submit_input(&submitted) {
-            practice::PracticeEvent::Quit => {
+        let command = answer::trim_line_ending(&submitted);
+        let status_lines = if command == ":q" || command == ":quit" {
+            {
                 self.should_quit = true;
                 collect_summary_lines("QUIT", &self.session)
             }
-            practice::PracticeEvent::Help => vec![
+        } else if command == ":help" {
+            vec![
                 ":help    show commands".to_string(),
                 ":status  show session status".to_string(),
                 ":list    show drills".to_string(),
                 ":skip    skip current drill".to_string(),
                 ":q       quit".to_string(),
                 ":quit    quit".to_string(),
-            ],
-            practice::PracticeEvent::Status => vec![
+            ]
+        } else if command == ":status" {
+            vec![
                 "STATUS".to_string(),
                 format!(
                     "Current: {}/{}",
@@ -109,42 +112,49 @@ impl TuiApp {
                 ),
                 format!("Skipped: {}", self.session.skipped()),
                 format!("Attempts: {}", self.session.attempts()),
-            ],
-            practice::PracticeEvent::List => catalog::drills()
+            ]
+        } else if command == ":list" {
+            catalog::drills()
                 .iter()
                 .map(|drill| format!("{}  {}", drill.id, drill.expected))
-                .collect(),
-            practice::PracticeEvent::Skip => {
-                if self.session.is_complete() {
-                    self.completed = true;
-                    collect_complete_lines(&self.session)
-                } else {
-                    vec!["SKIP".to_string()]
+                .collect()
+        } else if command == ":skip" {
+            let _ = self.session.skip();
+            if self.session.is_complete() {
+                self.completed = true;
+                collect_complete_lines(&self.session)
+            } else {
+                vec!["SKIP".to_string()]
+            }
+        } else if command.starts_with(':') {
+            vec![
+                "UNKNOWN COMMAND".to_string(),
+                "Type :help for commands.".to_string(),
+            ]
+        } else {
+            match self.session.submit_answer(&submitted) {
+                engine::SubmitResult::Correct => {
+                    if self.session.is_complete() {
+                        self.completed = true;
+                        let mut lines = Vec::from(["PASS".to_string()]);
+                        lines.extend(collect_complete_lines(&self.session));
+                        lines
+                    } else {
+                        vec!["PASS".to_string()]
+                    }
                 }
-            }
-            practice::PracticeEvent::UnknownCommand => {
-                vec![
-                    "UNKNOWN COMMAND".to_string(),
-                    "Type :help for commands.".to_string(),
-                ]
-            }
-            practice::PracticeEvent::Correct => {
-                if self.session.is_complete() {
-                    self.completed = true;
-                    let mut lines = Vec::from(["PASS".to_string()]);
-                    lines.extend(collect_complete_lines(&self.session));
-                    lines
-                } else {
-                    vec!["PASS".to_string()]
+                engine::SubmitResult::TryAgain => {
+                    let expected = self.active_drill().expected;
+                    vec![
+                        "TRY AGAIN".to_string(),
+                        "Expected:".to_string(),
+                        expected.to_string(),
+                    ]
                 }
-            }
-            practice::PracticeEvent::TryAgain => {
-                let expected = self.active_drill().expected;
-                vec![
-                    "TRY AGAIN".to_string(),
-                    "Expected:".to_string(),
-                    expected.to_string(),
-                ]
+                engine::SubmitResult::NoActiveDrill => {
+                    self.should_quit = true;
+                    collect_summary_lines("QUIT", &self.session)
+                }
             }
         };
         self.ui_state.set_status_lines(status_lines);
@@ -157,13 +167,13 @@ impl TuiApp {
     }
 }
 
-fn collect_complete_lines(session: &practice::PracticeSession) -> Vec<String> {
+fn collect_complete_lines(session: &engine::Session) -> Vec<String> {
     let mut lines = vec!["COMPLETE".to_string(), "Summary:".to_string()];
     lines.extend(collect_summary_pairs(session));
     lines
 }
 
-fn collect_summary_lines(action: &str, session: &practice::PracticeSession) -> Vec<String> {
+fn collect_summary_lines(action: &str, session: &engine::Session) -> Vec<String> {
     let mut lines = vec![action.to_string()];
     if action == "QUIT" || action == "COMPLETE" {
         lines.push("Summary:".to_string());
@@ -172,7 +182,7 @@ fn collect_summary_lines(action: &str, session: &practice::PracticeSession) -> V
     lines
 }
 
-fn collect_summary_pairs(session: &practice::PracticeSession) -> Vec<String> {
+fn collect_summary_pairs(session: &engine::Session) -> Vec<String> {
     vec![
         format!("Passed: {}/{}", session.passed(), session.total_drills()),
         format!("Skipped: {}", session.skipped()),

@@ -1,4 +1,4 @@
-use crate::{catalog, practice};
+use crate::{catalog, engine};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ClientAction {
@@ -127,17 +127,18 @@ pub struct HelpChromeFrame {
 }
 
 pub fn project_client_frame(
-    session: &practice::PracticeSession,
+    session: &engine::Session,
     ui_state: &ClientUiState,
     completed: bool,
 ) -> ClientFrame {
-    let drill = session
-        .current_drill()
+    let snapshot = session.snapshot();
+    let drill = snapshot
+        .current_drill
         .unwrap_or_else(|| &catalog::drills()[0]);
-    let progress_label = if completed {
+    let progress_label = if completed || snapshot.is_complete {
         "Complete".to_string()
     } else {
-        format!("Drill {}/{}", drill.id, session.total_drills())
+        format!("Drill {}/{}", drill.id, snapshot.stats.total_drills)
     };
 
     ClientFrame {
@@ -165,10 +166,10 @@ pub fn project_client_frame(
         progress_chrome: ProgressChromeFrame {
             line: format!(
                 "Passed {}/{} | Skipped {} | Attempts {}",
-                session.passed(),
-                session.total_drills(),
-                session.skipped(),
-                session.attempts()
+                snapshot.stats.passed,
+                snapshot.stats.total_drills,
+                snapshot.stats.skipped,
+                snapshot.stats.attempts
             ),
         },
         help_chrome: HelpChromeFrame {
@@ -209,11 +210,11 @@ fn help_lines(open: bool) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::{ClientAction, ClientUiState, project_client_frame};
-    use crate::practice;
+    use crate::engine;
 
     #[test]
     fn frame_projection_includes_problem_prompt() {
-        let session = practice::PracticeSession::new();
+        let session = engine::Session::new();
         let ui_state = ClientUiState::new();
 
         let frame = project_client_frame(&session, &ui_state, false);
@@ -229,7 +230,7 @@ mod tests {
 
     #[test]
     fn frame_projection_includes_workbox_input_and_cursor_state() {
-        let session = practice::PracticeSession::new();
+        let session = engine::Session::new();
         let mut ui_state = ClientUiState::new();
         ui_state.apply_action(ClientAction::TypeChar('x'));
         ui_state.apply_action(ClientAction::CursorTick);
@@ -243,11 +244,11 @@ mod tests {
 
     #[test]
     fn frame_projection_includes_compact_progress_stats() {
-        let mut session = practice::PracticeSession::new();
+        let mut session = engine::Session::new();
         let ui_state = ClientUiState::new();
-        let event = session.submit_input("wrong");
+        let event = session.submit_answer("wrong");
 
-        assert!(matches!(event, practice::PracticeEvent::TryAgain));
+        assert!(matches!(event, engine::SubmitResult::TryAgain));
         let frame = project_client_frame(&session, &ui_state, false);
 
         assert_eq!(
@@ -258,7 +259,7 @@ mod tests {
 
     #[test]
     fn frame_projection_keeps_status_result_outside_game_window() {
-        let session = practice::PracticeSession::new();
+        let session = engine::Session::new();
         let mut ui_state = ClientUiState::new();
         ui_state.set_status_lines(vec![
             "TRY AGAIN".to_string(),

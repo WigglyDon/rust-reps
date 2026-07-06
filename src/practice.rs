@@ -1,6 +1,6 @@
 use std::io::{self, Write};
 
-use crate::{answer, catalog, presentation};
+use crate::{answer, catalog, engine, presentation};
 
 #[derive(Clone, Copy)]
 pub enum PracticeEvent {
@@ -14,83 +14,33 @@ pub enum PracticeEvent {
     Quit,
 }
 
-pub struct PracticeSession {
-    index: usize,
-    passed: usize,
-    skipped: usize,
-    attempts: usize,
-}
+fn submit_practice_input(session: &mut engine::Session, input: &str) -> PracticeEvent {
+    let command = answer::trim_line_ending(input);
 
-impl PracticeSession {
-    pub fn new() -> Self {
-        Self {
-            index: 0,
-            passed: 0,
-            skipped: 0,
-            attempts: 0,
-        }
+    if command == ":q" || command == ":quit" {
+        return PracticeEvent::Quit;
+    }
+    if command == ":help" {
+        return PracticeEvent::Help;
+    }
+    if command == ":status" {
+        return PracticeEvent::Status;
+    }
+    if command == ":list" {
+        return PracticeEvent::List;
+    }
+    if command == ":skip" {
+        let _ = session.skip();
+        return PracticeEvent::Skip;
+    }
+    if command.starts_with(':') {
+        return PracticeEvent::UnknownCommand;
     }
 
-    pub fn total_drills(&self) -> usize {
-        catalog::drills().len()
-    }
-
-    pub fn passed(&self) -> usize {
-        self.passed
-    }
-
-    pub fn skipped(&self) -> usize {
-        self.skipped
-    }
-
-    pub fn attempts(&self) -> usize {
-        self.attempts
-    }
-
-    pub fn is_complete(&self) -> bool {
-        self.index >= self.total_drills()
-    }
-
-    pub fn current_drill(&self) -> Option<&'static catalog::Drill> {
-        catalog::drills().get(self.index)
-    }
-
-    pub fn submit_input(&mut self, input: &str) -> PracticeEvent {
-        let answer = answer::trim_line_ending(input);
-
-        if answer == ":q" || answer == ":quit" {
-            return PracticeEvent::Quit;
-        }
-        if answer == ":help" {
-            return PracticeEvent::Help;
-        }
-        if answer == ":status" {
-            return PracticeEvent::Status;
-        }
-        if answer == ":list" {
-            return PracticeEvent::List;
-        }
-        if answer == ":skip" {
-            self.skipped += 1;
-            self.index += 1;
-            return PracticeEvent::Skip;
-        }
-        if answer.starts_with(':') {
-            return PracticeEvent::UnknownCommand;
-        }
-
-        self.attempts += 1;
-        let Some(drill) = self.current_drill() else {
-            return PracticeEvent::Quit;
-        };
-
-        if answer::check_answer(input, drill.expected) {
-            self.passed += 1;
-            self.index += 1;
-            return PracticeEvent::Correct;
-        }
-
-        PracticeEvent::TryAgain
+    match session.submit_answer(input) {
+        engine::SubmitResult::Correct => PracticeEvent::Correct,
+        engine::SubmitResult::TryAgain => PracticeEvent::TryAgain,
+        engine::SubmitResult::NoActiveDrill => PracticeEvent::Quit,
     }
 }
 
@@ -128,7 +78,7 @@ pub fn run_one_shot_drill(drill: &catalog::Drill) {
 pub fn run_practice_session() {
     presentation::print_practice_header();
 
-    let mut session = PracticeSession::new();
+    let mut session = engine::Session::new();
 
     while !session.is_complete() {
         let drill = session
@@ -148,7 +98,7 @@ pub fn run_practice_session() {
             return;
         }
 
-        match session.submit_input(&input) {
+        match submit_practice_input(&mut session, &input) {
             PracticeEvent::Quit => {
                 presentation::print_quit(
                     session.passed(),
@@ -207,15 +157,15 @@ pub fn run_practice_session() {
 
 #[cfg(test)]
 mod tests {
-    use super::{PracticeEvent, PracticeSession};
-    use crate::catalog;
+    use super::{PracticeEvent, submit_practice_input};
+    use crate::{catalog, engine};
 
     #[test]
     fn correct_answer_advances_and_counts() {
-        let mut session = PracticeSession::new();
+        let mut session = engine::Session::new();
 
         let drill = session.current_drill().expect("expected first drill");
-        let event = session.submit_input(drill.expected);
+        let event = submit_practice_input(&mut session, drill.expected);
 
         assert!(matches!(event, PracticeEvent::Correct));
         assert_eq!(session.passed(), 1);
@@ -228,9 +178,9 @@ mod tests {
 
     #[test]
     fn wrong_answer_increments_attempts_without_advancing() {
-        let mut session = PracticeSession::new();
+        let mut session = engine::Session::new();
 
-        let event = session.submit_input("wrong\n");
+        let event = submit_practice_input(&mut session, "wrong\n");
 
         assert!(matches!(event, PracticeEvent::TryAgain));
         assert_eq!(session.passed(), 0);
@@ -247,9 +197,9 @@ mod tests {
 
     #[test]
     fn skip_does_not_count_attempts_and_advances() {
-        let mut session = PracticeSession::new();
+        let mut session = engine::Session::new();
 
-        let event = session.submit_input(":skip\n");
+        let event = submit_practice_input(&mut session, ":skip\n");
 
         assert!(matches!(event, PracticeEvent::Skip));
         assert_eq!(session.passed(), 0);
@@ -263,9 +213,9 @@ mod tests {
 
     #[test]
     fn unknown_colon_command_does_not_count_attempts() {
-        let mut session = PracticeSession::new();
+        let mut session = engine::Session::new();
 
-        let event = session.submit_input(":unknown\n");
+        let event = submit_practice_input(&mut session, ":unknown\n");
 
         assert!(matches!(event, PracticeEvent::UnknownCommand));
         assert_eq!(session.passed(), 0);
@@ -275,13 +225,13 @@ mod tests {
 
     #[test]
     fn final_drill_completion_advances_session() {
-        let mut session = PracticeSession::new();
+        let mut session = engine::Session::new();
 
         for id in [
             "001", "002", "003", "004", "005", "006", "007", "008", "009", "010", "011", "012",
         ] {
             let expected = catalog::find_drill(id).expect("expected drill id").expected;
-            let event = session.submit_input(expected);
+            let event = submit_practice_input(&mut session, expected);
             assert!(matches!(event, PracticeEvent::Correct));
         }
 
