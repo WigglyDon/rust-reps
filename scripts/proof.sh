@@ -10,6 +10,14 @@ section() {
     printf '%s\n' "--- $1 ---"
 }
 
+install_root=$(mktemp -d)
+
+cleanup() {
+    rm -rf "$install_root"
+}
+
+trap cleanup EXIT HUP INT TERM
+
 expect_stdout() {
     label=$1
     expected=$2
@@ -471,6 +479,12 @@ Current drills:
 012  while score < 10 {}' cargo run -q -- -h
 
 expect_stdout "version" 'rusty-drill 0.1.0' cargo run -q -- --version
+
+section "temporary install"
+cargo install --path . --root "$install_root"
+
+expect_stdout "installed version" 'rusty-drill 0.1.0' "$install_root/bin/rusty-drill" --version
+expect_stdout "installed practice quit" "$practice_quit_output" sh -c 'printf ":q\n" | "$1/bin/rusty-drill"' sh "$install_root"
 
 expect_stdout "Drill 002 PASS" 'Rusty Drill
 
