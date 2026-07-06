@@ -9,55 +9,18 @@ use ratatui::{
 pub(crate) fn render_ui(frame: &mut Frame<'_>, app: &TuiApp) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Length(5),
-            Constraint::Length(5),
-            Constraint::Length(4),
-            Constraint::Length(5),
-            Constraint::Length(5),
-            Constraint::Min(2),
-        ])
+        .constraints([Constraint::Min(12), Constraint::Length(4)])
         .split(frame.area());
 
     frame.render_widget(
-        Paragraph::new(Text::from(as_lines(header_lines(app)))).block(
-            Block::default()
-                .borders(Borders::ALL)
-                .title("Rust Reps TUI"),
-        ),
+        Paragraph::new(Text::from(as_lines(rep_lines(app))))
+            .block(Block::default().borders(Borders::ALL).title("Rep")),
         chunks[0],
     );
 
     frame.render_widget(
-        Paragraph::new(Text::from(as_lines(drill_lines(app)))).block(
-            Block::default()
-                .borders(Borders::ALL)
-                .title("Current Drill"),
-        ),
+        Paragraph::new(Text::from(as_lines(footer_lines(app)))),
         chunks[1],
-    );
-
-    frame.render_widget(
-        Paragraph::new(Text::from(as_lines(session_lines(app))))
-            .block(Block::default().borders(Borders::ALL).title("Session")),
-        chunks[2],
-    );
-
-    frame.render_widget(
-        Paragraph::new(Text::from(as_lines(input_lines(app))))
-            .block(Block::default().borders(Borders::ALL).title("Input")),
-        chunks[3],
-    );
-
-    frame.render_widget(
-        Paragraph::new("? / F1 help").block(Block::default().borders(Borders::ALL).title("Mode")),
-        chunks[4],
-    );
-
-    frame.render_widget(
-        Paragraph::new(Text::from(as_lines(output_lines(app))))
-            .block(Block::default().borders(Borders::ALL).title("Output")),
-        chunks[5],
     );
 }
 
@@ -65,47 +28,26 @@ fn as_lines(values: Vec<String>) -> Vec<Line<'static>> {
     values.into_iter().map(Line::from).collect()
 }
 
-fn header_lines(app: &TuiApp) -> Vec<String> {
-    let state = if app.completed() {
-        "Complete"
-    } else {
-        "Practice"
-    };
-    vec!["Rust Reps".to_string(), state.to_string()]
-}
-
-fn drill_lines(app: &TuiApp) -> Vec<String> {
+fn rep_lines(app: &TuiApp) -> Vec<String> {
     let drill = app.active_drill();
-    vec![
-        format!("Drill {}/{}", drill.id, app.session().total_drills()),
+    let drill_label = if app.completed() {
+        "Complete".to_string()
+    } else {
+        format!("Drill {}/{}", drill.id, app.session().total_drills())
+    };
+    let mut lines = vec![
+        drill_label,
         String::new(),
         drill.expected.to_string(),
-    ]
+        String::new(),
+        input_line(app),
+        String::new(),
+    ];
+    lines.extend(status_lines(app));
+    lines
 }
 
-fn session_lines(app: &TuiApp) -> Vec<String> {
-    vec![
-        format!(
-            "Passed: {}/{}",
-            app.session().passed(),
-            app.session().total_drills()
-        ),
-        format!("Skipped: {}", app.session().skipped()),
-        format!("Attempts: {}", app.session().attempts()),
-    ]
-}
-
-fn input_lines(app: &TuiApp) -> Vec<String> {
-    let input_line = if app.input().is_empty() {
-        "> |  type answer".to_string()
-    } else {
-        format!("> {}|", app.input())
-    };
-
-    vec!["Input focus".to_string(), input_line]
-}
-
-fn output_lines(app: &TuiApp) -> Vec<String> {
+fn status_lines(app: &TuiApp) -> Vec<String> {
     let mut lines = app
         .status_lines()
         .iter()
@@ -124,6 +66,27 @@ fn output_lines(app: &TuiApp) -> Vec<String> {
     lines
 }
 
+fn input_line(app: &TuiApp) -> String {
+    if app.input().is_empty() {
+        "> |  type answer".to_string()
+    } else {
+        format!("> {}|", app.input())
+    }
+}
+
+fn footer_lines(app: &TuiApp) -> Vec<String> {
+    vec![
+        format!(
+            "Passed {}/{} | Skipped {} | Attempts {}",
+            app.session().passed(),
+            app.session().total_drills(),
+            app.session().skipped(),
+            app.session().attempts()
+        ),
+        "Enter submit | Esc quit | ? help".to_string(),
+    ]
+}
+
 fn emphasize_status_line(index: usize, line: &str) -> String {
     if index == 0 {
         match line {
@@ -138,14 +101,7 @@ fn emphasize_status_line(index: usize, line: &str) -> String {
 
 #[cfg(test)]
 fn render_lines_for_snapshot(app: &TuiApp) -> Vec<String> {
-    [
-        header_lines(app),
-        drill_lines(app),
-        session_lines(app),
-        input_lines(app),
-        output_lines(app),
-    ]
-    .concat()
+    [rep_lines(app), footer_lines(app)].concat()
 }
 
 #[cfg(test)]
@@ -154,7 +110,7 @@ mod tests {
     use crate::tui::{TuiApp, UiIntent};
 
     #[test]
-    fn render_snapshot_contains_title_drill_stats_and_last_status() {
+    fn render_snapshot_keeps_drill_input_and_status_in_primary_rep() {
         let mut app = TuiApp::new();
         for ch in "fn main() {}".chars() {
             app.handle_intent(UiIntent::Append(ch));
@@ -162,30 +118,46 @@ mod tests {
         app.handle_intent(UiIntent::Submit);
 
         let lines = render_lines_for_snapshot(&app);
-        assert!(lines.iter().any(|line| line == "Rust Reps"));
-        assert!(lines.iter().any(|line| line.contains("Drill 002/12")));
-        assert!(
-            lines
-                .iter()
-                .any(|line| line.contains("println!(\"Rust Reps\");"))
-        );
-        assert!(lines.iter().any(|line| line == "Passed: 1/12"));
-        assert!(lines.iter().any(|line| line == ">> PASS"));
+        let drill_position = lines
+            .iter()
+            .position(|line| line.contains("Drill 002/12"))
+            .expect("expected drill in rep snapshot");
+        let expected_position = lines
+            .iter()
+            .position(|line| line.contains("println!(\"Rust Reps\");"))
+            .expect("expected answer in rep snapshot");
+        let input_position = lines
+            .iter()
+            .position(|line| line == "> |  type answer")
+            .expect("expected input caret in rep snapshot");
+        let status_position = lines
+            .iter()
+            .position(|line| line == ">> PASS")
+            .expect("expected PASS in rep snapshot");
+
+        assert!(drill_position < expected_position);
+        assert!(expected_position < input_position);
+        assert!(input_position < status_position);
         assert!(!lines.iter().any(|line| line == "Commands:"));
-        assert!(lines.iter().any(|line| line == "Input focus"));
-        assert!(lines.iter().any(|line| line == "> |  type answer"));
     }
 
     #[test]
-    fn render_snapshot_includes_expected_and_stats_values() {
+    fn render_snapshot_uses_compact_footer_by_default() {
         let app = TuiApp::new();
         let lines = render_lines_for_snapshot(&app);
-        assert!(lines.iter().any(|line| line == "Skipped: 0"));
-        assert!(lines.iter().any(|line| line == "Attempts: 0"));
-        assert!(lines.iter().any(|line| line.contains("Drill 001/12")));
+        assert!(
+            lines
+                .iter()
+                .any(|line| line == "Passed 0/12 | Skipped 0 | Attempts 0")
+        );
+        assert!(
+            lines
+                .iter()
+                .any(|line| line == "Enter submit | Esc quit | ? help")
+        );
         assert!(lines.iter().any(|line| line == "> |  type answer"));
-        assert!(lines.iter().any(|line| line == "Input focus"));
         assert!(lines.iter().any(|line| line == ">> READY"));
+        assert!(!lines.iter().any(|line| line == "Backspace: delete char"));
     }
 
     #[test]
@@ -196,7 +168,6 @@ mod tests {
         }
         let lines = render_lines_for_snapshot(&app);
 
-        assert!(lines.iter().any(|line| line == "Input focus"));
         assert!(lines.iter().any(|line| line == "> hello|"));
     }
 
@@ -229,5 +200,24 @@ mod tests {
         assert!(lines.iter().any(|line| line == ">> TRY AGAIN"));
         assert!(lines.iter().any(|line| line == "Expected:"));
         assert!(lines.iter().any(|line| line == "fn main() {}"));
+    }
+
+    #[test]
+    fn render_snapshot_makes_pass_prominent_and_moves_to_next_drill() {
+        let mut app = TuiApp::new();
+        for ch in "fn main() {}".chars() {
+            app.handle_intent(UiIntent::Append(ch));
+        }
+        app.handle_intent(UiIntent::Submit);
+        let lines = render_lines_for_snapshot(&app);
+
+        assert!(lines.iter().any(|line| line == ">> PASS"));
+        assert!(lines.iter().any(|line| line.contains("Drill 002/12")));
+        assert!(
+            lines
+                .iter()
+                .any(|line| line.contains("println!(\"Rust Reps\");"))
+        );
+        assert!(lines.iter().any(|line| line == "> |  type answer"));
     }
 }
