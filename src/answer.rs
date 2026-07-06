@@ -15,16 +15,6 @@ pub fn check_answer(answer: &str, expected: &str) -> bool {
     trim_line_ending(answer) == expected
 }
 
-pub fn print_answer_result(answer: &str, expected: &str) {
-    if check_answer(answer, expected) {
-        println!("PASS");
-    } else {
-        println!("TRY AGAIN");
-        println!("Expected:");
-        println!("{}", expected);
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::{check_answer, trim_line_ending};

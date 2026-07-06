@@ -1,6 +1,6 @@
 use std::io::{self, Write};
 
-use crate::{answer, catalog};
+use crate::{answer, catalog, presentation};
 
 pub struct PracticeStats {
     pub passed: usize,
@@ -35,98 +35,75 @@ fn read_line_or_exit(input: &mut String) -> usize {
     }
 }
 
-pub fn print_practice_status(current_drill: &catalog::Drill, stats: &PracticeStats) {
-    println!("Status:");
-    println!(
-        "Current: {}/{:03}",
-        current_drill.id,
-        catalog::drills().len()
-    );
-    println!("Passed: {}/{}", stats.passed, catalog::drills().len());
-    println!("Skipped: {}", stats.skipped);
-    println!("Attempts: {}", stats.attempts);
-}
-
-fn print_summary(stats: &PracticeStats) {
-    println!("Summary:");
-    println!("Passed: {}/{}", stats.passed, catalog::drills().len());
-    println!("Skipped: {}", stats.skipped);
-    println!("Attempts: {}", stats.attempts);
-}
-
-fn print_practice_commands() {
-    println!("Commands:");
-    println!(":help    show commands");
-    println!(":status  show session status");
-    println!(":list    show drills");
-    println!(":skip    skip current drill");
-    println!(":q       quit");
-    println!(":quit    quit");
-}
-
-fn print_unknown_practice_command() {
-    println!("UNKNOWN COMMAND");
-    println!("Type :help for commands.");
-}
-
 pub fn run_one_shot_drill(drill: &catalog::Drill) {
-    catalog::print_one_shot_prompt(drill);
+    presentation::print_one_shot_prompt(drill);
     flush_stdout_or_exit();
 
     let mut input = String::new();
     read_line_or_exit(&mut input);
-    answer::print_answer_result(&input, drill.expected);
+
+    if answer::check_answer(&input, drill.expected) {
+        presentation::print_answer_pass();
+    } else {
+        presentation::print_answer_try_again(drill.expected);
+    }
 }
 
 pub fn run_practice_session() {
-    catalog::print_practice_header();
+    presentation::print_practice_header();
 
     let mut stats = PracticeStats::new();
+    let total_drills = catalog::drills().len();
     let mut index = 0;
-    while index < catalog::drills().len() {
+
+    while index < total_drills {
         let drill = catalog::drills()[index];
-        catalog::print_practice_prompt(&drill);
+        presentation::print_practice_prompt(&drill, total_drills);
         flush_stdout_or_exit();
 
         let mut input = String::new();
         if read_line_or_exit(&mut input) == 0 {
-            println!("QUIT");
-            print_summary(&stats);
+            presentation::print_quit(stats.passed, stats.skipped, stats.attempts, total_drills);
             return;
         }
 
         let answer = answer::trim_line_ending(&input);
         if answer == ":q" || answer == ":quit" {
-            println!("QUIT");
-            print_summary(&stats);
+            presentation::print_quit(stats.passed, stats.skipped, stats.attempts, total_drills);
             return;
         }
         if answer == ":help" {
-            print_practice_commands();
+            presentation::print_practice_commands();
             println!();
             continue;
         }
         if answer == ":status" {
-            print_practice_status(&drill, &stats);
+            presentation::print_practice_status(
+                &drill,
+                stats.passed,
+                stats.skipped,
+                stats.attempts,
+                total_drills,
+            );
             println!();
             continue;
         }
         if answer == ":list" {
-            catalog::print_drill_catalog_body();
+            presentation::print_drill_list_body();
             println!();
             continue;
         }
         if answer == ":skip" {
             stats.skipped += 1;
-            println!("SKIP");
+            presentation::print_skip();
             index += 1;
-            if index < catalog::drills().len() {
+            if index < total_drills {
                 println!();
             }
             continue;
         }
         if answer.starts_with(':') {
-            print_unknown_practice_command();
+            presentation::print_unknown_practice_command();
             println!();
             continue;
         }
@@ -134,17 +111,14 @@ pub fn run_practice_session() {
         stats.attempts += 1;
         if answer::check_answer(&input, drill.expected) {
             stats.passed += 1;
-            println!("PASS");
+            presentation::print_answer_pass();
             println!();
             index += 1;
         } else {
-            println!("TRY AGAIN");
-            println!("Expected:");
-            println!("{}", drill.expected);
+            presentation::print_answer_try_again(drill.expected);
             println!();
         }
     }
 
-    println!("COMPLETE");
-    print_summary(&stats);
+    presentation::print_complete(stats.passed, stats.skipped, stats.attempts, total_drills);
 }

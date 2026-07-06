@@ -1,4 +1,4 @@
-use crate::catalog;
+use crate::{catalog, presentation};
 
 pub enum DrillCommand {
     Practice,
@@ -36,23 +36,11 @@ pub fn select_command(args: &[&str]) -> Result<DrillCommand, String> {
 }
 
 pub fn print_drill_list() {
-    catalog::print_drill_list();
+    presentation::print_drill_list();
 }
 
 pub fn print_help() {
-    println!("Rust Reps");
-    println!();
-    println!("Usage:");
-    println!("  rust-reps");
-    println!("  rust-reps [DRILL_ID]");
-    println!("  rust-reps play");
-    println!("  rust-reps --list");
-    println!("  rust-reps --help");
-    println!("  rust-reps --version");
-    println!();
-    println!("Default:");
-    println!("  Starts a practice session.");
-    println!();
+    presentation::print_help_text();
     println!("Current drills:");
     for drill in catalog::drills() {
         println!("{}  {}", drill.id, drill.expected);

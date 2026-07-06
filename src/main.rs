@@ -2,6 +2,7 @@ mod answer;
 mod catalog;
 mod cli;
 mod practice;
+mod presentation;
 
 use std::env;
 use std::process;

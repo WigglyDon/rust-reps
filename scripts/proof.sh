@@ -136,9 +136,10 @@ while score < 10 {}
 '
 
 drill_001_try_again_output='Rust Reps
+----------------
 
 Drill 001
-Type exactly:
+Prompt:
 
 fn main() {}
 
@@ -147,9 +148,10 @@ Expected:
 fn main() {}'
 
 drill_001_blank_line_output='Rust Reps
+----------------
 
 Drill 001
-Type exactly:
+Prompt:
 
 fn main() {}
 
@@ -158,15 +160,17 @@ Expected:
 fn main() {}'
 
 drill_001_crlf_pass_output='Rust Reps
+----------------
 
 Drill 001
-Type exactly:
+Prompt:
 
 fn main() {}
 
 >PASS'
 
 practice_all_correct_output='Rust Reps
+----------------
 
 Practice
 Exact typing practice.
@@ -174,84 +178,84 @@ Answers must match exactly.
 Type :help for commands and :q to quit.
 
 Drill 001/012
-Type exactly:
+Prompt:
 
 fn main() {}
 
 >PASS
 
 Drill 002/012
-Type exactly:
+Prompt:
 
 println!("Rust Reps");
 
 >PASS
 
 Drill 003/012
-Type exactly:
+Prompt:
 
 let answer = 42;
 
 >PASS
 
 Drill 004/012
-Type exactly:
+Prompt:
 
 let name = "Rust Reps";
 
 >PASS
 
 Drill 005/012
-Type exactly:
+Prompt:
 
 let mut score = 0;
 
 >PASS
 
 Drill 006/012
-Type exactly:
+Prompt:
 
 score += 1;
 
 >PASS
 
 Drill 007/012
-Type exactly:
+Prompt:
 
 let passed = true;
 
 >PASS
 
 Drill 008/012
-Type exactly:
+Prompt:
 
 let score: i32 = 0;
 
 >PASS
 
 Drill 009/012
-Type exactly:
+Prompt:
 
 let scores = [1, 2, 3];
 
 >PASS
 
 Drill 010/012
-Type exactly:
+Prompt:
 
 fn add_one(x: i32) -> i32 { x + 1 }
 
 >PASS
 
 Drill 011/012
-Type exactly:
+Prompt:
 
 if score > 0 {}
 
 >PASS
 
 Drill 012/012
-Type exactly:
+Prompt:
 
 while score < 10 {}
 
@@ -264,6 +268,7 @@ Skipped: 0
 Attempts: 12'
 
 practice_quit_output='Rust Reps
+----------------
 
 Practice
 Exact typing practice.
@@ -271,7 +276,7 @@ Answers must match exactly.
 Type :help for commands and :q to quit.
 
 Drill 001/012
-Type exactly:
+Prompt:
 
 fn main() {}
 
@@ -282,6 +287,7 @@ Skipped: 0
 Attempts: 0'
 
 practice_unknown_then_quit_output='Rust Reps
+----------------
 
 Practice
 Exact typing practice.
@@ -289,7 +295,7 @@ Answers must match exactly.
 Type :help for commands and :q to quit.
 
 Drill 001/012
-Type exactly:
+Prompt:
 
 fn main() {}
 
@@ -297,7 +303,7 @@ fn main() {}
 Type :help for commands.
 
 Drill 001/012
-Type exactly:
+Prompt:
 
 fn main() {}
 
@@ -308,6 +314,7 @@ Skipped: 0
 Attempts: 0'
 
 practice_unknown_then_status_then_quit_output='Rust Reps
+----------------
 
 Practice
 Exact typing practice.
@@ -315,7 +322,7 @@ Answers must match exactly.
 Type :help for commands and :q to quit.
 
 Drill 001/012
-Type exactly:
+Prompt:
 
 fn main() {}
 
@@ -323,7 +330,7 @@ fn main() {}
 Type :help for commands.
 
 Drill 001/012
-Type exactly:
+Prompt:
 
 fn main() {}
 
@@ -334,7 +341,7 @@ Skipped: 0
 Attempts: 0
 
 Drill 001/012
-Type exactly:
+Prompt:
 
 fn main() {}
 
@@ -345,6 +352,7 @@ Skipped: 0
 Attempts: 0'
 
 practice_blank_line_then_status_then_quit_output='Rust Reps
+----------------
 
 Practice
 Exact typing practice.
@@ -352,7 +360,7 @@ Answers must match exactly.
 Type :help for commands and :q to quit.
 
 Drill 001/012
-Type exactly:
+Prompt:
 
 fn main() {}
 
@@ -361,7 +369,7 @@ Expected:
 fn main() {}
 
 Drill 001/012
-Type exactly:
+Prompt:
 
 fn main() {}
 
@@ -372,7 +380,7 @@ Skipped: 0
 Attempts: 1
 
 Drill 001/012
-Type exactly:
+Prompt:
 
 fn main() {}
 
@@ -383,6 +391,7 @@ Skipped: 0
 Attempts: 1'
 
 practice_trailing_space_then_status_then_quit_output='Rust Reps
+----------------
 
 Practice
 Exact typing practice.
@@ -390,7 +399,7 @@ Answers must match exactly.
 Type :help for commands and :q to quit.
 
 Drill 001/012
-Type exactly:
+Prompt:
 
 fn main() {}
 
@@ -399,7 +408,7 @@ Expected:
 fn main() {}
 
 Drill 001/012
-Type exactly:
+Prompt:
 
 fn main() {}
 
@@ -410,7 +419,7 @@ Skipped: 0
 Attempts: 1
 
 Drill 001/012
-Type exactly:
+Prompt:
 
 fn main() {}
 
@@ -421,6 +430,7 @@ Skipped: 0
 Attempts: 1'
 
 practice_crlf_correct_then_quit_output='Rust Reps
+----------------
 
 Practice
 Exact typing practice.
@@ -428,14 +438,14 @@ Answers must match exactly.
 Type :help for commands and :q to quit.
 
 Drill 001/012
-Type exactly:
+Prompt:
 
 fn main() {}
 
 >PASS
 
 Drill 002/012
-Type exactly:
+Prompt:
 
 println!("Rust Reps");
 
@@ -446,6 +456,7 @@ Skipped: 0
 Attempts: 1'
 
 practice_unknown_then_correct_then_quit_output='Rust Reps
+----------------
 
 Practice
 Exact typing practice.
@@ -453,7 +464,7 @@ Answers must match exactly.
 Type :help for commands and :q to quit.
 
 Drill 001/012
-Type exactly:
+Prompt:
 
 fn main() {}
 
@@ -461,14 +472,14 @@ fn main() {}
 Type :help for commands.
 
 Drill 001/012
-Type exactly:
+Prompt:
 
 fn main() {}
 
 >PASS
 
 Drill 002/012
-Type exactly:
+Prompt:
 
 println!("Rust Reps");
 
@@ -479,6 +490,7 @@ Skipped: 0
 Attempts: 1'
 
 practice_retry_then_quit_output='Rust Reps
+----------------
 
 Practice
 Exact typing practice.
@@ -486,7 +498,7 @@ Answers must match exactly.
 Type :help for commands and :q to quit.
 
 Drill 001/012
-Type exactly:
+Prompt:
 
 fn main() {}
 
@@ -495,14 +507,14 @@ Expected:
 fn main() {}
 
 Drill 001/012
-Type exactly:
+Prompt:
 
 fn main() {}
 
 >PASS
 
 Drill 002/012
-Type exactly:
+Prompt:
 
 println!("Rust Reps");
 
@@ -513,6 +525,7 @@ Skipped: 0
 Attempts: 2'
 
 practice_help_then_quit_output='Rust Reps
+----------------
 
 Practice
 Exact typing practice.
@@ -520,7 +533,7 @@ Answers must match exactly.
 Type :help for commands and :q to quit.
 
 Drill 001/012
-Type exactly:
+Prompt:
 
 fn main() {}
 
@@ -533,7 +546,7 @@ fn main() {}
 :quit    quit
 
 Drill 001/012
-Type exactly:
+Prompt:
 
 fn main() {}
 
@@ -544,6 +557,7 @@ Skipped: 0
 Attempts: 0'
 
 practice_wrong_then_quit_output='Rust Reps
+----------------
 
 Practice
 Exact typing practice.
@@ -551,7 +565,7 @@ Answers must match exactly.
 Type :help for commands and :q to quit.
 
 Drill 001/012
-Type exactly:
+Prompt:
 
 fn main() {}
 
@@ -560,7 +574,7 @@ Expected:
 fn main() {}
 
 Drill 001/012
-Type exactly:
+Prompt:
 
 fn main() {}
 
@@ -571,6 +585,7 @@ Skipped: 0
 Attempts: 1'
 
 practice_status_then_quit_output='Rust Reps
+----------------
 
 Practice
 Exact typing practice.
@@ -578,7 +593,7 @@ Answers must match exactly.
 Type :help for commands and :q to quit.
 
 Drill 001/012
-Type exactly:
+Prompt:
 
 fn main() {}
 
@@ -589,7 +604,7 @@ Skipped: 0
 Attempts: 0
 
 Drill 001/012
-Type exactly:
+Prompt:
 
 fn main() {}
 
@@ -600,6 +615,7 @@ Skipped: 0
 Attempts: 0'
 
 practice_list_then_quit_output='Rust Reps
+----------------
 
 Practice
 Exact typing practice.
@@ -607,7 +623,7 @@ Answers must match exactly.
 Type :help for commands and :q to quit.
 
 Drill 001/012
-Type exactly:
+Prompt:
 
 fn main() {}
 
@@ -626,7 +642,7 @@ fn main() {}
 012  while score < 10 {}
 
 Drill 001/012
-Type exactly:
+Prompt:
 
 fn main() {}
 
@@ -637,6 +653,7 @@ Skipped: 0
 Attempts: 0'
 
 practice_skip_then_quit_output='Rust Reps
+----------------
 
 Practice
 Exact typing practice.
@@ -644,14 +661,14 @@ Answers must match exactly.
 Type :help for commands and :q to quit.
 
 Drill 001/012
-Type exactly:
+Prompt:
 
 fn main() {}
 
 >SKIP
 
 Drill 002/012
-Type exactly:
+Prompt:
 
 println!("Rust Reps");
 
@@ -662,6 +679,7 @@ Skipped: 1
 Attempts: 0'
 
 practice_help_then_status_then_quit_output='Rust Reps
+----------------
 
 Practice
 Exact typing practice.
@@ -669,7 +687,7 @@ Answers must match exactly.
 Type :help for commands and :q to quit.
 
 Drill 001/012
-Type exactly:
+Prompt:
 
 fn main() {}
 
@@ -682,7 +700,7 @@ fn main() {}
 :quit    quit
 
 Drill 001/012
-Type exactly:
+Prompt:
 
 fn main() {}
 
@@ -693,7 +711,7 @@ Skipped: 0
 Attempts: 0
 
 Drill 001/012
-Type exactly:
+Prompt:
 
 fn main() {}
 
@@ -704,6 +722,7 @@ Skipped: 0
 Attempts: 0'
 
 practice_wrong_then_status_then_quit_output='Rust Reps
+----------------
 
 Practice
 Exact typing practice.
@@ -711,7 +730,7 @@ Answers must match exactly.
 Type :help for commands and :q to quit.
 
 Drill 001/012
-Type exactly:
+Prompt:
 
 fn main() {}
 
@@ -720,7 +739,7 @@ Expected:
 fn main() {}
 
 Drill 001/012
-Type exactly:
+Prompt:
 
 fn main() {}
 
@@ -731,7 +750,7 @@ Skipped: 0
 Attempts: 1
 
 Drill 001/012
-Type exactly:
+Prompt:
 
 fn main() {}
 
@@ -742,6 +761,7 @@ Skipped: 0
 Attempts: 1'
 
 practice_correct_then_status_then_quit_output='Rust Reps
+----------------
 
 Practice
 Exact typing practice.
@@ -749,14 +769,14 @@ Answers must match exactly.
 Type :help for commands and :q to quit.
 
 Drill 001/012
-Type exactly:
+Prompt:
 
 fn main() {}
 
 >PASS
 
 Drill 002/012
-Type exactly:
+Prompt:
 
 println!("Rust Reps");
 
@@ -767,7 +787,7 @@ Skipped: 0
 Attempts: 1
 
 Drill 002/012
-Type exactly:
+Prompt:
 
 println!("Rust Reps");
 
@@ -778,6 +798,7 @@ Skipped: 0
 Attempts: 1'
 
 practice_skip_then_status_then_quit_output='Rust Reps
+----------------
 
 Practice
 Exact typing practice.
@@ -785,14 +806,14 @@ Answers must match exactly.
 Type :help for commands and :q to quit.
 
 Drill 001/012
-Type exactly:
+Prompt:
 
 fn main() {}
 
 >SKIP
 
 Drill 002/012
-Type exactly:
+Prompt:
 
 println!("Rust Reps");
 
@@ -803,7 +824,7 @@ Skipped: 1
 Attempts: 0
 
 Drill 002/012
-Type exactly:
+Prompt:
 
 println!("Rust Reps");
 
@@ -829,6 +850,7 @@ practice_all_skip_input=':skip
 '
 
 practice_all_skip_output='Rust Reps
+----------------
 
 Practice
 Exact typing practice.
@@ -836,84 +858,84 @@ Answers must match exactly.
 Type :help for commands and :q to quit.
 
 Drill 001/012
-Type exactly:
+Prompt:
 
 fn main() {}
 
 >SKIP
 
 Drill 002/012
-Type exactly:
+Prompt:
 
 println!("Rust Reps");
 
 >SKIP
 
 Drill 003/012
-Type exactly:
+Prompt:
 
 let answer = 42;
 
 >SKIP
 
 Drill 004/012
-Type exactly:
+Prompt:
 
 let name = "Rust Reps";
 
 >SKIP
 
 Drill 005/012
-Type exactly:
+Prompt:
 
 let mut score = 0;
 
 >SKIP
 
 Drill 006/012
-Type exactly:
+Prompt:
 
 score += 1;
 
 >SKIP
 
 Drill 007/012
-Type exactly:
+Prompt:
 
 let passed = true;
 
 >SKIP
 
 Drill 008/012
-Type exactly:
+Prompt:
 
 let score: i32 = 0;
 
 >SKIP
 
 Drill 009/012
-Type exactly:
+Prompt:
 
 let scores = [1, 2, 3];
 
 >SKIP
 
 Drill 010/012
-Type exactly:
+Prompt:
 
 fn add_one(x: i32) -> i32 { x + 1 }
 
 >SKIP
 
 Drill 011/012
-Type exactly:
+Prompt:
 
 if score > 0 {}
 
 >SKIP
 
 Drill 012/012
-Type exactly:
+Prompt:
 
 while score < 10 {}
 
@@ -941,6 +963,7 @@ fn main() {}
 '
 
 practice_mixed_complete_output='Rust Reps
+----------------
 
 Practice
 Exact typing practice.
@@ -948,7 +971,7 @@ Answers must match exactly.
 Type :help for commands and :q to quit.
 
 Drill 001/012
-Type exactly:
+Prompt:
 
 fn main() {}
 
@@ -957,84 +980,84 @@ Expected:
 fn main() {}
 
 Drill 001/012
-Type exactly:
+Prompt:
 
 fn main() {}
 
 >PASS
 
 Drill 002/012
-Type exactly:
+Prompt:
 
 println!("Rust Reps");
 
 >SKIP
 
 Drill 003/012
-Type exactly:
+Prompt:
 
 let answer = 42;
 
 >SKIP
 
 Drill 004/012
-Type exactly:
+Prompt:
 
 let name = "Rust Reps";
 
 >SKIP
 
 Drill 005/012
-Type exactly:
+Prompt:
 
 let mut score = 0;
 
 >SKIP
 
 Drill 006/012
-Type exactly:
+Prompt:
 
 score += 1;
 
 >SKIP
 
 Drill 007/012
-Type exactly:
+Prompt:
 
 let passed = true;
 
 >SKIP
 
 Drill 008/012
-Type exactly:
+Prompt:
 
 let score: i32 = 0;
 
 >SKIP
 
 Drill 009/012
-Type exactly:
+Prompt:
 
 let scores = [1, 2, 3];
 
 >SKIP
 
 Drill 010/012
-Type exactly:
+Prompt:
 
 fn add_one(x: i32) -> i32 { x + 1 }
 
 >SKIP
 
 Drill 011/012
-Type exactly:
+Prompt:
 
 if score > 0 {}
 
 >SKIP
 
 Drill 012/012
-Type exactly:
+Prompt:
 
 while score < 10 {}
 
@@ -1070,15 +1093,17 @@ expect_stdout "practice all skip complete" "$practice_all_skip_output" sh -c "pr
 expect_stdout "practice mixed complete" "$practice_mixed_complete_output" sh -c "printf '%s' \"$practice_mixed_complete_input\" | cargo run -q"
 
 expect_stdout "Drill 001 explicit PASS" 'Rust Reps
+----------------
 
 Drill 001
-Type exactly:
+Prompt:
 
 fn main() {}
 
 >PASS' sh -c "printf 'fn main() {}\\n' | cargo run -q -- 001"
 
 expect_stdout "list" 'Rust Reps
+----------------
 
 Available drills:
 001  fn main() {}
@@ -1095,6 +1120,7 @@ Available drills:
 012  while score < 10 {}' cargo run -q -- --list
 
 expect_stdout "help" 'Rust Reps
+----------------
 
 Usage:
   rust-reps
@@ -1122,6 +1148,7 @@ Current drills:
 012  while score < 10 {}' cargo run -q -- --help
 
 expect_stdout "short help" 'Rust Reps
+----------------
 
 Usage:
   rust-reps
@@ -1162,6 +1189,7 @@ CARGO_HOME="$cargo_home" cargo install --path . --force --root "$install_root"
 expect_stdout "installed command path" "$install_root/bin/rust-reps" env PATH="$install_root/bin:$PATH" sh -c 'command -v rust-reps'
 expect_stdout "installed version" 'rust-reps 0.1.0' env PATH="$install_root/bin:$PATH" rust-reps --version
 expect_stdout "installed help" 'Rust Reps
+----------------
 
 Usage:
   rust-reps
@@ -1188,6 +1216,7 @@ Current drills:
 011  if score > 0 {}
 012  while score < 10 {}' env PATH="$install_root/bin:$PATH" rust-reps --help
 expect_stdout "installed list" 'Rust Reps
+----------------
 
 Available drills:
 001  fn main() {}
@@ -1219,81 +1248,90 @@ expect_stdout "installed Drill 001 CRLF PASS" "$drill_001_crlf_pass_output" env 
 expect_stdout "installed Drill 001 blank line" "$drill_001_blank_line_output" env PATH="$install_root/bin:$PATH" sh -c "printf '\\n' | rust-reps 001"
 
 expect_stdout "Drill 002 PASS" 'Rust Reps
+----------------
 
 Drill 002
-Type exactly:
+Prompt:
 
 println!("Rust Reps");
 
 >PASS' sh -c "printf 'println!(\"Rust Reps\");\\n' | cargo run -q -- 002"
 
 expect_stdout "Drill 006 PASS" 'Rust Reps
+----------------
 
 Drill 006
-Type exactly:
+Prompt:
 
 score += 1;
 
 >PASS' sh -c "printf 'score += 1;\\n' | cargo run -q -- 006"
 
 expect_stdout "Drill 007 PASS" 'Rust Reps
+----------------
 
 Drill 007
-Type exactly:
+Prompt:
 
 let passed = true;
 
 >PASS' sh -c "printf 'let passed = true;\\n' | cargo run -q -- 007"
 
 expect_stdout "Drill 008 PASS" 'Rust Reps
+----------------
 
 Drill 008
-Type exactly:
+Prompt:
 
 let score: i32 = 0;
 
 >PASS' sh -c "printf 'let score: i32 = 0;\\n' | cargo run -q -- 008"
 
 expect_stdout "Drill 009 PASS" 'Rust Reps
+----------------
 
 Drill 009
-Type exactly:
+Prompt:
 
 let scores = [1, 2, 3];
 
 >PASS' sh -c "printf 'let scores = [1, 2, 3];\\n' | cargo run -q -- 009"
 
 expect_stdout "Drill 010 PASS" 'Rust Reps
+----------------
 
 Drill 010
-Type exactly:
+Prompt:
 
 fn add_one(x: i32) -> i32 { x + 1 }
 
 >PASS' sh -c "printf 'fn add_one(x: i32) -> i32 { x + 1 }\\n' | cargo run -q -- 010"
 
 expect_stdout "Drill 011 PASS" 'Rust Reps
+----------------
 
 Drill 011
-Type exactly:
+Prompt:
 
 if score > 0 {}
 
 >PASS' sh -c "printf 'if score > 0 {}\\n' | cargo run -q -- 011"
 
 expect_stdout "Drill 012 PASS" 'Rust Reps
+----------------
 
 Drill 012
-Type exactly:
+Prompt:
 
 while score < 10 {}
 
 >PASS' sh -c "printf 'while score < 10 {}\\n' | cargo run -q -- 012"
 
 expect_stdout "Drill 006 TRY AGAIN" 'Rust Reps
+----------------
 
 Drill 006
-Type exactly:
+Prompt:
 
 score += 1;
 
@@ -1302,9 +1340,10 @@ Expected:
 score += 1;' sh -c "printf 'score += 1\\n' | cargo run -q -- 006"
 
 expect_stdout "Drill 012 TRY AGAIN" 'Rust Reps
+----------------
 
 Drill 012
-Type exactly:
+Prompt:
 
 while score < 10 {}
 
