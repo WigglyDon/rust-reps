@@ -10,6 +10,8 @@ use ratatui::{
     widgets::{Block, Borders, Paragraph},
 };
 
+const EDITOR_DIVIDER: &str = "────────────────────────";
+
 #[derive(Clone, Copy)]
 struct TuiTheme {
     background: Color,
@@ -73,7 +75,7 @@ fn render_client_frame(frame: &mut Frame<'_>, client_frame: &ClientFrame) {
     let game_block = Block::default()
         .borders(Borders::ALL)
         .style(Style::default().bg(theme.panel))
-        .border_style(border_style());
+        .border_style(border_style(client_frame.counter_reward_active));
     let game_area = chunks[0];
     let game_body = game_area.inner(Margin {
         vertical: 1,
@@ -115,7 +117,14 @@ fn base_style() -> Style {
     Style::default().fg(theme().text).bg(theme().background)
 }
 
-fn border_style() -> Style {
+fn border_style(reward_active: bool) -> Style {
+    if reward_active {
+        return Style::default()
+            .fg(theme().success)
+            .bg(theme().panel)
+            .add_modifier(Modifier::BOLD);
+    }
+
     Style::default().fg(theme().border).bg(theme().panel)
 }
 
@@ -130,7 +139,12 @@ fn problem_lines(client_frame: &ClientFrame) -> Vec<Line<'static>> {
 }
 
 fn workbox_lines(client_frame: &ClientFrame) -> Vec<Line<'static>> {
-    vec![Line::from(input_spans(client_frame))]
+    vec![
+        Line::from(Span::styled(EDITOR_DIVIDER, editor_divider_style())),
+        Line::from(input_spans(client_frame)),
+        Line::from(Span::styled("  │", editor_gutter_style())),
+        Line::from(Span::styled("  │", editor_gutter_style())),
+    ]
 }
 
 fn feedback_chrome_lines(client_frame: &ClientFrame) -> Vec<Line<'static>> {
@@ -146,7 +160,7 @@ fn feedback_chrome_lines(client_frame: &ClientFrame) -> Vec<Line<'static>> {
                 code_tokens: Vec::new(),
             }),
     );
-    lines.into_iter().map(feedback_line).collect()
+    lines.into_iter().filter_map(feedback_line).collect()
 }
 
 fn feedback_height(lines: &[Line<'static>]) -> u16 {
@@ -159,26 +173,38 @@ fn input_spans(client_frame: &ClientFrame) -> Vec<Span<'static>> {
     } else {
         " "
     };
-    let mut spans = vec![Span::styled("> ", prompt_marker_style())];
+    let mut spans = vec![Span::styled("1 │ ", editor_gutter_style())];
     spans.extend(code_spans(&client_frame.game_window.workbox.input_tokens));
     spans.push(Span::styled(cursor.to_string(), caret_style()));
     spans
 }
 
-fn feedback_line(status_line: StatusLine) -> Line<'static> {
-    if !status_line.code_tokens.is_empty() {
-        return Line::from(code_spans(&status_line.code_tokens));
+fn feedback_line(status_line: StatusLine) -> Option<Line<'static>> {
+    if status_line.tone == StatusTone::Pass {
+        return None;
     }
 
-    Line::from(Span::styled(
+    if !status_line.code_tokens.is_empty() {
+        return Some(Line::from(code_spans(&status_line.code_tokens)));
+    }
+
+    Some(Line::from(Span::styled(
         status_line.text,
         status_tone_style(status_line.tone),
-    ))
+    )))
 }
 
 fn bottom_chrome_lines(client_frame: &ClientFrame) -> Vec<Line<'static>> {
+    let symbol = if client_frame.counter_reward_active {
+        "✓"
+    } else {
+        "●"
+    };
     vec![Line::from(vec![
-        Span::styled("●", counter_dot_style(client_frame.counter_pulse_active)),
+        Span::styled(
+            symbol,
+            counter_symbol_style(client_frame.counter_reward_active),
+        ),
         Span::styled(
             format!(" {}", client_frame.completed_reps_this_run),
             counter_number_style(),
@@ -230,10 +256,7 @@ fn status_tone_style(tone: StatusTone) -> Style {
             .fg(theme.type_name)
             .bg(theme.background)
             .add_modifier(Modifier::BOLD),
-        StatusTone::TryAgain => Style::default()
-            .fg(theme.danger)
-            .bg(theme.background)
-            .add_modifier(Modifier::BOLD),
+        StatusTone::TryAgain => Style::default().fg(theme.danger).bg(theme.background),
         StatusTone::ExpectedLabel => Style::default().fg(theme.warning).bg(theme.background),
         StatusTone::UnknownCommand | StatusTone::Warning => {
             Style::default().fg(theme.warning).bg(theme.background)
@@ -242,8 +265,8 @@ fn status_tone_style(tone: StatusTone) -> Style {
     }
 }
 
-fn counter_dot_style(pulsing: bool) -> Style {
-    if pulsing {
+fn counter_symbol_style(reward_active: bool) -> Style {
+    if reward_active {
         return Style::default()
             .fg(theme().success_bright)
             .bg(theme().background)
@@ -268,8 +291,12 @@ fn muted_style() -> Style {
     Style::default().fg(theme().muted).bg(theme().panel)
 }
 
-fn prompt_marker_style() -> Style {
+fn editor_gutter_style() -> Style {
     Style::default().fg(theme().muted).bg(theme().panel)
+}
+
+fn editor_divider_style() -> Style {
+    Style::default().fg(theme().border).bg(theme().panel)
 }
 
 #[cfg(test)]
@@ -309,8 +336,8 @@ fn line_text(line: &Line<'_>) -> String {
 #[cfg(test)]
 mod tests {
     use super::{
-        bottom_chrome_lines, feedback_chrome_lines, line_text, problem_lines, render_snapshot,
-        status_tone_style, theme,
+        EDITOR_DIVIDER, bottom_chrome_lines, feedback_chrome_lines, line_text, problem_lines,
+        render_snapshot, status_tone_style, theme,
     };
     use crate::{
         client::{ClientAction, StatusTone},
@@ -336,8 +363,8 @@ mod tests {
         let input_position = snapshot
             .game
             .iter()
-            .position(|line| line == "> |")
-            .expect("expected input caret in game snapshot");
+            .position(|line| line == "1 │ |")
+            .expect("expected editor gutter and caret in game snapshot");
 
         assert!(instruction_position < prompt_value_position);
         assert!(prompt_value_position < input_position);
@@ -347,6 +374,26 @@ mod tests {
         assert!(!snapshot.game.iter().any(|line| line == "Feedback"));
         assert!(!snapshot.game.iter().any(|line| line.contains("PASS")));
         assert!(!snapshot.game.iter().any(|line| line.contains("TRY AGAIN")));
+    }
+
+    #[test]
+    fn editor_surface_snapshot_includes_divider_gutter_and_reserved_space() {
+        let app = TuiApp::new();
+        let frame = app.frame();
+        let snapshot = render_snapshot(&frame);
+        let divider_position = snapshot
+            .game
+            .iter()
+            .position(|line| line == EDITOR_DIVIDER)
+            .expect("expected editor divider");
+        let input_position = snapshot
+            .game
+            .iter()
+            .position(|line| line == "1 │ |")
+            .expect("expected editor input line");
+
+        assert!(divider_position < input_position);
+        assert!(snapshot.game.iter().filter(|line| *line == "  │").count() >= 2);
     }
 
     #[test]
@@ -421,7 +468,7 @@ mod tests {
     }
 
     #[test]
-    fn pulsing_counter_dot_is_brighter_and_bold_while_number_stays_stable() {
+    fn reward_counter_symbol_is_checkmark_bright_and_bold_while_number_stays_stable() {
         let mut app = TuiApp::new();
         for ch in "fn main() {}".chars() {
             app.handle_action(ClientAction::TypeChar(ch));
@@ -431,11 +478,44 @@ mod tests {
         let lines = bottom_chrome_lines(&frame);
         let line = lines.first().expect("expected bottom counter line");
 
-        assert_eq!(line.spans[0].content.as_ref(), "●");
+        assert_eq!(line.spans[0].content.as_ref(), "✓");
         assert_eq!(line.spans[0].style.fg, Some(theme().success_bright));
         assert!(line.spans[0].style.add_modifier.contains(Modifier::BOLD));
         assert_eq!(line.spans[1].content.as_ref(), " 1");
         assert_eq!(line.spans[1].style.fg, Some(theme().success));
+    }
+
+    #[test]
+    fn reward_counter_symbol_returns_to_normal_dot_after_ticks() {
+        let mut app = TuiApp::new();
+        for ch in "fn main() {}".chars() {
+            app.handle_action(ClientAction::TypeChar(ch));
+        }
+        app.handle_action(ClientAction::Submit);
+        for _ in 0..3 {
+            app.tick_cursor();
+        }
+        let frame = app.frame();
+        let lines = bottom_chrome_lines(&frame);
+        let line = lines.first().expect("expected bottom counter line");
+
+        assert_eq!(line.spans[0].content.as_ref(), "●");
+        assert_eq!(line.spans[0].style.fg, Some(theme().success));
+        assert_eq!(line.spans[1].content.as_ref(), " 1");
+    }
+
+    #[test]
+    fn wrong_answer_does_not_render_reward_checkmark_or_increment_counter() {
+        let mut app = TuiApp::new();
+        for ch in "wrong".chars() {
+            app.handle_action(ClientAction::TypeChar(ch));
+        }
+        app.handle_action(ClientAction::Submit);
+        let frame = app.frame();
+        let snapshot = render_snapshot(&frame);
+
+        assert!(snapshot.bottom_chrome.iter().any(|line| line == "● 0"));
+        assert!(!snapshot.bottom_chrome.iter().any(|line| line.contains("✓")));
     }
 
     #[test]
@@ -469,8 +549,8 @@ mod tests {
         let lines = feedback_chrome_lines(&frame);
         let try_again = lines
             .iter()
-            .find(|line| line_text(line) == "TRY AGAIN")
-            .expect("expected TRY AGAIN feedback");
+            .find(|line| line_text(line) == "not quite")
+            .expect("expected not quite feedback");
 
         assert_eq!(try_again.spans[0].style.fg, Some(theme().danger));
     }
@@ -507,7 +587,7 @@ mod tests {
         let frame = app.frame();
         let snapshot = render_snapshot(&frame);
 
-        assert!(snapshot.game.iter().any(|line| line == "> hello|"));
+        assert!(snapshot.game.iter().any(|line| line == "1 │ hello|"));
     }
 
     #[test]
@@ -516,13 +596,13 @@ mod tests {
         app.tick_cursor();
         let frame = app.frame();
         let empty_snapshot = render_snapshot(&frame);
-        assert!(empty_snapshot.game.iter().any(|line| line == ">  "));
+        assert!(empty_snapshot.game.iter().any(|line| line == "1 │  "));
 
         app.handle_action(ClientAction::TypeChar('x'));
         app.tick_cursor();
         let frame = app.frame();
         let typed_snapshot = render_snapshot(&frame);
-        assert!(typed_snapshot.game.iter().any(|line| line == "> x "));
+        assert!(typed_snapshot.game.iter().any(|line| line == "1 │ x "));
     }
 
     #[test]
@@ -562,7 +642,7 @@ mod tests {
     }
 
     #[test]
-    fn render_snapshot_makes_try_again_prominent_with_expected_answer() {
+    fn render_snapshot_keeps_wrong_answer_clear_with_expected_answer() {
         let mut app = TuiApp::new();
         for ch in "wrong".chars() {
             app.handle_action(ClientAction::TypeChar(ch));
@@ -571,11 +651,12 @@ mod tests {
         let frame = app.frame();
         let snapshot = render_snapshot(&frame);
 
-        assert!(snapshot.feedback.iter().any(|line| line == "TRY AGAIN"));
-        assert!(snapshot.feedback.iter().any(|line| line == "Expected:"));
+        assert!(snapshot.feedback.iter().any(|line| line == "not quite"));
+        assert!(snapshot.feedback.iter().any(|line| line == "expected:"));
         assert!(snapshot.feedback.iter().any(|line| line == "fn main() {}"));
         assert!(!snapshot.game.iter().any(|line| line == "TRY AGAIN"));
-        assert!(!snapshot.game.iter().any(|line| line == "Expected:"));
+        assert!(!snapshot.game.iter().any(|line| line == "not quite"));
+        assert!(!snapshot.game.iter().any(|line| line == "expected:"));
     }
 
     #[test]
@@ -609,7 +690,7 @@ mod tests {
     }
 
     #[test]
-    fn render_snapshot_makes_pass_prominent_and_moves_to_next_drill() {
+    fn render_snapshot_hides_pass_and_shows_reward_checkmark_after_success() {
         let mut app = TuiApp::new();
         for ch in "fn main() {}".chars() {
             app.handle_action(ClientAction::TypeChar(ch));
@@ -618,15 +699,15 @@ mod tests {
         let frame = app.frame();
         let snapshot = render_snapshot(&frame);
 
-        assert!(snapshot.feedback.iter().any(|line| line == "PASS"));
+        assert!(!snapshot.feedback.iter().any(|line| line == "PASS"));
         assert!(
             snapshot
                 .game
                 .iter()
                 .any(|line| line == "println!(\"Rust Reps\");")
         );
-        assert!(snapshot.game.iter().any(|line| line == "> |"));
-        assert!(snapshot.bottom_chrome.iter().any(|line| line == "● 1"));
+        assert!(snapshot.game.iter().any(|line| line == "1 │ |"));
+        assert!(snapshot.bottom_chrome.iter().any(|line| line == "✓ 1"));
         assert!(!snapshot.game.iter().any(|line| line == "PASS"));
     }
 }

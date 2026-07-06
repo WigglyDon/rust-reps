@@ -1,6 +1,6 @@
 use crate::engine;
 
-const COUNTER_PULSE_TICKS: u8 = 2;
+const COUNTER_REWARD_TICKS: u8 = 3;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ClientAction {
@@ -48,7 +48,7 @@ pub struct ClientUiState {
     cursor_visible: bool,
     help_open: bool,
     status_lines: Vec<String>,
-    counter_pulse_ticks_remaining: u8,
+    counter_reward_ticks_remaining: u8,
 }
 
 impl ClientUiState {
@@ -58,7 +58,7 @@ impl ClientUiState {
             cursor_visible: true,
             help_open: false,
             status_lines: Vec::new(),
-            counter_pulse_ticks_remaining: 0,
+            counter_reward_ticks_remaining: 0,
         }
     }
 
@@ -78,8 +78,8 @@ impl ClientUiState {
         &self.status_lines
     }
 
-    pub fn counter_pulse_active(&self) -> bool {
-        self.counter_pulse_ticks_remaining > 0
+    pub fn counter_reward_active(&self) -> bool {
+        self.counter_reward_ticks_remaining > 0
     }
 
     pub fn apply_action(&mut self, action: ClientAction) {
@@ -98,7 +98,7 @@ impl ClientUiState {
             }
             ClientAction::CursorTick => {
                 self.cursor_visible = !self.cursor_visible;
-                self.advance_counter_pulse();
+                self.advance_counter_reward();
             }
             ClientAction::Submit | ClientAction::Quit | ClientAction::Ignore => {}
         }
@@ -117,12 +117,16 @@ impl ClientUiState {
         self.cursor_visible = true;
     }
 
-    pub fn start_counter_pulse(&mut self) {
-        self.counter_pulse_ticks_remaining = COUNTER_PULSE_TICKS;
+    pub fn start_counter_reward(&mut self) {
+        self.counter_reward_ticks_remaining = COUNTER_REWARD_TICKS;
     }
 
-    fn advance_counter_pulse(&mut self) {
-        self.counter_pulse_ticks_remaining = self.counter_pulse_ticks_remaining.saturating_sub(1);
+    pub fn clear_counter_reward(&mut self) {
+        self.counter_reward_ticks_remaining = 0;
+    }
+
+    fn advance_counter_reward(&mut self) {
+        self.counter_reward_ticks_remaining = self.counter_reward_ticks_remaining.saturating_sub(1);
     }
 }
 
@@ -131,7 +135,7 @@ pub struct ClientFrame {
     pub game_window: GameWindowFrame,
     pub status_chrome: StatusChromeFrame,
     pub completed_reps_this_run: usize,
-    pub counter_pulse_active: bool,
+    pub counter_reward_active: bool,
     pub help_chrome: HelpChromeFrame,
 }
 
@@ -208,7 +212,7 @@ pub fn project_client_frame(session: &engine::Session, ui_state: &ClientUiState)
             lines: status_lines(ui_state.status_lines()),
         },
         completed_reps_this_run: snapshot.stats.passed,
-        counter_pulse_active: ui_state.counter_pulse_active(),
+        counter_reward_active: ui_state.counter_reward_active(),
         help_chrome: HelpChromeFrame {
             open: ui_state.help_open(),
             lines: help_lines(ui_state.help_open()),
@@ -335,7 +339,7 @@ fn status_lines(lines: &[String]) -> Vec<StatusLine> {
             text: line.to_string(),
             code_tokens,
         });
-        previous_was_expected_label = line == "Expected:";
+        previous_was_expected_label = is_expected_label(line);
     }
 
     projected
@@ -345,12 +349,16 @@ fn status_tone(line: &str) -> StatusTone {
     match line {
         "PASS" => StatusTone::Pass,
         "COMPLETE" => StatusTone::Complete,
-        "TRY AGAIN" => StatusTone::TryAgain,
-        "Expected:" => StatusTone::ExpectedLabel,
+        "TRY AGAIN" | "not quite" => StatusTone::TryAgain,
+        "Expected:" | "expected:" => StatusTone::ExpectedLabel,
         "UNKNOWN COMMAND" => StatusTone::UnknownCommand,
         "SKIP" | "QUIT" | "STATUS" => StatusTone::Warning,
         _ => StatusTone::Plain,
     }
+}
+
+fn is_expected_label(line: &str) -> bool {
+    matches!(line, "Expected:" | "expected:")
 }
 
 fn is_identifier_start(ch: char) -> bool {
@@ -527,22 +535,36 @@ mod tests {
         let frame = project_client_frame(&session, &ui_state);
 
         assert_eq!(frame.completed_reps_this_run, 0);
-        assert!(!frame.counter_pulse_active);
+        assert!(!frame.counter_reward_active);
     }
 
     #[test]
-    fn counter_pulse_state_expires_after_fixed_ticks() {
+    fn counter_reward_state_expires_after_fixed_ticks() {
         let mut ui_state = ClientUiState::new();
 
-        assert!(!ui_state.counter_pulse_active());
-        ui_state.start_counter_pulse();
-        assert!(ui_state.counter_pulse_active());
+        assert!(!ui_state.counter_reward_active());
+        ui_state.start_counter_reward();
+        assert!(ui_state.counter_reward_active());
 
         ui_state.apply_action(ClientAction::CursorTick);
-        assert!(ui_state.counter_pulse_active());
+        assert!(ui_state.counter_reward_active());
 
         ui_state.apply_action(ClientAction::CursorTick);
-        assert!(!ui_state.counter_pulse_active());
+        assert!(ui_state.counter_reward_active());
+
+        ui_state.apply_action(ClientAction::CursorTick);
+        assert!(!ui_state.counter_reward_active());
+    }
+
+    #[test]
+    fn counter_reward_state_can_be_cleared_without_session_truth() {
+        let mut ui_state = ClientUiState::new();
+
+        ui_state.start_counter_reward();
+        assert!(ui_state.counter_reward_active());
+
+        ui_state.clear_counter_reward();
+        assert!(!ui_state.counter_reward_active());
     }
 
     #[test]
@@ -618,7 +640,7 @@ mod tests {
         let frame = project_client_frame(&fresh_session, &ui_state);
 
         assert_eq!(frame.completed_reps_this_run, 0);
-        assert!(!frame.counter_pulse_active);
+        assert!(!frame.counter_reward_active);
     }
 
     #[test]
@@ -640,8 +662,8 @@ mod tests {
         let session = engine::Session::new();
         let mut ui_state = ClientUiState::new();
         ui_state.set_status_lines(vec![
-            "TRY AGAIN".to_string(),
-            "Expected:".to_string(),
+            "not quite".to_string(),
+            "expected:".to_string(),
             "fn main() {}".to_string(),
         ]);
 
@@ -659,8 +681,8 @@ mod tests {
                 ))
                 .collect::<Vec<_>>(),
             vec![
-                (&StatusTone::TryAgain, "TRY AGAIN", String::new()),
-                (&StatusTone::ExpectedLabel, "Expected:", String::new()),
+                (&StatusTone::TryAgain, "not quite", String::new()),
+                (&StatusTone::ExpectedLabel, "expected:", String::new()),
                 (
                     &StatusTone::Plain,
                     "fn main() {}",
