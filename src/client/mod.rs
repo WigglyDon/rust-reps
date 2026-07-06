@@ -1,7 +1,5 @@
 use crate::engine;
 
-const COUNTER_REWARD_TICKS: u8 = 3;
-
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ClientAction {
     TypeChar(char),
@@ -42,13 +40,36 @@ impl CodeToken {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CounterRewardPhase {
+    Normal,
+    CheckBright,
+    CheckSoft,
+    DotBright,
+}
+
+impl CounterRewardPhase {
+    pub fn is_active(self) -> bool {
+        self != Self::Normal
+    }
+
+    fn next(self) -> Self {
+        match self {
+            Self::Normal => Self::Normal,
+            Self::CheckBright => Self::CheckSoft,
+            Self::CheckSoft => Self::DotBright,
+            Self::DotBright => Self::Normal,
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ClientUiState {
     draft_input: String,
     cursor_visible: bool,
     help_open: bool,
     status_lines: Vec<String>,
-    counter_reward_ticks_remaining: u8,
+    counter_reward_phase: CounterRewardPhase,
 }
 
 impl ClientUiState {
@@ -58,7 +79,7 @@ impl ClientUiState {
             cursor_visible: true,
             help_open: false,
             status_lines: Vec::new(),
-            counter_reward_ticks_remaining: 0,
+            counter_reward_phase: CounterRewardPhase::Normal,
         }
     }
 
@@ -78,8 +99,12 @@ impl ClientUiState {
         &self.status_lines
     }
 
+    pub fn counter_reward_phase(&self) -> CounterRewardPhase {
+        self.counter_reward_phase
+    }
+
     pub fn counter_reward_active(&self) -> bool {
-        self.counter_reward_ticks_remaining > 0
+        self.counter_reward_phase.is_active()
     }
 
     pub fn apply_action(&mut self, action: ClientAction) {
@@ -118,15 +143,15 @@ impl ClientUiState {
     }
 
     pub fn start_counter_reward(&mut self) {
-        self.counter_reward_ticks_remaining = COUNTER_REWARD_TICKS;
+        self.counter_reward_phase = CounterRewardPhase::CheckBright;
     }
 
     pub fn clear_counter_reward(&mut self) {
-        self.counter_reward_ticks_remaining = 0;
+        self.counter_reward_phase = CounterRewardPhase::Normal;
     }
 
     fn advance_counter_reward(&mut self) {
-        self.counter_reward_ticks_remaining = self.counter_reward_ticks_remaining.saturating_sub(1);
+        self.counter_reward_phase = self.counter_reward_phase.next();
     }
 }
 
@@ -135,6 +160,7 @@ pub struct ClientFrame {
     pub game_window: GameWindowFrame,
     pub status_chrome: StatusChromeFrame,
     pub completed_reps_this_run: usize,
+    pub counter_reward_phase: CounterRewardPhase,
     pub counter_reward_active: bool,
     pub help_chrome: HelpChromeFrame,
 }
@@ -212,6 +238,7 @@ pub fn project_client_frame(session: &engine::Session, ui_state: &ClientUiState)
             lines: status_lines(ui_state.status_lines()),
         },
         completed_reps_this_run: snapshot.stats.passed,
+        counter_reward_phase: ui_state.counter_reward_phase(),
         counter_reward_active: ui_state.counter_reward_active(),
         help_chrome: HelpChromeFrame {
             open: ui_state.help_open(),
@@ -410,8 +437,8 @@ fn help_lines(open: bool) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::{
-        ClientAction, ClientUiState, CodeTokenKind, StatusTone, project_client_frame,
-        tokenize_rust_line,
+        ClientAction, ClientUiState, CodeTokenKind, CounterRewardPhase, StatusTone,
+        project_client_frame, tokenize_rust_line,
     };
     use crate::engine;
 
@@ -535,24 +562,39 @@ mod tests {
         let frame = project_client_frame(&session, &ui_state);
 
         assert_eq!(frame.completed_reps_this_run, 0);
+        assert_eq!(frame.counter_reward_phase, CounterRewardPhase::Normal);
         assert!(!frame.counter_reward_active);
     }
 
     #[test]
-    fn counter_reward_state_expires_after_fixed_ticks() {
+    fn counter_reward_phase_progresses_through_settle_sequence() {
         let mut ui_state = ClientUiState::new();
 
+        assert_eq!(ui_state.counter_reward_phase(), CounterRewardPhase::Normal);
         assert!(!ui_state.counter_reward_active());
         ui_state.start_counter_reward();
+        assert_eq!(
+            ui_state.counter_reward_phase(),
+            CounterRewardPhase::CheckBright
+        );
         assert!(ui_state.counter_reward_active());
 
         ui_state.apply_action(ClientAction::CursorTick);
+        assert_eq!(
+            ui_state.counter_reward_phase(),
+            CounterRewardPhase::CheckSoft
+        );
         assert!(ui_state.counter_reward_active());
 
         ui_state.apply_action(ClientAction::CursorTick);
+        assert_eq!(
+            ui_state.counter_reward_phase(),
+            CounterRewardPhase::DotBright
+        );
         assert!(ui_state.counter_reward_active());
 
         ui_state.apply_action(ClientAction::CursorTick);
+        assert_eq!(ui_state.counter_reward_phase(), CounterRewardPhase::Normal);
         assert!(!ui_state.counter_reward_active());
     }
 
@@ -640,6 +682,7 @@ mod tests {
         let frame = project_client_frame(&fresh_session, &ui_state);
 
         assert_eq!(frame.completed_reps_this_run, 0);
+        assert_eq!(frame.counter_reward_phase, CounterRewardPhase::Normal);
         assert!(!frame.counter_reward_active);
     }
 

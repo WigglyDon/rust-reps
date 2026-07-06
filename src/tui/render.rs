@@ -1,5 +1,5 @@
 use crate::{
-    client::{ClientFrame, CodeToken, CodeTokenKind, StatusLine, StatusTone},
+    client::{ClientFrame, CodeToken, CodeTokenKind, CounterRewardPhase, StatusLine, StatusTone},
     tui::app::TuiApp,
 };
 use ratatui::{
@@ -9,8 +9,6 @@ use ratatui::{
     text::{Line, Span, Text},
     widgets::{Block, Borders, Paragraph},
 };
-
-const EDITOR_DIVIDER: &str = "────────────────────────";
 
 #[derive(Clone, Copy)]
 struct TuiTheme {
@@ -27,6 +25,7 @@ struct TuiTheme {
     punctuation: Color,
     success: Color,
     success_bright: Color,
+    success_soft: Color,
     danger: Color,
     warning: Color,
     caret: Color,
@@ -47,6 +46,7 @@ fn theme() -> TuiTheme {
         punctuation: Color::Rgb(150, 159, 176),
         success: Color::Rgb(88, 224, 135),
         success_bright: Color::Rgb(158, 255, 187),
+        success_soft: Color::Rgb(116, 238, 158),
         danger: Color::Rgb(255, 92, 105),
         warning: Color::Rgb(235, 178, 86),
         caret: Color::Rgb(116, 241, 157),
@@ -75,7 +75,7 @@ fn render_client_frame(frame: &mut Frame<'_>, client_frame: &ClientFrame) {
     let game_block = Block::default()
         .borders(Borders::ALL)
         .style(Style::default().bg(theme.panel))
-        .border_style(border_style(client_frame.counter_reward_active));
+        .border_style(border_style(client_frame.counter_reward_phase));
     let game_area = chunks[0];
     let game_body = game_area.inner(Margin {
         vertical: 1,
@@ -117,31 +117,37 @@ fn base_style() -> Style {
     Style::default().fg(theme().text).bg(theme().background)
 }
 
-fn border_style(reward_active: bool) -> Style {
-    if reward_active {
-        return Style::default()
-            .fg(theme().success)
+fn border_style(reward_phase: CounterRewardPhase) -> Style {
+    match reward_phase {
+        CounterRewardPhase::CheckBright => Style::default()
+            .fg(theme().success_bright)
             .bg(theme().panel)
-            .add_modifier(Modifier::BOLD);
+            .add_modifier(Modifier::BOLD),
+        CounterRewardPhase::CheckSoft => Style::default().fg(theme().success).bg(theme().panel),
+        CounterRewardPhase::DotBright => {
+            Style::default().fg(theme().success_soft).bg(theme().panel)
+        }
+        CounterRewardPhase::Normal => Style::default().fg(theme().border).bg(theme().panel),
     }
-
-    Style::default().fg(theme().border).bg(theme().panel)
 }
 
 fn problem_lines(client_frame: &ClientFrame) -> Vec<Line<'static>> {
     vec![
+        Line::from(""),
         Line::from(Span::styled(
             client_frame.game_window.problem.instruction.clone(),
-            muted_style(),
+            problem_header_style(),
         )),
+        Line::from(""),
         Line::from(code_spans(&client_frame.game_window.problem.prompt_tokens)),
     ]
 }
 
 fn workbox_lines(client_frame: &ClientFrame) -> Vec<Line<'static>> {
     vec![
-        Line::from(Span::styled(EDITOR_DIVIDER, editor_divider_style())),
+        Line::from(""),
         Line::from(input_spans(client_frame)),
+        Line::from(Span::styled("  │", editor_gutter_style())),
         Line::from(Span::styled("  │", editor_gutter_style())),
         Line::from(Span::styled("  │", editor_gutter_style())),
     ]
@@ -195,21 +201,24 @@ fn feedback_line(status_line: StatusLine) -> Option<Line<'static>> {
 }
 
 fn bottom_chrome_lines(client_frame: &ClientFrame) -> Vec<Line<'static>> {
-    let symbol = if client_frame.counter_reward_active {
-        "✓"
-    } else {
-        "●"
-    };
+    let symbol = counter_symbol(client_frame.counter_reward_phase);
     vec![Line::from(vec![
         Span::styled(
             symbol,
-            counter_symbol_style(client_frame.counter_reward_active),
+            counter_symbol_style(client_frame.counter_reward_phase),
         ),
         Span::styled(
             format!(" {}", client_frame.completed_reps_this_run),
             counter_number_style(),
         ),
     ])]
+}
+
+fn counter_symbol(reward_phase: CounterRewardPhase) -> &'static str {
+    match reward_phase {
+        CounterRewardPhase::CheckBright | CounterRewardPhase::CheckSoft => "✓",
+        CounterRewardPhase::DotBright | CounterRewardPhase::Normal => "●",
+    }
 }
 
 fn code_spans(tokens: &[CodeToken]) -> Vec<Span<'static>> {
@@ -265,15 +274,20 @@ fn status_tone_style(tone: StatusTone) -> Style {
     }
 }
 
-fn counter_symbol_style(reward_active: bool) -> Style {
-    if reward_active {
-        return Style::default()
+fn counter_symbol_style(reward_phase: CounterRewardPhase) -> Style {
+    match reward_phase {
+        CounterRewardPhase::CheckBright => Style::default()
             .fg(theme().success_bright)
             .bg(theme().background)
-            .add_modifier(Modifier::BOLD);
+            .add_modifier(Modifier::BOLD),
+        CounterRewardPhase::CheckSoft => Style::default()
+            .fg(theme().success_soft)
+            .bg(theme().background),
+        CounterRewardPhase::DotBright => Style::default()
+            .fg(theme().success_bright)
+            .bg(theme().background),
+        CounterRewardPhase::Normal => Style::default().fg(theme().success).bg(theme().background),
     }
-
-    Style::default().fg(theme().success).bg(theme().background)
 }
 
 fn counter_number_style() -> Style {
@@ -291,12 +305,15 @@ fn muted_style() -> Style {
     Style::default().fg(theme().muted).bg(theme().panel)
 }
 
-fn editor_gutter_style() -> Style {
-    Style::default().fg(theme().muted).bg(theme().panel)
+fn problem_header_style() -> Style {
+    Style::default()
+        .fg(theme().muted)
+        .bg(theme().panel)
+        .add_modifier(Modifier::BOLD)
 }
 
-fn editor_divider_style() -> Style {
-    Style::default().fg(theme().border).bg(theme().panel)
+fn editor_gutter_style() -> Style {
+    Style::default().fg(theme().muted).bg(theme().panel)
 }
 
 #[cfg(test)]
@@ -336,11 +353,11 @@ fn line_text(line: &Line<'_>) -> String {
 #[cfg(test)]
 mod tests {
     use super::{
-        EDITOR_DIVIDER, bottom_chrome_lines, feedback_chrome_lines, line_text, problem_lines,
+        border_style, bottom_chrome_lines, feedback_chrome_lines, line_text, problem_lines,
         render_snapshot, status_tone_style, theme,
     };
     use crate::{
-        client::{ClientAction, StatusTone},
+        client::{ClientAction, CounterRewardPhase, StatusTone},
         tui::TuiApp,
     };
     use ratatui::style::Modifier;
@@ -377,23 +394,23 @@ mod tests {
     }
 
     #[test]
-    fn editor_surface_snapshot_includes_divider_gutter_and_reserved_space() {
+    fn editor_surface_snapshot_includes_gutter_spacing_and_reserved_space() {
         let app = TuiApp::new();
         let frame = app.frame();
         let snapshot = render_snapshot(&frame);
-        let divider_position = snapshot
-            .game
-            .iter()
-            .position(|line| line == EDITOR_DIVIDER)
-            .expect("expected editor divider");
         let input_position = snapshot
             .game
             .iter()
             .position(|line| line == "1 │ |")
             .expect("expected editor input line");
 
-        assert!(divider_position < input_position);
-        assert!(snapshot.game.iter().filter(|line| *line == "  │").count() >= 2);
+        assert!(input_position > 0);
+        assert_eq!(snapshot.game[input_position - 1], "");
+        assert!(snapshot.game.iter().filter(|line| *line == "  │").count() >= 3);
+        assert!(
+            !snapshot.game.iter().any(|line| line.contains('─')),
+            "editor surface should not use a partial horizontal divider"
+        );
     }
 
     #[test]
@@ -441,6 +458,8 @@ mod tests {
             .expect("expected prompt line");
 
         assert!(descriptor_position < prompt_position);
+        assert_eq!(snapshot.game[descriptor_position - 1], "");
+        assert_eq!(snapshot.game[descriptor_position + 1], "");
     }
 
     #[test]
@@ -486,6 +505,31 @@ mod tests {
     }
 
     #[test]
+    fn reward_counter_sequence_settles_through_soft_check_and_bright_dot() {
+        let mut app = TuiApp::new();
+        for ch in "fn main() {}".chars() {
+            app.handle_action(ClientAction::TypeChar(ch));
+        }
+        app.handle_action(ClientAction::Submit);
+
+        app.tick_cursor();
+        let frame = app.frame();
+        let lines = bottom_chrome_lines(&frame);
+        let line = lines.first().expect("expected bottom counter line");
+        assert_eq!(line.spans[0].content.as_ref(), "✓");
+        assert_eq!(line.spans[0].style.fg, Some(theme().success_soft));
+        assert!(!line.spans[0].style.add_modifier.contains(Modifier::BOLD));
+
+        app.tick_cursor();
+        let frame = app.frame();
+        let lines = bottom_chrome_lines(&frame);
+        let line = lines.first().expect("expected bottom counter line");
+        assert_eq!(line.spans[0].content.as_ref(), "●");
+        assert_eq!(line.spans[0].style.fg, Some(theme().success_bright));
+        assert_eq!(line.spans[1].content.as_ref(), " 1");
+    }
+
+    #[test]
     fn reward_counter_symbol_returns_to_normal_dot_after_ticks() {
         let mut app = TuiApp::new();
         for ch in "fn main() {}".chars() {
@@ -502,6 +546,21 @@ mod tests {
         assert_eq!(line.spans[0].content.as_ref(), "●");
         assert_eq!(line.spans[0].style.fg, Some(theme().success));
         assert_eq!(line.spans[1].content.as_ref(), " 1");
+    }
+
+    #[test]
+    fn border_style_maps_reward_settle_phases() {
+        let bright = border_style(CounterRewardPhase::CheckBright);
+        let soft = border_style(CounterRewardPhase::CheckSoft);
+        let dot = border_style(CounterRewardPhase::DotBright);
+        let normal = border_style(CounterRewardPhase::Normal);
+
+        assert_eq!(bright.fg, Some(theme().success_bright));
+        assert!(bright.add_modifier.contains(Modifier::BOLD));
+        assert_eq!(soft.fg, Some(theme().success));
+        assert_eq!(dot.fg, Some(theme().success_soft));
+        assert_eq!(normal.fg, Some(theme().border));
+        assert_ne!(bright.fg, normal.fg);
     }
 
     #[test]
@@ -560,7 +619,10 @@ mod tests {
         let app = TuiApp::new();
         let frame = app.frame();
         let lines = problem_lines(&frame);
-        let prompt_line = lines.get(1).expect("expected prompt line");
+        let prompt_line = lines
+            .iter()
+            .find(|line| line_text(line) == "fn main() {}")
+            .expect("expected prompt line");
 
         assert_eq!(line_text(prompt_line), "fn main() {}");
         assert!(

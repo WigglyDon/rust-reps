@@ -181,7 +181,7 @@ fn collect_summary_lines(action: &str, _session: &engine::Session) -> Vec<String
 #[cfg(test)]
 mod tests {
     use super::TuiApp;
-    use crate::client::ClientAction;
+    use crate::client::{ClientAction, CounterRewardPhase};
 
     #[test]
     fn new_session_starts_without_counter_reward() {
@@ -202,6 +202,10 @@ mod tests {
         assert_eq!(app.input(), "");
         assert_eq!(app.session().passed(), 1);
         assert_eq!(app.session().attempts(), 1);
+        assert_eq!(
+            app.frame().counter_reward_phase,
+            CounterRewardPhase::CheckBright
+        );
         assert!(app.frame().counter_reward_active);
         assert_eq!(
             app.session()
@@ -220,15 +224,28 @@ mod tests {
         }
         app.handle_action(ClientAction::Submit);
 
+        assert_eq!(
+            app.frame().counter_reward_phase,
+            CounterRewardPhase::CheckBright
+        );
         assert!(app.frame().counter_reward_active);
 
         app.tick_cursor();
+        assert_eq!(
+            app.frame().counter_reward_phase,
+            CounterRewardPhase::CheckSoft
+        );
         assert!(app.frame().counter_reward_active);
 
         app.tick_cursor();
+        assert_eq!(
+            app.frame().counter_reward_phase,
+            CounterRewardPhase::DotBright
+        );
         assert!(app.frame().counter_reward_active);
 
         app.tick_cursor();
+        assert_eq!(app.frame().counter_reward_phase, CounterRewardPhase::Normal);
         assert!(!app.frame().counter_reward_active);
     }
 
