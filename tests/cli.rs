@@ -182,6 +182,91 @@ const PRACTICE_SKIP_THEN_QUIT_OUTPUT: &str = concat!(
     "Skipped: 1\n",
     "Attempts: 0\n",
 );
+
+const PRACTICE_HELP_THEN_STATUS_THEN_QUIT_OUTPUT: &str = concat!(
+    "Rust Reps\n\n",
+    "Practice\n",
+    "Exact typing practice.\n",
+    "Answers must match exactly.\n",
+    "Type :help for commands and :q to quit.\n\n",
+    "Drill 001/012\nType exactly:\n\nfn main() {}\n\n>Commands:\n",
+    ":help    show commands\n",
+    ":status  show session status\n",
+    ":list    show drills\n",
+    ":skip    skip current drill\n",
+    ":q       quit\n",
+    ":quit    quit\n\n",
+    "Drill 001/012\nType exactly:\n\nfn main() {}\n\n>Status:\n",
+    "Current: 001/012\n",
+    "Passed: 0/12\n",
+    "Skipped: 0\n",
+    "Attempts: 0\n\n",
+    "Drill 001/012\nType exactly:\n\nfn main() {}\n\n>QUIT\n",
+    "Summary:\n",
+    "Passed: 0/12\n",
+    "Skipped: 0\n",
+    "Attempts: 0\n",
+);
+
+const PRACTICE_WRONG_THEN_STATUS_THEN_QUIT_OUTPUT: &str = concat!(
+    "Rust Reps\n\n",
+    "Practice\n",
+    "Exact typing practice.\n",
+    "Answers must match exactly.\n",
+    "Type :help for commands and :q to quit.\n\n",
+    "Drill 001/012\nType exactly:\n\nfn main() {}\n\n>TRY AGAIN\n",
+    "Expected:\n",
+    "fn main() {}\n\n",
+    "Drill 001/012\nType exactly:\n\nfn main() {}\n\n>Status:\n",
+    "Current: 001/012\n",
+    "Passed: 0/12\n",
+    "Skipped: 0\n",
+    "Attempts: 1\n\n",
+    "Drill 001/012\nType exactly:\n\nfn main() {}\n\n>QUIT\n",
+    "Summary:\n",
+    "Passed: 0/12\n",
+    "Skipped: 0\n",
+    "Attempts: 1\n",
+);
+
+const PRACTICE_CORRECT_THEN_STATUS_THEN_QUIT_OUTPUT: &str = concat!(
+    "Rust Reps\n\n",
+    "Practice\n",
+    "Exact typing practice.\n",
+    "Answers must match exactly.\n",
+    "Type :help for commands and :q to quit.\n\n",
+    "Drill 001/012\nType exactly:\n\nfn main() {}\n\n>PASS\n\n",
+    "Drill 002/012\nType exactly:\n\nprintln!(\"Rust Reps\");\n\n>Status:\n",
+    "Current: 002/012\n",
+    "Passed: 1/12\n",
+    "Skipped: 0\n",
+    "Attempts: 1\n\n",
+    "Drill 002/012\nType exactly:\n\nprintln!(\"Rust Reps\");\n\n>QUIT\n",
+    "Summary:\n",
+    "Passed: 1/12\n",
+    "Skipped: 0\n",
+    "Attempts: 1\n",
+);
+
+const PRACTICE_SKIP_THEN_STATUS_THEN_QUIT_OUTPUT: &str = concat!(
+    "Rust Reps\n\n",
+    "Practice\n",
+    "Exact typing practice.\n",
+    "Answers must match exactly.\n",
+    "Type :help for commands and :q to quit.\n\n",
+    "Drill 001/012\nType exactly:\n\nfn main() {}\n\n>SKIP\n\n",
+    "Drill 002/012\nType exactly:\n\nprintln!(\"Rust Reps\");\n\n>Status:\n",
+    "Current: 002/012\n",
+    "Passed: 0/12\n",
+    "Skipped: 1\n",
+    "Attempts: 0\n\n",
+    "Drill 002/012\nType exactly:\n\nprintln!(\"Rust Reps\");\n\n>QUIT\n",
+    "Summary:\n",
+    "Passed: 0/12\n",
+    "Skipped: 1\n",
+    "Attempts: 0\n",
+);
+
 const PRACTICE_SKIP_FINAL_INPUT: &str = concat!(
     "fn main() {}\n",
     "println!(\"Rust Reps\");\n",
@@ -219,6 +304,81 @@ const PRACTICE_SKIP_FINAL_OUTPUT: &str = concat!(
     "Passed: 11/12\n",
     "Skipped: 1\n",
     "Attempts: 11\n",
+);
+
+const PRACTICE_ALL_SKIP_INPUT: &str = concat!(
+    ":skip\n", ":skip\n", ":skip\n", ":skip\n", ":skip\n", ":skip\n", ":skip\n", ":skip\n",
+    ":skip\n", ":skip\n", ":skip\n", ":skip\n",
+);
+
+const PRACTICE_ALL_SKIP_OUTPUT: &str = concat!(
+    "Rust Reps\n\n",
+    "Practice\n",
+    "Exact typing practice.\n",
+    "Answers must match exactly.\n",
+    "Type :help for commands and :q to quit.\n\n",
+    "Drill 001/012\nType exactly:\n\nfn main() {}\n\n>SKIP\n\n",
+    "Drill 002/012\nType exactly:\n\nprintln!(\"Rust Reps\");\n\n>SKIP\n\n",
+    "Drill 003/012\nType exactly:\n\nlet answer = 42;\n\n>SKIP\n\n",
+    "Drill 004/012\nType exactly:\n\nlet name = \"Rust Reps\";\n\n>SKIP\n\n",
+    "Drill 005/012\nType exactly:\n\nlet mut score = 0;\n\n>SKIP\n\n",
+    "Drill 006/012\nType exactly:\n\nscore += 1;\n\n>SKIP\n\n",
+    "Drill 007/012\nType exactly:\n\nlet passed = true;\n\n>SKIP\n\n",
+    "Drill 008/012\nType exactly:\n\nlet score: i32 = 0;\n\n>SKIP\n\n",
+    "Drill 009/012\nType exactly:\n\nlet scores = [1, 2, 3];\n\n>SKIP\n\n",
+    "Drill 010/012\nType exactly:\n\nfn add_one(x: i32) -> i32 { x + 1 }\n\n>SKIP\n\n",
+    "Drill 011/012\nType exactly:\n\nif score > 0 {}\n\n>SKIP\n\n",
+    "Drill 012/012\nType exactly:\n\nwhile score < 10 {}\n\n>SKIP\n",
+    "COMPLETE\n",
+    "Summary:\n",
+    "Passed: 0/12\n",
+    "Skipped: 12\n",
+    "Attempts: 0\n",
+);
+
+const PRACTICE_MIXED_COMPLETE_INPUT: &str = concat!(
+    "wrong\n",
+    "fn main() {}\n",
+    ":skip\n",
+    ":skip\n",
+    ":skip\n",
+    ":skip\n",
+    ":skip\n",
+    ":skip\n",
+    ":skip\n",
+    ":skip\n",
+    ":skip\n",
+    ":skip\n",
+    ":skip\n",
+    ":skip\n",
+);
+
+const PRACTICE_MIXED_COMPLETE_OUTPUT: &str = concat!(
+    "Rust Reps\n\n",
+    "Practice\n",
+    "Exact typing practice.\n",
+    "Answers must match exactly.\n",
+    "Type :help for commands and :q to quit.\n\n",
+    "Drill 001/012\nType exactly:\n\nfn main() {}\n\n>TRY AGAIN\n",
+    "Expected:\n",
+    "fn main() {}\n\n",
+    "Drill 001/012\nType exactly:\n\nfn main() {}\n\n>PASS\n\n",
+    "Drill 002/012\nType exactly:\n\nprintln!(\"Rust Reps\");\n\n>SKIP\n\n",
+    "Drill 003/012\nType exactly:\n\nlet answer = 42;\n\n>SKIP\n\n",
+    "Drill 004/012\nType exactly:\n\nlet name = \"Rust Reps\";\n\n>SKIP\n\n",
+    "Drill 005/012\nType exactly:\n\nlet mut score = 0;\n\n>SKIP\n\n",
+    "Drill 006/012\nType exactly:\n\nscore += 1;\n\n>SKIP\n\n",
+    "Drill 007/012\nType exactly:\n\nlet passed = true;\n\n>SKIP\n\n",
+    "Drill 008/012\nType exactly:\n\nlet score: i32 = 0;\n\n>SKIP\n\n",
+    "Drill 009/012\nType exactly:\n\nlet scores = [1, 2, 3];\n\n>SKIP\n\n",
+    "Drill 010/012\nType exactly:\n\nfn add_one(x: i32) -> i32 { x + 1 }\n\n>SKIP\n\n",
+    "Drill 011/012\nType exactly:\n\nif score > 0 {}\n\n>SKIP\n\n",
+    "Drill 012/012\nType exactly:\n\nwhile score < 10 {}\n\n>SKIP\n",
+    "COMPLETE\n",
+    "Summary:\n",
+    "Passed: 1/12\n",
+    "Skipped: 11\n",
+    "Attempts: 2\n",
 );
 
 fn run_rust_reps(args: &[&str], input: &str) -> Output {
@@ -313,6 +473,18 @@ fn practice_help_repeats_same_drill_then_quits() {
 }
 
 #[test]
+fn practice_help_then_status_then_quits() {
+    let output = run_rust_reps(&[], ":help\n:status\n:q\n");
+
+    assert!(output.status.success());
+    assert_eq!(
+        String::from_utf8(output.stdout).unwrap(),
+        PRACTICE_HELP_THEN_STATUS_THEN_QUIT_OUTPUT
+    );
+    assert_eq!(String::from_utf8(output.stderr).unwrap(), "");
+}
+
+#[test]
 fn practice_status_at_start_repeats_same_drill_then_quits() {
     let output = run_rust_reps(&[], ":status\n:q\n");
 
@@ -320,6 +492,42 @@ fn practice_status_at_start_repeats_same_drill_then_quits() {
     assert_eq!(
         String::from_utf8(output.stdout).unwrap(),
         PRACTICE_STATUS_THEN_QUIT_OUTPUT
+    );
+    assert_eq!(String::from_utf8(output.stderr).unwrap(), "");
+}
+
+#[test]
+fn practice_wrong_then_status_then_quits() {
+    let output = run_rust_reps(&[], "wrong\n:status\n:q\n");
+
+    assert!(output.status.success());
+    assert_eq!(
+        String::from_utf8(output.stdout).unwrap(),
+        PRACTICE_WRONG_THEN_STATUS_THEN_QUIT_OUTPUT
+    );
+    assert_eq!(String::from_utf8(output.stderr).unwrap(), "");
+}
+
+#[test]
+fn practice_correct_then_status_then_quits() {
+    let output = run_rust_reps(&[], "fn main() {}\n:status\n:q\n");
+
+    assert!(output.status.success());
+    assert_eq!(
+        String::from_utf8(output.stdout).unwrap(),
+        PRACTICE_CORRECT_THEN_STATUS_THEN_QUIT_OUTPUT
+    );
+    assert_eq!(String::from_utf8(output.stderr).unwrap(), "");
+}
+
+#[test]
+fn practice_skip_then_status_then_quits() {
+    let output = run_rust_reps(&[], ":skip\n:status\n:q\n");
+
+    assert!(output.status.success());
+    assert_eq!(
+        String::from_utf8(output.stdout).unwrap(),
+        PRACTICE_SKIP_THEN_STATUS_THEN_QUIT_OUTPUT
     );
     assert_eq!(String::from_utf8(output.stderr).unwrap(), "");
 }
@@ -356,6 +564,30 @@ fn practice_skip_final_drill_completes_with_skipped_summary() {
     assert_eq!(
         String::from_utf8(output.stdout).unwrap(),
         PRACTICE_SKIP_FINAL_OUTPUT
+    );
+    assert_eq!(String::from_utf8(output.stderr).unwrap(), "");
+}
+
+#[test]
+fn practice_all_skips_complete_session() {
+    let output = run_rust_reps(&[], PRACTICE_ALL_SKIP_INPUT);
+
+    assert!(output.status.success());
+    assert_eq!(
+        String::from_utf8(output.stdout).unwrap(),
+        PRACTICE_ALL_SKIP_OUTPUT
+    );
+    assert_eq!(String::from_utf8(output.stderr).unwrap(), "");
+}
+
+#[test]
+fn practice_mixed_completion_includes_wrong_correct_and_skip() {
+    let output = run_rust_reps(&[], PRACTICE_MIXED_COMPLETE_INPUT);
+
+    assert!(output.status.success());
+    assert_eq!(
+        String::from_utf8(output.stdout).unwrap(),
+        PRACTICE_MIXED_COMPLETE_OUTPUT
     );
     assert_eq!(String::from_utf8(output.stderr).unwrap(), "");
 }

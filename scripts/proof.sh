@@ -444,16 +444,406 @@ Passed: 0/12
 Skipped: 1
 Attempts: 0'
 
+practice_help_then_status_then_quit_output='Rust Reps
+
+Practice
+Exact typing practice.
+Answers must match exactly.
+Type :help for commands and :q to quit.
+
+Drill 001/012
+Type exactly:
+
+fn main() {}
+
+>Commands:
+:help    show commands
+:status  show session status
+:list    show drills
+:skip    skip current drill
+:q       quit
+:quit    quit
+
+Drill 001/012
+Type exactly:
+
+fn main() {}
+
+>Status:
+Current: 001/012
+Passed: 0/12
+Skipped: 0
+Attempts: 0
+
+Drill 001/012
+Type exactly:
+
+fn main() {}
+
+>QUIT
+Summary:
+Passed: 0/12
+Skipped: 0
+Attempts: 0'
+
+practice_wrong_then_status_then_quit_output='Rust Reps
+
+Practice
+Exact typing practice.
+Answers must match exactly.
+Type :help for commands and :q to quit.
+
+Drill 001/012
+Type exactly:
+
+fn main() {}
+
+>TRY AGAIN
+Expected:
+fn main() {}
+
+Drill 001/012
+Type exactly:
+
+fn main() {}
+
+>Status:
+Current: 001/012
+Passed: 0/12
+Skipped: 0
+Attempts: 1
+
+Drill 001/012
+Type exactly:
+
+fn main() {}
+
+>QUIT
+Summary:
+Passed: 0/12
+Skipped: 0
+Attempts: 1'
+
+practice_correct_then_status_then_quit_output='Rust Reps
+
+Practice
+Exact typing practice.
+Answers must match exactly.
+Type :help for commands and :q to quit.
+
+Drill 001/012
+Type exactly:
+
+fn main() {}
+
+>PASS
+
+Drill 002/012
+Type exactly:
+
+println!("Rust Reps");
+
+>Status:
+Current: 002/012
+Passed: 1/12
+Skipped: 0
+Attempts: 1
+
+Drill 002/012
+Type exactly:
+
+println!("Rust Reps");
+
+>QUIT
+Summary:
+Passed: 1/12
+Skipped: 0
+Attempts: 1'
+
+practice_skip_then_status_then_quit_output='Rust Reps
+
+Practice
+Exact typing practice.
+Answers must match exactly.
+Type :help for commands and :q to quit.
+
+Drill 001/012
+Type exactly:
+
+fn main() {}
+
+>SKIP
+
+Drill 002/012
+Type exactly:
+
+println!("Rust Reps");
+
+>Status:
+Current: 002/012
+Passed: 0/12
+Skipped: 1
+Attempts: 0
+
+Drill 002/012
+Type exactly:
+
+println!("Rust Reps");
+
+>QUIT
+Summary:
+Passed: 0/12
+Skipped: 1
+Attempts: 0'
+
+practice_all_skip_input=':skip
+:skip
+:skip
+:skip
+:skip
+:skip
+:skip
+:skip
+:skip
+:skip
+:skip
+:skip
+:skip
+'
+
+practice_all_skip_output='Rust Reps
+
+Practice
+Exact typing practice.
+Answers must match exactly.
+Type :help for commands and :q to quit.
+
+Drill 001/012
+Type exactly:
+
+fn main() {}
+
+>SKIP
+
+Drill 002/012
+Type exactly:
+
+println!("Rust Reps");
+
+>SKIP
+
+Drill 003/012
+Type exactly:
+
+let answer = 42;
+
+>SKIP
+
+Drill 004/012
+Type exactly:
+
+let name = "Rust Reps";
+
+>SKIP
+
+Drill 005/012
+Type exactly:
+
+let mut score = 0;
+
+>SKIP
+
+Drill 006/012
+Type exactly:
+
+score += 1;
+
+>SKIP
+
+Drill 007/012
+Type exactly:
+
+let passed = true;
+
+>SKIP
+
+Drill 008/012
+Type exactly:
+
+let score: i32 = 0;
+
+>SKIP
+
+Drill 009/012
+Type exactly:
+
+let scores = [1, 2, 3];
+
+>SKIP
+
+Drill 010/012
+Type exactly:
+
+fn add_one(x: i32) -> i32 { x + 1 }
+
+>SKIP
+
+Drill 011/012
+Type exactly:
+
+if score > 0 {}
+
+>SKIP
+
+Drill 012/012
+Type exactly:
+
+while score < 10 {}
+
+>SKIP
+COMPLETE
+Summary:
+Passed: 0/12
+Skipped: 12
+Attempts: 0'
+
+practice_mixed_complete_input='wrong
+fn main() {}
+:skip
+:skip
+:skip
+:skip
+:skip
+:skip
+:skip
+:skip
+:skip
+:skip
+:skip
+:skip
+'
+
+practice_mixed_complete_output='Rust Reps
+
+Practice
+Exact typing practice.
+Answers must match exactly.
+Type :help for commands and :q to quit.
+
+Drill 001/012
+Type exactly:
+
+fn main() {}
+
+>TRY AGAIN
+Expected:
+fn main() {}
+
+Drill 001/012
+Type exactly:
+
+fn main() {}
+
+>PASS
+
+Drill 002/012
+Type exactly:
+
+println!("Rust Reps");
+
+>SKIP
+
+Drill 003/012
+Type exactly:
+
+let answer = 42;
+
+>SKIP
+
+Drill 004/012
+Type exactly:
+
+let name = "Rust Reps";
+
+>SKIP
+
+Drill 005/012
+Type exactly:
+
+let mut score = 0;
+
+>SKIP
+
+Drill 006/012
+Type exactly:
+
+score += 1;
+
+>SKIP
+
+Drill 007/012
+Type exactly:
+
+let passed = true;
+
+>SKIP
+
+Drill 008/012
+Type exactly:
+
+let score: i32 = 0;
+
+>SKIP
+
+Drill 009/012
+Type exactly:
+
+let scores = [1, 2, 3];
+
+>SKIP
+
+Drill 010/012
+Type exactly:
+
+fn add_one(x: i32) -> i32 { x + 1 }
+
+>SKIP
+
+Drill 011/012
+Type exactly:
+
+if score > 0 {}
+
+>SKIP
+
+Drill 012/012
+Type exactly:
+
+while score < 10 {}
+
+>SKIP
+COMPLETE
+Summary:
+Passed: 1/12
+Skipped: 11
+Attempts: 2'
+
 expect_stdout "practice default COMPLETE" "$practice_all_correct_output" sh -c 'printf "%s" "$1" | cargo run -q' sh "$practice_all_correct_input"
 expect_stdout "practice play COMPLETE" "$practice_all_correct_output" sh -c 'printf "%s" "$1" | cargo run -q -- play' sh "$practice_all_correct_input"
 expect_stdout "practice quit" "$practice_quit_output" sh -c "printf ':q\\n' | cargo run -q"
 expect_stdout "practice help then quit" "$practice_help_then_quit_output" sh -c "printf ':help\\n:q\\n' | cargo run -q"
+expect_stdout "practice help then status then quit" "$practice_help_then_status_then_quit_output" sh -c "printf ':help\\n:status\\n:q\\n' | cargo run -q"
+expect_stdout "practice wrong then status then quit" "$practice_wrong_then_status_then_quit_output" sh -c "printf 'wrong\\n:status\\n:q\\n' | cargo run -q"
+expect_stdout "practice correct then status then quit" "$practice_correct_then_status_then_quit_output" sh -c "printf 'fn main() {}\\n:status\\n:q\\n' | cargo run -q"
 expect_stdout "practice status then quit" "$practice_status_then_quit_output" sh -c "printf ':status\\n:q\\n' | cargo run -q"
 expect_stdout "practice list then quit" "$practice_list_then_quit_output" sh -c "printf ':list\\n:q\\n' | cargo run -q"
 expect_stdout "practice quit command" "$practice_quit_output" sh -c "printf ':quit\\n' | cargo run -q"
 expect_stdout "practice skip then quit" "$practice_skip_then_quit_output" sh -c "printf ':skip\\n:q\\n' | cargo run -q"
+expect_stdout "practice skip then status then quit" "$practice_skip_then_status_then_quit_output" sh -c "printf ':skip\\n:status\\n:q\\n' | cargo run -q"
 expect_stdout "practice retry then quit" "$practice_retry_then_quit_output" sh -c "printf 'fn main(){}\\nfn main() {}\\n:q\\n' | cargo run -q"
 expect_stdout "practice wrong then quit" "$practice_wrong_then_quit_output" sh -c "printf 'wrong\\n:q\\n' | cargo run -q"
+expect_stdout "practice all skip complete" "$practice_all_skip_output" sh -c "printf '%s' \"$practice_all_skip_input\" | cargo run -q"
+expect_stdout "practice mixed complete" "$practice_mixed_complete_output" sh -c "printf '%s' \"$practice_mixed_complete_input\" | cargo run -q"
 
 expect_stdout "Drill 001 explicit PASS" 'Rust Reps
 
@@ -586,6 +976,11 @@ Available drills:
 012  while score < 10 {}' env PATH="$install_root/bin:$PATH" rust-reps --list
 expect_stdout "installed practice quit" "$practice_quit_output" env PATH="$install_root/bin:$PATH" sh -c 'printf ":q\n" | rust-reps'
 expect_stdout "installed practice help then quit" "$practice_help_then_quit_output" env PATH="$install_root/bin:$PATH" sh -c 'printf ":help\n:q\n" | rust-reps'
+expect_stdout "installed practice help then status then quit" "$practice_help_then_status_then_quit_output" env PATH="$install_root/bin:$PATH" sh -c 'printf ":help\n:status\n:q\n" | rust-reps'
+expect_stdout "installed practice correct then status then quit" "$practice_correct_then_status_then_quit_output" env PATH="$install_root/bin:$PATH" sh -c "printf 'fn main() {}\\n:status\\n:q\\n' | rust-reps"
+expect_stdout "installed practice skip then status then quit" "$practice_skip_then_status_then_quit_output" env PATH="$install_root/bin:$PATH" sh -c "printf ':skip\\n:status\\n:q\\n' | rust-reps"
+expect_stdout "installed practice all skips complete" "$practice_all_skip_output" env PATH="$install_root/bin:$PATH" sh -c "printf '%s' \"$practice_all_skip_input\" | rust-reps"
+expect_stdout "installed practice mixed complete" "$practice_mixed_complete_output" env PATH="$install_root/bin:$PATH" sh -c "printf '%s' \"$practice_mixed_complete_input\" | rust-reps"
 expect_stdout "installed Drill 001 PASS" 'Rust Reps
 
 Drill 001
