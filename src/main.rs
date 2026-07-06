@@ -1,6 +1,7 @@
 mod answer;
 mod catalog;
 mod cli;
+mod curriculum;
 mod practice;
 mod presentation;
 mod tui;
