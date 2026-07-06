@@ -51,7 +51,9 @@ const PRACTICE_ALL_CORRECT_INPUT: &str = concat!(
 const PRACTICE_ALL_CORRECT_OUTPUT: &str = concat!(
     "Rust Reps\n\n",
     "Practice\n",
-    "Type :help for commands.\n\n",
+    "Exact typing practice.\n",
+    "Answers must match exactly.\n",
+    "Type :help for commands and :q to quit.\n\n",
     "Drill 001/012\nType exactly:\n\nfn main() {}\n\n>PASS\n\n",
     "Drill 002/012\nType exactly:\n\nprintln!(\"Rust Reps\");\n\n>PASS\n\n",
     "Drill 003/012\nType exactly:\n\nlet answer = 42;\n\n>PASS\n\n",
@@ -73,7 +75,9 @@ const PRACTICE_ALL_CORRECT_OUTPUT: &str = concat!(
 const PRACTICE_QUIT_OUTPUT: &str = concat!(
     "Rust Reps\n\n",
     "Practice\n",
-    "Type :help for commands.\n\n",
+    "Exact typing practice.\n",
+    "Answers must match exactly.\n",
+    "Type :help for commands and :q to quit.\n\n",
     "Drill 001/012\nType exactly:\n\nfn main() {}\n\n>QUIT\n",
     "Summary:\n",
     "Passed: 0/12\n",
@@ -83,7 +87,9 @@ const PRACTICE_QUIT_OUTPUT: &str = concat!(
 const PRACTICE_RETRY_THEN_QUIT_OUTPUT: &str = concat!(
     "Rust Reps\n\n",
     "Practice\n",
-    "Type :help for commands.\n\n",
+    "Exact typing practice.\n",
+    "Answers must match exactly.\n",
+    "Type :help for commands and :q to quit.\n\n",
     "Drill 001/012\nType exactly:\n\nfn main() {}\n\n>TRY AGAIN\n",
     "Expected:\n",
     "fn main() {}\n\n",
@@ -94,10 +100,20 @@ const PRACTICE_RETRY_THEN_QUIT_OUTPUT: &str = concat!(
     "Skipped: 0\n",
     "Attempts: 2\n",
 );
+const PRACTICE_WRONG_THEN_QUIT_OUTPUT: &str = concat!(
+    "Rust Reps\n\n",
+    "Practice\n",
+    "Exact typing practice.\n",
+    "Answers must match exactly.\n",
+    "Type :help for commands and :q to quit.\n\n",
+    "Drill 001/012\nType exactly:\n\nfn main() {}\n\n>TRY AGAIN\nExpected:\nfn main() {}\n\nDrill 001/012\nType exactly:\n\nfn main() {}\n\n>QUIT\nSummary:\nPassed: 0/12\nSkipped: 0\nAttempts: 1\n",
+);
 const PRACTICE_HELP_THEN_QUIT_OUTPUT: &str = concat!(
     "Rust Reps\n\n",
     "Practice\n",
-    "Type :help for commands.\n\n",
+    "Exact typing practice.\n",
+    "Answers must match exactly.\n",
+    "Type :help for commands and :q to quit.\n\n",
     "Drill 001/012\nType exactly:\n\nfn main() {}\n\n>Commands:\n",
     ":help    show commands\n",
     ":status  show session status\n",
@@ -114,7 +130,9 @@ const PRACTICE_HELP_THEN_QUIT_OUTPUT: &str = concat!(
 const PRACTICE_STATUS_THEN_QUIT_OUTPUT: &str = concat!(
     "Rust Reps\n\n",
     "Practice\n",
-    "Type :help for commands.\n\n",
+    "Exact typing practice.\n",
+    "Answers must match exactly.\n",
+    "Type :help for commands and :q to quit.\n\n",
     "Drill 001/012\nType exactly:\n\nfn main() {}\n\n>Status:\n",
     "Current: 001/012\n",
     "Passed: 0/12\n",
@@ -129,7 +147,9 @@ const PRACTICE_STATUS_THEN_QUIT_OUTPUT: &str = concat!(
 const PRACTICE_LIST_THEN_QUIT_OUTPUT: &str = concat!(
     "Rust Reps\n\n",
     "Practice\n",
-    "Type :help for commands.\n\n",
+    "Exact typing practice.\n",
+    "Answers must match exactly.\n",
+    "Type :help for commands and :q to quit.\n\n",
     "Drill 001/012\nType exactly:\n\nfn main() {}\n\n>Available drills:\n",
     "001  fn main() {}\n",
     "002  println!(\"Rust Reps\");\n",
@@ -152,7 +172,9 @@ const PRACTICE_LIST_THEN_QUIT_OUTPUT: &str = concat!(
 const PRACTICE_SKIP_THEN_QUIT_OUTPUT: &str = concat!(
     "Rust Reps\n\n",
     "Practice\n",
-    "Type :help for commands.\n\n",
+    "Exact typing practice.\n",
+    "Answers must match exactly.\n",
+    "Type :help for commands and :q to quit.\n\n",
     "Drill 001/012\nType exactly:\n\nfn main() {}\n\n>SKIP\n\n",
     "Drill 002/012\nType exactly:\n\nprintln!(\"Rust Reps\");\n\n>QUIT\n",
     "Summary:\n",
@@ -177,7 +199,9 @@ const PRACTICE_SKIP_FINAL_INPUT: &str = concat!(
 const PRACTICE_SKIP_FINAL_OUTPUT: &str = concat!(
     "Rust Reps\n\n",
     "Practice\n",
-    "Type :help for commands.\n\n",
+    "Exact typing practice.\n",
+    "Answers must match exactly.\n",
+    "Type :help for commands and :q to quit.\n\n",
     "Drill 001/012\nType exactly:\n\nfn main() {}\n\n>PASS\n\n",
     "Drill 002/012\nType exactly:\n\nprintln!(\"Rust Reps\");\n\n>PASS\n\n",
     "Drill 003/012\nType exactly:\n\nlet answer = 42;\n\n>PASS\n\n",
@@ -260,6 +284,18 @@ fn practice_wrong_answer_repeats_then_accepts_correct_answer() {
     assert_eq!(
         String::from_utf8(output.stdout).unwrap(),
         PRACTICE_RETRY_THEN_QUIT_OUTPUT
+    );
+    assert_eq!(String::from_utf8(output.stderr).unwrap(), "");
+}
+
+#[test]
+fn practice_wrong_answer_then_quit() {
+    let output = run_rust_reps(&[], "wrong\n:q\n");
+
+    assert!(output.status.success());
+    assert_eq!(
+        String::from_utf8(output.stdout).unwrap(),
+        PRACTICE_WRONG_THEN_QUIT_OUTPUT
     );
     assert_eq!(String::from_utf8(output.stderr).unwrap(), "");
 }

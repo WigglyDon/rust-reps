@@ -138,7 +138,9 @@ while score < 10 {}
 practice_all_correct_output='Rust Reps
 
 Practice
-Type :help for commands.
+Exact typing practice.
+Answers must match exactly.
+Type :help for commands and :q to quit.
 
 Drill 001/012
 Type exactly:
@@ -233,7 +235,9 @@ Attempts: 12'
 practice_quit_output='Rust Reps
 
 Practice
-Type :help for commands.
+Exact typing practice.
+Answers must match exactly.
+Type :help for commands and :q to quit.
 
 Drill 001/012
 Type exactly:
@@ -249,7 +253,9 @@ Attempts: 0'
 practice_retry_then_quit_output='Rust Reps
 
 Practice
-Type :help for commands.
+Exact typing practice.
+Answers must match exactly.
+Type :help for commands and :q to quit.
 
 Drill 001/012
 Type exactly:
@@ -281,7 +287,9 @@ Attempts: 2'
 practice_help_then_quit_output='Rust Reps
 
 Practice
-Type :help for commands.
+Exact typing practice.
+Answers must match exactly.
+Type :help for commands and :q to quit.
 
 Drill 001/012
 Type exactly:
@@ -307,10 +315,39 @@ Passed: 0/12
 Skipped: 0
 Attempts: 0'
 
+practice_wrong_then_quit_output='Rust Reps
+
+Practice
+Exact typing practice.
+Answers must match exactly.
+Type :help for commands and :q to quit.
+
+Drill 001/012
+Type exactly:
+
+fn main() {}
+
+>TRY AGAIN
+Expected:
+fn main() {}
+
+Drill 001/012
+Type exactly:
+
+fn main() {}
+
+>QUIT
+Summary:
+Passed: 0/12
+Skipped: 0
+Attempts: 1'
+
 practice_status_then_quit_output='Rust Reps
 
 Practice
-Type :help for commands.
+Exact typing practice.
+Answers must match exactly.
+Type :help for commands and :q to quit.
 
 Drill 001/012
 Type exactly:
@@ -337,7 +374,9 @@ Attempts: 0'
 practice_list_then_quit_output='Rust Reps
 
 Practice
-Type :help for commands.
+Exact typing practice.
+Answers must match exactly.
+Type :help for commands and :q to quit.
 
 Drill 001/012
 Type exactly:
@@ -372,7 +411,9 @@ Attempts: 0'
 practice_skip_then_quit_output='Rust Reps
 
 Practice
-Type :help for commands.
+Exact typing practice.
+Answers must match exactly.
+Type :help for commands and :q to quit.
 
 Drill 001/012
 Type exactly:
@@ -400,6 +441,7 @@ expect_stdout "practice status then quit" "$practice_status_then_quit_output" sh
 expect_stdout "practice list then quit" "$practice_list_then_quit_output" sh -c "printf ':list\\n:q\\n' | cargo run -q"
 expect_stdout "practice skip then quit" "$practice_skip_then_quit_output" sh -c "printf ':skip\\n:q\\n' | cargo run -q"
 expect_stdout "practice retry then quit" "$practice_retry_then_quit_output" sh -c "printf 'fn main(){}\\nfn main() {}\\n:q\\n' | cargo run -q"
+expect_stdout "practice wrong then quit" "$practice_wrong_then_quit_output" sh -c "printf 'wrong\\n:q\\n' | cargo run -q"
 
 expect_stdout "Drill 001 explicit PASS" 'Rust Reps
 

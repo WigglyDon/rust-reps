@@ -135,7 +135,9 @@ fn print_practice_header() {
     println!("Rust Reps");
     println!();
     println!("Practice");
-    println!("Type :help for commands.");
+    println!("Exact typing practice.");
+    println!("Answers must match exactly.");
+    println!("Type :help for commands and :q to quit.");
     println!();
 }
 
