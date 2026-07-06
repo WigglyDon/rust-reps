@@ -42,23 +42,31 @@ impl CodeToken {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum CounterRewardPhase {
-    Normal,
-    CheckBright,
-    CheckSoft,
-    DotBright,
+    IdleDot,
+    Rise1,
+    Rise2,
+    PeakCheck,
+    HoldCheck,
+    Fall1,
+    Fall2,
+    SettleDot,
 }
 
 impl CounterRewardPhase {
     pub fn is_active(self) -> bool {
-        self != Self::Normal
+        self != Self::IdleDot
     }
 
     fn next(self) -> Self {
         match self {
-            Self::Normal => Self::Normal,
-            Self::CheckBright => Self::CheckSoft,
-            Self::CheckSoft => Self::DotBright,
-            Self::DotBright => Self::Normal,
+            Self::IdleDot => Self::IdleDot,
+            Self::Rise1 => Self::Rise2,
+            Self::Rise2 => Self::PeakCheck,
+            Self::PeakCheck => Self::HoldCheck,
+            Self::HoldCheck => Self::Fall1,
+            Self::Fall1 => Self::Fall2,
+            Self::Fall2 => Self::SettleDot,
+            Self::SettleDot => Self::IdleDot,
         }
     }
 }
@@ -79,7 +87,7 @@ impl ClientUiState {
             cursor_visible: true,
             help_open: false,
             status_lines: Vec::new(),
-            counter_reward_phase: CounterRewardPhase::Normal,
+            counter_reward_phase: CounterRewardPhase::IdleDot,
         }
     }
 
@@ -143,11 +151,11 @@ impl ClientUiState {
     }
 
     pub fn start_counter_reward(&mut self) {
-        self.counter_reward_phase = CounterRewardPhase::CheckBright;
+        self.counter_reward_phase = CounterRewardPhase::Rise1;
     }
 
     pub fn clear_counter_reward(&mut self) {
-        self.counter_reward_phase = CounterRewardPhase::Normal;
+        self.counter_reward_phase = CounterRewardPhase::IdleDot;
     }
 
     fn advance_counter_reward(&mut self) {
@@ -562,39 +570,35 @@ mod tests {
         let frame = project_client_frame(&session, &ui_state);
 
         assert_eq!(frame.completed_reps_this_run, 0);
-        assert_eq!(frame.counter_reward_phase, CounterRewardPhase::Normal);
+        assert_eq!(frame.counter_reward_phase, CounterRewardPhase::IdleDot);
         assert!(!frame.counter_reward_active);
     }
 
     #[test]
-    fn counter_reward_phase_progresses_through_settle_sequence() {
+    fn counter_reward_phase_progresses_through_full_pulse_sequence() {
         let mut ui_state = ClientUiState::new();
 
-        assert_eq!(ui_state.counter_reward_phase(), CounterRewardPhase::Normal);
+        assert_eq!(ui_state.counter_reward_phase(), CounterRewardPhase::IdleDot);
         assert!(!ui_state.counter_reward_active());
         ui_state.start_counter_reward();
-        assert_eq!(
-            ui_state.counter_reward_phase(),
-            CounterRewardPhase::CheckBright
-        );
+        assert_eq!(ui_state.counter_reward_phase(), CounterRewardPhase::Rise1);
         assert!(ui_state.counter_reward_active());
 
-        ui_state.apply_action(ClientAction::CursorTick);
-        assert_eq!(
-            ui_state.counter_reward_phase(),
-            CounterRewardPhase::CheckSoft
-        );
-        assert!(ui_state.counter_reward_active());
+        for phase in [
+            CounterRewardPhase::Rise2,
+            CounterRewardPhase::PeakCheck,
+            CounterRewardPhase::HoldCheck,
+            CounterRewardPhase::Fall1,
+            CounterRewardPhase::Fall2,
+            CounterRewardPhase::SettleDot,
+        ] {
+            ui_state.apply_action(ClientAction::CursorTick);
+            assert_eq!(ui_state.counter_reward_phase(), phase);
+            assert!(ui_state.counter_reward_active());
+        }
 
         ui_state.apply_action(ClientAction::CursorTick);
-        assert_eq!(
-            ui_state.counter_reward_phase(),
-            CounterRewardPhase::DotBright
-        );
-        assert!(ui_state.counter_reward_active());
-
-        ui_state.apply_action(ClientAction::CursorTick);
-        assert_eq!(ui_state.counter_reward_phase(), CounterRewardPhase::Normal);
+        assert_eq!(ui_state.counter_reward_phase(), CounterRewardPhase::IdleDot);
         assert!(!ui_state.counter_reward_active());
     }
 
@@ -682,7 +686,7 @@ mod tests {
         let frame = project_client_frame(&fresh_session, &ui_state);
 
         assert_eq!(frame.completed_reps_this_run, 0);
-        assert_eq!(frame.counter_reward_phase, CounterRewardPhase::Normal);
+        assert_eq!(frame.counter_reward_phase, CounterRewardPhase::IdleDot);
         assert!(!frame.counter_reward_active);
     }
 

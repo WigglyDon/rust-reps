@@ -202,10 +202,7 @@ mod tests {
         assert_eq!(app.input(), "");
         assert_eq!(app.session().passed(), 1);
         assert_eq!(app.session().attempts(), 1);
-        assert_eq!(
-            app.frame().counter_reward_phase,
-            CounterRewardPhase::CheckBright
-        );
+        assert_eq!(app.frame().counter_reward_phase, CounterRewardPhase::Rise1);
         assert!(app.frame().counter_reward_active);
         assert_eq!(
             app.session()
@@ -224,28 +221,27 @@ mod tests {
         }
         app.handle_action(ClientAction::Submit);
 
-        assert_eq!(
-            app.frame().counter_reward_phase,
-            CounterRewardPhase::CheckBright
-        );
+        assert_eq!(app.frame().counter_reward_phase, CounterRewardPhase::Rise1);
         assert!(app.frame().counter_reward_active);
+
+        for phase in [
+            CounterRewardPhase::Rise2,
+            CounterRewardPhase::PeakCheck,
+            CounterRewardPhase::HoldCheck,
+            CounterRewardPhase::Fall1,
+            CounterRewardPhase::Fall2,
+            CounterRewardPhase::SettleDot,
+        ] {
+            app.tick_cursor();
+            assert_eq!(app.frame().counter_reward_phase, phase);
+            assert!(app.frame().counter_reward_active);
+        }
 
         app.tick_cursor();
         assert_eq!(
             app.frame().counter_reward_phase,
-            CounterRewardPhase::CheckSoft
+            CounterRewardPhase::IdleDot
         );
-        assert!(app.frame().counter_reward_active);
-
-        app.tick_cursor();
-        assert_eq!(
-            app.frame().counter_reward_phase,
-            CounterRewardPhase::DotBright
-        );
-        assert!(app.frame().counter_reward_active);
-
-        app.tick_cursor();
-        assert_eq!(app.frame().counter_reward_phase, CounterRewardPhase::Normal);
         assert!(!app.frame().counter_reward_active);
     }
 

@@ -4,11 +4,14 @@ use crate::{
 };
 use ratatui::{
     Frame,
-    layout::{Alignment, Constraint, Direction, Layout, Margin},
+    layout::{Alignment, Constraint, Direction, Layout, Margin, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span, Text},
     widgets::{Block, Borders, Paragraph},
 };
+
+const FEEDBACK_CHROME_HEIGHT: u16 = 3;
+const BOTTOM_CHROME_HEIGHT: u16 = 1;
 
 #[derive(Clone, Copy)]
 struct TuiTheme {
@@ -26,6 +29,8 @@ struct TuiTheme {
     success: Color,
     success_bright: Color,
     success_soft: Color,
+    success_glow_low: Color,
+    success_glow_mid: Color,
     danger: Color,
     warning: Color,
     caret: Color,
@@ -47,6 +52,8 @@ fn theme() -> TuiTheme {
         success: Color::Rgb(88, 224, 135),
         success_bright: Color::Rgb(158, 255, 187),
         success_soft: Color::Rgb(116, 238, 158),
+        success_glow_low: Color::Rgb(70, 104, 86),
+        success_glow_mid: Color::Rgb(74, 143, 102),
         danger: Color::Rgb(255, 92, 105),
         warning: Color::Rgb(235, 178, 86),
         caret: Color::Rgb(116, 241, 157),
@@ -61,14 +68,7 @@ pub(crate) fn render_ui(frame: &mut Frame<'_>, app: &TuiApp) {
 fn render_client_frame(frame: &mut Frame<'_>, client_frame: &ClientFrame) {
     let theme = theme();
     let feedback_lines = feedback_chrome_lines(client_frame);
-    let chunks = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Min(12),
-            Constraint::Length(feedback_height(&feedback_lines)),
-            Constraint::Length(1),
-        ])
-        .split(frame.area());
+    let chunks = layout_chunks(frame.area(), feedback_height(&feedback_lines));
 
     frame.render_widget(Block::default().style(base_style()), frame.area());
 
@@ -105,12 +105,27 @@ fn render_client_frame(frame: &mut Frame<'_>, client_frame: &ClientFrame) {
         );
     }
 
+    let bottom_area = chunks[2].inner(Margin {
+        vertical: 0,
+        horizontal: 1,
+    });
     frame.render_widget(
         Paragraph::new(Text::from(bottom_chrome_lines(client_frame)))
-            .alignment(Alignment::Center)
+            .alignment(bottom_chrome_alignment())
             .style(base_style()),
-        chunks[2],
+        bottom_area,
     );
+}
+
+fn layout_chunks(area: Rect, feedback_height: u16) -> std::rc::Rc<[Rect]> {
+    Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Min(12),
+            Constraint::Length(feedback_height),
+            Constraint::Length(BOTTOM_CHROME_HEIGHT),
+        ])
+        .split(area)
 }
 
 fn base_style() -> Style {
@@ -119,15 +134,17 @@ fn base_style() -> Style {
 
 fn border_style(reward_phase: CounterRewardPhase) -> Style {
     match reward_phase {
-        CounterRewardPhase::CheckBright => Style::default()
-            .fg(theme().success_bright)
-            .bg(theme().panel)
-            .add_modifier(Modifier::BOLD),
-        CounterRewardPhase::CheckSoft => Style::default().fg(theme().success).bg(theme().panel),
-        CounterRewardPhase::DotBright => {
-            Style::default().fg(theme().success_soft).bg(theme().panel)
+        CounterRewardPhase::IdleDot => Style::default().fg(theme().border).bg(theme().panel),
+        CounterRewardPhase::Rise1 | CounterRewardPhase::SettleDot => Style::default()
+            .fg(theme().success_glow_low)
+            .bg(theme().panel),
+        CounterRewardPhase::Rise2 | CounterRewardPhase::Fall2 => Style::default()
+            .fg(theme().success_glow_mid)
+            .bg(theme().panel),
+        CounterRewardPhase::PeakCheck | CounterRewardPhase::HoldCheck => {
+            Style::default().fg(theme().success).bg(theme().panel)
         }
-        CounterRewardPhase::Normal => Style::default().fg(theme().border).bg(theme().panel),
+        CounterRewardPhase::Fall1 => Style::default().fg(theme().success_soft).bg(theme().panel),
     }
 }
 
@@ -147,9 +164,9 @@ fn workbox_lines(client_frame: &ClientFrame) -> Vec<Line<'static>> {
     vec![
         Line::from(""),
         Line::from(input_spans(client_frame)),
-        Line::from(Span::styled("  │", editor_gutter_style())),
-        Line::from(Span::styled("  │", editor_gutter_style())),
-        Line::from(Span::styled("  │", editor_gutter_style())),
+        Line::from(""),
+        Line::from(""),
+        Line::from(""),
     ]
 }
 
@@ -170,7 +187,8 @@ fn feedback_chrome_lines(client_frame: &ClientFrame) -> Vec<Line<'static>> {
 }
 
 fn feedback_height(lines: &[Line<'static>]) -> u16 {
-    lines.len().min(6) as u16
+    let _ = lines;
+    FEEDBACK_CHROME_HEIGHT
 }
 
 fn input_spans(client_frame: &ClientFrame) -> Vec<Span<'static>> {
@@ -216,8 +234,14 @@ fn bottom_chrome_lines(client_frame: &ClientFrame) -> Vec<Line<'static>> {
 
 fn counter_symbol(reward_phase: CounterRewardPhase) -> &'static str {
     match reward_phase {
-        CounterRewardPhase::CheckBright | CounterRewardPhase::CheckSoft => "✓",
-        CounterRewardPhase::DotBright | CounterRewardPhase::Normal => "●",
+        CounterRewardPhase::PeakCheck
+        | CounterRewardPhase::HoldCheck
+        | CounterRewardPhase::Fall1 => "✓",
+        CounterRewardPhase::IdleDot
+        | CounterRewardPhase::Rise1
+        | CounterRewardPhase::Rise2
+        | CounterRewardPhase::Fall2
+        | CounterRewardPhase::SettleDot => "●",
     }
 }
 
@@ -276,22 +300,38 @@ fn status_tone_style(tone: StatusTone) -> Style {
 
 fn counter_symbol_style(reward_phase: CounterRewardPhase) -> Style {
     match reward_phase {
-        CounterRewardPhase::CheckBright => Style::default()
+        CounterRewardPhase::IdleDot => Style::default()
+            .fg(theme().success)
+            .bg(theme().background)
+            .add_modifier(Modifier::BOLD),
+        CounterRewardPhase::Rise1 | CounterRewardPhase::SettleDot => Style::default()
+            .fg(theme().success)
+            .bg(theme().background)
+            .add_modifier(Modifier::BOLD),
+        CounterRewardPhase::Rise2 | CounterRewardPhase::Fall2 => Style::default()
+            .fg(theme().success_soft)
+            .bg(theme().background)
+            .add_modifier(Modifier::BOLD),
+        CounterRewardPhase::PeakCheck | CounterRewardPhase::HoldCheck => Style::default()
             .fg(theme().success_bright)
             .bg(theme().background)
             .add_modifier(Modifier::BOLD),
-        CounterRewardPhase::CheckSoft => Style::default()
+        CounterRewardPhase::Fall1 => Style::default()
             .fg(theme().success_soft)
-            .bg(theme().background),
-        CounterRewardPhase::DotBright => Style::default()
-            .fg(theme().success_bright)
-            .bg(theme().background),
-        CounterRewardPhase::Normal => Style::default().fg(theme().success).bg(theme().background),
+            .bg(theme().background)
+            .add_modifier(Modifier::BOLD),
     }
 }
 
 fn counter_number_style() -> Style {
-    Style::default().fg(theme().success).bg(theme().background)
+    Style::default()
+        .fg(theme().success)
+        .bg(theme().background)
+        .add_modifier(Modifier::BOLD)
+}
+
+fn bottom_chrome_alignment() -> Alignment {
+    Alignment::Left
 }
 
 fn caret_style() -> Style {
@@ -353,13 +393,15 @@ fn line_text(line: &Line<'_>) -> String {
 #[cfg(test)]
 mod tests {
     use super::{
-        border_style, bottom_chrome_lines, feedback_chrome_lines, line_text, problem_lines,
+        FEEDBACK_CHROME_HEIGHT, border_style, bottom_chrome_alignment, bottom_chrome_lines,
+        feedback_chrome_lines, feedback_height, layout_chunks, line_text, problem_lines,
         render_snapshot, status_tone_style, theme,
     };
     use crate::{
         client::{ClientAction, CounterRewardPhase, StatusTone},
         tui::TuiApp,
     };
+    use ratatui::layout::{Alignment, Rect};
     use ratatui::style::Modifier;
 
     #[test]
@@ -406,7 +448,7 @@ mod tests {
 
         assert!(input_position > 0);
         assert_eq!(snapshot.game[input_position - 1], "");
-        assert!(snapshot.game.iter().filter(|line| *line == "  │").count() >= 3);
+        assert!(!snapshot.game.iter().any(|line| line == "  │"));
         assert!(
             !snapshot.game.iter().any(|line| line.contains('─')),
             "editor surface should not use a partial horizontal divider"
@@ -463,17 +505,18 @@ mod tests {
     }
 
     #[test]
-    fn render_snapshot_contains_bottom_center_counter_text() {
+    fn render_snapshot_contains_bottom_left_counter_text() {
         let app = TuiApp::new();
         let frame = app.frame();
         let snapshot = render_snapshot(&frame);
         assert_eq!(snapshot.bottom_chrome, vec!["● 0".to_string()]);
+        assert_eq!(bottom_chrome_alignment(), Alignment::Left);
         assert!(!snapshot.game.iter().any(|line| line.contains("Passed")));
         assert!(!snapshot.feedback.iter().any(|line| line.contains("Passed")));
     }
 
     #[test]
-    fn counter_dot_and_number_are_green() {
+    fn counter_dot_and_number_are_green_and_bold() {
         let app = TuiApp::new();
         let frame = app.frame();
         let lines = bottom_chrome_lines(&frame);
@@ -481,18 +524,21 @@ mod tests {
 
         assert_eq!(line.spans[0].content.as_ref(), "●");
         assert_eq!(line.spans[0].style.fg, Some(theme().success));
-        assert!(!line.spans[0].style.add_modifier.contains(Modifier::BOLD));
+        assert!(line.spans[0].style.add_modifier.contains(Modifier::BOLD));
         assert_eq!(line.spans[1].content.as_ref(), " 0");
         assert_eq!(line.spans[1].style.fg, Some(theme().success));
+        assert!(line.spans[1].style.add_modifier.contains(Modifier::BOLD));
     }
 
     #[test]
-    fn reward_counter_symbol_is_checkmark_bright_and_bold_while_number_stays_stable() {
+    fn reward_peak_counter_symbol_is_checkmark_bright_and_bold_while_number_stays_stable() {
         let mut app = TuiApp::new();
         for ch in "fn main() {}".chars() {
             app.handle_action(ClientAction::TypeChar(ch));
         }
         app.handle_action(ClientAction::Submit);
+        app.tick_cursor();
+        app.tick_cursor();
         let frame = app.frame();
         let lines = bottom_chrome_lines(&frame);
         let line = lines.first().expect("expected bottom counter line");
@@ -505,28 +551,54 @@ mod tests {
     }
 
     #[test]
-    fn reward_counter_sequence_settles_through_soft_check_and_bright_dot() {
+    fn reward_counter_sequence_rises_peaks_falls_and_settles() {
         let mut app = TuiApp::new();
         for ch in "fn main() {}".chars() {
             app.handle_action(ClientAction::TypeChar(ch));
         }
         app.handle_action(ClientAction::Submit);
-
-        app.tick_cursor();
         let frame = app.frame();
         let lines = bottom_chrome_lines(&frame);
         let line = lines.first().expect("expected bottom counter line");
-        assert_eq!(line.spans[0].content.as_ref(), "✓");
-        assert_eq!(line.spans[0].style.fg, Some(theme().success_soft));
-        assert!(!line.spans[0].style.add_modifier.contains(Modifier::BOLD));
+        assert_eq!(line.spans[0].content.as_ref(), "●");
+        assert_eq!(line.spans[0].style.fg, Some(theme().success));
 
         app.tick_cursor();
         let frame = app.frame();
         let lines = bottom_chrome_lines(&frame);
         let line = lines.first().expect("expected bottom counter line");
         assert_eq!(line.spans[0].content.as_ref(), "●");
+        assert_eq!(line.spans[0].style.fg, Some(theme().success_soft));
+
+        app.tick_cursor();
+        let frame = app.frame();
+        let lines = bottom_chrome_lines(&frame);
+        let line = lines.first().expect("expected bottom counter line");
+        assert_eq!(line.spans[0].content.as_ref(), "✓");
         assert_eq!(line.spans[0].style.fg, Some(theme().success_bright));
         assert_eq!(line.spans[1].content.as_ref(), " 1");
+
+        app.tick_cursor();
+        app.tick_cursor();
+        let frame = app.frame();
+        let lines = bottom_chrome_lines(&frame);
+        let line = lines.first().expect("expected bottom counter line");
+        assert_eq!(line.spans[0].content.as_ref(), "✓");
+        assert_eq!(line.spans[0].style.fg, Some(theme().success_soft));
+
+        app.tick_cursor();
+        let frame = app.frame();
+        let lines = bottom_chrome_lines(&frame);
+        let line = lines.first().expect("expected bottom counter line");
+        assert_eq!(line.spans[0].content.as_ref(), "●");
+        assert_eq!(line.spans[0].style.fg, Some(theme().success_soft));
+
+        app.tick_cursor();
+        let frame = app.frame();
+        let lines = bottom_chrome_lines(&frame);
+        let line = lines.first().expect("expected bottom counter line");
+        assert_eq!(line.spans[0].content.as_ref(), "●");
+        assert_eq!(line.spans[0].style.fg, Some(theme().success));
     }
 
     #[test]
@@ -536,7 +608,7 @@ mod tests {
             app.handle_action(ClientAction::TypeChar(ch));
         }
         app.handle_action(ClientAction::Submit);
-        for _ in 0..3 {
+        for _ in 0..7 {
             app.tick_cursor();
         }
         let frame = app.frame();
@@ -550,17 +622,55 @@ mod tests {
 
     #[test]
     fn border_style_maps_reward_settle_phases() {
-        let bright = border_style(CounterRewardPhase::CheckBright);
-        let soft = border_style(CounterRewardPhase::CheckSoft);
-        let dot = border_style(CounterRewardPhase::DotBright);
-        let normal = border_style(CounterRewardPhase::Normal);
+        let idle = border_style(CounterRewardPhase::IdleDot);
+        let rise1 = border_style(CounterRewardPhase::Rise1);
+        let rise2 = border_style(CounterRewardPhase::Rise2);
+        let peak = border_style(CounterRewardPhase::PeakCheck);
+        let fall1 = border_style(CounterRewardPhase::Fall1);
+        let fall2 = border_style(CounterRewardPhase::Fall2);
+        let settle = border_style(CounterRewardPhase::SettleDot);
 
-        assert_eq!(bright.fg, Some(theme().success_bright));
-        assert!(bright.add_modifier.contains(Modifier::BOLD));
-        assert_eq!(soft.fg, Some(theme().success));
-        assert_eq!(dot.fg, Some(theme().success_soft));
-        assert_eq!(normal.fg, Some(theme().border));
-        assert_ne!(bright.fg, normal.fg);
+        assert_eq!(idle.fg, Some(theme().border));
+        assert_eq!(rise1.fg, Some(theme().success_glow_low));
+        assert_eq!(rise2.fg, Some(theme().success_glow_mid));
+        assert_eq!(peak.fg, Some(theme().success));
+        assert_eq!(fall1.fg, Some(theme().success_soft));
+        assert_eq!(fall2.fg, Some(theme().success_glow_mid));
+        assert_eq!(settle.fg, Some(theme().success_glow_low));
+        for style in [rise1, rise2, peak, fall1, fall2, settle] {
+            assert!(!style.add_modifier.contains(Modifier::BOLD));
+        }
+        assert_ne!(peak.fg, idle.fg);
+    }
+
+    #[test]
+    fn feedback_height_and_layout_stay_stable_across_default_states() {
+        let mut wrong_app = TuiApp::new();
+        for ch in "wrong".chars() {
+            wrong_app.handle_action(ClientAction::TypeChar(ch));
+        }
+        wrong_app.handle_action(ClientAction::Submit);
+
+        let mut success_app = TuiApp::new();
+        for ch in "fn main() {}".chars() {
+            success_app.handle_action(ClientAction::TypeChar(ch));
+        }
+        success_app.handle_action(ClientAction::Submit);
+
+        let idle_height = feedback_height(&feedback_chrome_lines(&TuiApp::new().frame()));
+        let wrong_height = feedback_height(&feedback_chrome_lines(&wrong_app.frame()));
+        let success_height = feedback_height(&feedback_chrome_lines(&success_app.frame()));
+
+        assert_eq!(idle_height, FEEDBACK_CHROME_HEIGHT);
+        assert_eq!(wrong_height, FEEDBACK_CHROME_HEIGHT);
+        assert_eq!(success_height, FEEDBACK_CHROME_HEIGHT);
+
+        let area = Rect::new(0, 0, 80, 24);
+        let idle_chunks = layout_chunks(area, idle_height);
+        let wrong_chunks = layout_chunks(area, wrong_height);
+        let success_chunks = layout_chunks(area, success_height);
+        assert_eq!(idle_chunks, wrong_chunks);
+        assert_eq!(wrong_chunks, success_chunks);
     }
 
     #[test]
@@ -769,7 +879,7 @@ mod tests {
                 .any(|line| line == "println!(\"Rust Reps\");")
         );
         assert!(snapshot.game.iter().any(|line| line == "1 │ |"));
-        assert!(snapshot.bottom_chrome.iter().any(|line| line == "✓ 1"));
+        assert!(snapshot.bottom_chrome.iter().any(|line| line == "● 1"));
         assert!(!snapshot.game.iter().any(|line| line == "PASS"));
     }
 }
