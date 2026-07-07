@@ -54,7 +54,7 @@ fn run_tui_loop(terminal: &mut terminal::TuiTerminal, app: &mut TuiApp) -> io::R
                 break;
             }
 
-            if app.counter_reward_active_at(now) {
+            if app.reward_active_at(now) {
                 frame_scheduler.request_redraw_after(now, frame_scheduler.min_frame_interval());
             }
 

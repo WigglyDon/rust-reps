@@ -1,10 +1,10 @@
 use crate::{
-    client::{ClientFrame, CodeToken, CounterRewardFrame, EditorViewport, StatusLine, StatusTone},
+    client::{ClientFrame, CodeToken, EditorViewport, StatusLine, StatusTone},
     tui::{
         app::TuiApp,
         theme::{
-            base_style, border_style, caret_style, code_token_style, counter_number_style,
-            counter_symbol_style, editor_gutter_style, problem_header_style, status_tone_style,
+            base_style, border_style, caret_style, code_token_style, counter_style,
+            editor_gutter_style, plus_one_style, problem_header_style, status_tone_style,
             surface_style,
         },
     },
@@ -35,7 +35,7 @@ fn render_client_frame(frame: &mut Frame<'_>, client_frame: &ClientFrame) {
     let game_block = Block::default()
         .borders(Borders::ALL)
         .style(surface_style())
-        .border_style(border_style(client_frame.counter_reward));
+        .border_style(border_style(client_frame.reward));
     let game_area = chunks[0];
     let game_body = game_area.inner(Margin {
         vertical: 1,
@@ -212,18 +212,14 @@ fn feedback_line(status_line: StatusLine) -> Option<Line<'static>> {
 }
 
 fn bottom_chrome_lines(client_frame: &ClientFrame) -> Vec<Line<'static>> {
-    let symbol = counter_symbol(client_frame.counter_reward);
-    vec![Line::from(vec![
-        Span::styled(symbol, counter_symbol_style(client_frame.counter_reward)),
-        Span::styled(
-            format!(" {}", client_frame.completed_reps_this_run),
-            counter_number_style(client_frame.counter_reward),
-        ),
-    ])]
-}
-
-fn counter_symbol(reward: CounterRewardFrame) -> &'static str {
-    if reward.active { "✓" } else { "●" }
+    let mut spans = vec![Span::styled(
+        format!("reps {}", client_frame.completed_reps_this_run),
+        counter_style(),
+    )];
+    if client_frame.reward.show_plus_one {
+        spans.push(Span::styled("   +1", plus_one_style(client_frame.reward)));
+    }
+    vec![Line::from(spans)]
 }
 
 fn code_spans(tokens: &[CodeToken]) -> Vec<Span<'static>> {
@@ -284,7 +280,7 @@ fn split_at_char_column(text: &str, column: usize) -> (String, String) {
 }
 
 fn bottom_chrome_alignment() -> Alignment {
-    Alignment::Center
+    Alignment::Left
 }
 
 #[cfg(test)]
@@ -343,8 +339,8 @@ mod tests {
     };
     use crate::{
         client::{
-            COUNTER_REWARD_ATTACK_DURATION, COUNTER_REWARD_DURATION, COUNTER_REWARD_HOLD_DURATION,
-            ClientAction, CounterRewardFrame, StatusTone,
+            ClientAction, REWARD_ATTACK_DURATION, REWARD_DURATION, REWARD_PLUS_ONE_HOLD_DURATION,
+            RewardFrame, StatusTone,
         },
         tui::{
             TuiApp,
@@ -460,53 +456,53 @@ mod tests {
     }
 
     #[test]
-    fn render_snapshot_contains_centered_counter_text() {
+    fn idle_counter_renders_as_reps_zero_bottom_left() {
         let app = TuiApp::new();
         let frame = app.frame();
         let snapshot = render_snapshot(&frame);
-        assert_eq!(snapshot.bottom_chrome, vec!["● 0".to_string()]);
-        assert_eq!(bottom_chrome_alignment(), Alignment::Center);
+        assert_eq!(snapshot.bottom_chrome, vec!["reps 0".to_string()]);
+        assert_eq!(bottom_chrome_alignment(), Alignment::Left);
+        assert!(!snapshot.bottom_chrome.iter().any(|line| line.contains('●')));
+        assert!(!snapshot.bottom_chrome.iter().any(|line| line.contains('✓')));
         assert!(!snapshot.game.iter().any(|line| line.contains("Passed")));
         assert!(!snapshot.feedback.iter().any(|line| line.contains("Passed")));
     }
 
     #[test]
-    fn counter_dot_and_number_are_green_and_bold() {
+    fn counter_text_is_green_and_bold() {
         let app = TuiApp::new();
         let frame = app.frame();
         let lines = bottom_chrome_lines(&frame);
         let line = lines.first().expect("expected bottom counter line");
 
-        assert_eq!(line.spans[0].content.as_ref(), "●");
+        assert_eq!(line.spans[0].content.as_ref(), "reps 0");
         assert_eq!(line.spans[0].style.fg, Some(RUST_REPS_DARK.counter_normal));
         assert!(line.spans[0].style.add_modifier.contains(Modifier::BOLD));
-        assert_eq!(line.spans[1].content.as_ref(), " 0");
-        assert_eq!(line.spans[1].style.fg, Some(RUST_REPS_DARK.counter_normal));
-        assert!(line.spans[1].style.add_modifier.contains(Modifier::BOLD));
+        assert_eq!(line.spans.len(), 1);
     }
 
     #[test]
-    fn reward_peak_counter_symbol_and_number_are_checkmark_bright_and_bold() {
+    fn success_reward_shows_plus_one_next_to_stable_counter() {
         let mut app = TuiApp::new();
         let now = test_now();
         for ch in "fn main() {}".chars() {
             app.handle_action(ClientAction::TypeChar(ch));
         }
         app.handle_action_at(ClientAction::Submit, now);
-        let frame = app.frame_at(now + COUNTER_REWARD_ATTACK_DURATION);
+        let frame = app.frame_at(now + REWARD_ATTACK_DURATION);
         let lines = bottom_chrome_lines(&frame);
         let line = lines.first().expect("expected bottom counter line");
 
-        assert_eq!(line.spans[0].content.as_ref(), "✓");
-        assert_eq!(line.spans[0].style.fg, Some(RUST_REPS_DARK.counter_reward));
+        assert_eq!(line.spans[0].content.as_ref(), "reps 1");
+        assert_eq!(line.spans[0].style.fg, Some(RUST_REPS_DARK.counter_normal));
         assert!(line.spans[0].style.add_modifier.contains(Modifier::BOLD));
-        assert_eq!(line.spans[1].content.as_ref(), " 1");
-        assert_eq!(line.spans[1].style.fg, Some(RUST_REPS_DARK.counter_reward));
+        assert_eq!(line.spans[1].content.as_ref(), "   +1");
+        assert_eq!(line.spans[1].style.fg, Some(RUST_REPS_DARK.reward_plus_one));
         assert!(line.spans[1].style.add_modifier.contains(Modifier::BOLD));
     }
 
     #[test]
-    fn reward_counter_sequence_hits_fast_holds_then_releases_slowly() {
+    fn reward_plus_one_sequence_hits_fast_holds_then_releases_slowly() {
         let mut app = TuiApp::new();
         let now = test_now();
         for ch in "fn main() {}".chars() {
@@ -516,72 +512,77 @@ mod tests {
         let frame = app.frame_at(now);
         let lines = bottom_chrome_lines(&frame);
         let line = lines.first().expect("expected bottom counter line");
-        assert_eq!(line.spans[0].content.as_ref(), "✓");
-        assert_eq!(line.spans[0].style.fg, Some(RUST_REPS_DARK.counter_normal));
+        assert_eq!(line.spans[0].content.as_ref(), "reps 1");
+        assert_eq!(line.spans[1].content.as_ref(), "   +1");
+        assert_ne!(line.spans[1].style.fg, Some(RUST_REPS_DARK.reward_plus_one));
 
-        let frame = app.frame_at(now + COUNTER_REWARD_ATTACK_DURATION);
+        let frame = app.frame_at(now + REWARD_ATTACK_DURATION);
         let lines = bottom_chrome_lines(&frame);
         let line = lines.first().expect("expected bottom counter line");
-        assert_eq!(line.spans[0].content.as_ref(), "✓");
-        assert_eq!(line.spans[0].style.fg, Some(RUST_REPS_DARK.counter_reward));
-        assert_eq!(line.spans[1].style.fg, Some(RUST_REPS_DARK.counter_reward));
+        assert_eq!(line.spans[1].style.fg, Some(RUST_REPS_DARK.reward_plus_one));
 
         let frame =
-            app.frame_at(now + COUNTER_REWARD_ATTACK_DURATION + (COUNTER_REWARD_HOLD_DURATION / 2));
+            app.frame_at(now + REWARD_ATTACK_DURATION + (REWARD_PLUS_ONE_HOLD_DURATION / 2));
         let lines = bottom_chrome_lines(&frame);
         let line = lines.first().expect("expected bottom counter line");
-        assert_eq!(line.spans[0].content.as_ref(), "✓");
-        assert_eq!(line.spans[0].style.fg, Some(RUST_REPS_DARK.counter_reward));
-        assert_eq!(line.spans[1].content.as_ref(), " 1");
-
-        let frame = app.frame_at(now + COUNTER_REWARD_DURATION - Duration::from_millis(200));
-        let lines = bottom_chrome_lines(&frame);
-        let line = lines.first().expect("expected bottom counter line");
-        assert_eq!(line.spans[0].content.as_ref(), "✓");
-        assert_ne!(line.spans[0].style.fg, Some(RUST_REPS_DARK.counter_reward));
-        assert_eq!(line.spans[1].content.as_ref(), " 1");
-
-        let frame = app.frame_at(now + COUNTER_REWARD_DURATION);
-        let lines = bottom_chrome_lines(&frame);
-        let line = lines.first().expect("expected bottom counter line");
-        assert_eq!(line.spans[0].content.as_ref(), "●");
+        assert_eq!(line.spans[0].content.as_ref(), "reps 1");
         assert_eq!(line.spans[0].style.fg, Some(RUST_REPS_DARK.counter_normal));
+        assert_eq!(line.spans[1].content.as_ref(), "   +1");
+        assert_eq!(line.spans[1].style.fg, Some(RUST_REPS_DARK.reward_plus_one));
+
+        let frame = app.frame_at(now + REWARD_DURATION - Duration::from_millis(200));
+        let lines = bottom_chrome_lines(&frame);
+        let line = lines.first().expect("expected bottom counter line");
+        assert_eq!(line.spans[0].content.as_ref(), "reps 1");
+        assert_eq!(line.spans[1].content.as_ref(), "   +1");
+        assert_ne!(line.spans[1].style.fg, Some(RUST_REPS_DARK.reward_plus_one));
+
+        let frame = app.frame_at(now + REWARD_DURATION);
+        let lines = bottom_chrome_lines(&frame);
+        let line = lines.first().expect("expected bottom counter line");
+        assert_eq!(line.spans[0].content.as_ref(), "reps 1");
+        assert_eq!(line.spans[0].style.fg, Some(RUST_REPS_DARK.counter_normal));
+        assert_eq!(line.spans.len(), 1);
     }
 
     #[test]
-    fn reward_counter_symbol_returns_to_normal_dot_after_ticks() {
+    fn plus_one_expires_after_reward_duration() {
         let mut app = TuiApp::new();
         let now = test_now();
         for ch in "fn main() {}".chars() {
             app.handle_action(ClientAction::TypeChar(ch));
         }
         app.handle_action_at(ClientAction::Submit, now);
-        let frame = app.frame_at(now + COUNTER_REWARD_DURATION);
+        let frame = app.frame_at(now + REWARD_DURATION);
         let lines = bottom_chrome_lines(&frame);
         let line = lines.first().expect("expected bottom counter line");
 
-        assert_eq!(line.spans[0].content.as_ref(), "●");
+        assert_eq!(line.spans[0].content.as_ref(), "reps 1");
         assert_eq!(line.spans[0].style.fg, Some(RUST_REPS_DARK.counter_normal));
-        assert_eq!(line.spans[1].content.as_ref(), " 1");
+        assert_eq!(line.spans.len(), 1);
     }
 
     #[test]
     fn border_style_maps_reward_settle_phases() {
-        let idle = border_style(CounterRewardFrame {
+        let idle = border_style(RewardFrame {
             active: false,
             intensity: 0,
+            show_plus_one: false,
         });
-        let low = border_style(CounterRewardFrame {
+        let low = border_style(RewardFrame {
             active: true,
             intensity: 25,
+            show_plus_one: true,
         });
-        let medium = border_style(CounterRewardFrame {
+        let medium = border_style(RewardFrame {
             active: true,
             intensity: 55,
+            show_plus_one: true,
         });
-        let peak = border_style(CounterRewardFrame {
+        let peak = border_style(RewardFrame {
             active: true,
             intensity: 100,
+            show_plus_one: true,
         });
 
         assert_eq!(idle.fg, Some(RUST_REPS_DARK.border_normal));
@@ -625,7 +626,7 @@ mod tests {
     }
 
     #[test]
-    fn wrong_answer_does_not_render_reward_checkmark_or_increment_counter() {
+    fn wrong_answer_does_not_render_plus_one_or_increment_counter() {
         let mut app = TuiApp::new();
         for ch in "wrong".chars() {
             app.handle_action(ClientAction::TypeChar(ch));
@@ -634,8 +635,52 @@ mod tests {
         let frame = app.frame();
         let snapshot = render_snapshot(&frame);
 
-        assert!(snapshot.bottom_chrome.iter().any(|line| line == "● 0"));
-        assert!(!snapshot.bottom_chrome.iter().any(|line| line.contains("✓")));
+        assert!(snapshot.bottom_chrome.iter().any(|line| line == "reps 0"));
+        assert!(
+            !snapshot
+                .bottom_chrome
+                .iter()
+                .any(|line| line.contains("+1"))
+        );
+    }
+
+    #[test]
+    fn skip_and_quit_do_not_render_plus_one() {
+        let mut skip_app = TuiApp::new();
+        for ch in ":skip".chars() {
+            skip_app.handle_action(ClientAction::TypeChar(ch));
+        }
+        skip_app.handle_action(ClientAction::Submit);
+        let skip_snapshot = render_snapshot(&skip_app.frame());
+
+        let mut quit_app = TuiApp::new();
+        quit_app.handle_action(ClientAction::Quit);
+        let quit_snapshot = render_snapshot(&quit_app.frame());
+
+        assert!(
+            skip_snapshot
+                .bottom_chrome
+                .iter()
+                .any(|line| line == "reps 0")
+        );
+        assert!(
+            !skip_snapshot
+                .bottom_chrome
+                .iter()
+                .any(|line| line.contains("+1"))
+        );
+        assert!(
+            quit_snapshot
+                .bottom_chrome
+                .iter()
+                .any(|line| line == "reps 0")
+        );
+        assert!(
+            !quit_snapshot
+                .bottom_chrome
+                .iter()
+                .any(|line| line.contains("+1"))
+        );
     }
 
     #[test]
@@ -834,14 +879,14 @@ mod tests {
     }
 
     #[test]
-    fn render_snapshot_hides_pass_and_shows_reward_checkmark_after_success() {
+    fn render_snapshot_hides_pass_and_shows_plus_one_after_success() {
         let mut app = TuiApp::new();
         let now = test_now();
         for ch in "fn main() {}".chars() {
             app.handle_action(ClientAction::TypeChar(ch));
         }
         app.handle_action_at(ClientAction::Submit, now);
-        let frame = app.frame_at(now + COUNTER_REWARD_DURATION / 2);
+        let frame = app.frame_at(now + REWARD_DURATION / 2);
         let snapshot = render_snapshot(&frame);
 
         assert!(!snapshot.feedback.iter().any(|line| line == "PASS"));
@@ -852,7 +897,12 @@ mod tests {
                 .any(|line| line == "println!(\"Rust Reps\");")
         );
         assert!(snapshot.game.iter().any(|line| line == "1 │ |"));
-        assert!(snapshot.bottom_chrome.iter().any(|line| line == "✓ 1"));
+        assert!(
+            snapshot
+                .bottom_chrome
+                .iter()
+                .any(|line| line == "reps 1   +1")
+        );
         assert!(!snapshot.game.iter().any(|line| line == "PASS"));
     }
 

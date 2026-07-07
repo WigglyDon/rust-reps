@@ -1,4 +1,4 @@
-use crate::client::{CodeTokenKind, CounterRewardFrame, StatusTone};
+use crate::client::{CodeTokenKind, RewardFrame, StatusTone};
 use ratatui::style::{Color, Modifier, Style};
 
 #[derive(Clone, Copy)]
@@ -21,8 +21,9 @@ pub(crate) struct RustRepsDark {
     pub(crate) error: Color,
     pub(crate) warning_unknown: Color,
     pub(crate) caret: Color,
+    pub(crate) counter_faded: Color,
     pub(crate) counter_normal: Color,
-    pub(crate) counter_reward: Color,
+    pub(crate) reward_plus_one: Color,
 }
 
 pub(crate) const RUST_REPS_DARK: RustRepsDark = RustRepsDark {
@@ -44,8 +45,9 @@ pub(crate) const RUST_REPS_DARK: RustRepsDark = RustRepsDark {
     error: Color::Rgb(255, 92, 105),
     warning_unknown: Color::Rgb(235, 178, 86),
     caret: Color::Rgb(116, 241, 157),
+    counter_faded: Color::Rgb(45, 92, 62),
     counter_normal: Color::Rgb(116, 238, 158),
-    counter_reward: Color::Rgb(158, 255, 187),
+    reward_plus_one: Color::Rgb(158, 255, 187),
 };
 
 pub(crate) fn base_style() -> Style {
@@ -58,7 +60,7 @@ pub(crate) fn surface_style() -> Style {
     Style::default().bg(RUST_REPS_DARK.surface)
 }
 
-pub(crate) fn border_style(reward: CounterRewardFrame) -> Style {
+pub(crate) fn border_style(reward: RewardFrame) -> Style {
     let intensity = if reward.active {
         reward.intensity.min(85)
     } else {
@@ -131,16 +133,16 @@ pub(crate) fn status_tone_style(tone: StatusTone) -> Style {
     }
 }
 
-pub(crate) fn counter_symbol_style(reward: CounterRewardFrame) -> Style {
+pub(crate) fn counter_style() -> Style {
     Style::default()
-        .fg(counter_color(reward))
+        .fg(RUST_REPS_DARK.counter_normal)
         .bg(RUST_REPS_DARK.background)
         .add_modifier(Modifier::BOLD)
 }
 
-pub(crate) fn counter_number_style(reward: CounterRewardFrame) -> Style {
+pub(crate) fn plus_one_style(reward: RewardFrame) -> Style {
     Style::default()
-        .fg(counter_color(reward))
+        .fg(plus_one_color(reward))
         .bg(RUST_REPS_DARK.background)
         .add_modifier(Modifier::BOLD)
 }
@@ -171,10 +173,10 @@ pub(crate) fn editor_gutter_style() -> Style {
         .bg(RUST_REPS_DARK.surface)
 }
 
-fn counter_color(reward: CounterRewardFrame) -> Color {
+fn plus_one_color(reward: RewardFrame) -> Color {
     blend_color(
-        RUST_REPS_DARK.counter_normal,
-        RUST_REPS_DARK.counter_reward,
+        RUST_REPS_DARK.counter_faded,
+        RUST_REPS_DARK.reward_plus_one,
         reward.intensity,
     )
 }
@@ -203,9 +205,10 @@ fn blend_channel(from: u8, to: u8, intensity: u16) -> u8 {
 #[cfg(test)]
 mod tests {
     use super::{
-        RUST_REPS_DARK, border_style, code_token_style, counter_symbol_style, status_tone_style,
+        RUST_REPS_DARK, border_style, code_token_style, counter_style, plus_one_style,
+        status_tone_style,
     };
-    use crate::client::{CodeTokenKind, CounterRewardFrame, StatusTone};
+    use crate::client::{CodeTokenKind, RewardFrame, StatusTone};
     use ratatui::style::Color;
 
     fn green_dominant(color: Color) -> bool {
@@ -271,25 +274,31 @@ mod tests {
     }
 
     #[test]
-    fn counter_reward_and_border_reward_differ_from_normal_states() {
-        let normal_counter = counter_symbol_style(CounterRewardFrame {
+    fn plus_one_reward_and_border_reward_differ_from_normal_states() {
+        let stable_counter = counter_style();
+        let low_plus_one = plus_one_style(RewardFrame {
             active: false,
             intensity: 0,
+            show_plus_one: false,
         });
-        let reward_counter = counter_symbol_style(CounterRewardFrame {
+        let reward_plus_one = plus_one_style(RewardFrame {
             active: true,
             intensity: 100,
+            show_plus_one: true,
         });
-        let normal_border = border_style(CounterRewardFrame {
+        let normal_border = border_style(RewardFrame {
             active: false,
             intensity: 0,
+            show_plus_one: false,
         });
-        let reward_border = border_style(CounterRewardFrame {
+        let reward_border = border_style(RewardFrame {
             active: true,
             intensity: 100,
+            show_plus_one: true,
         });
 
-        assert_ne!(normal_counter.fg, reward_counter.fg);
+        assert_eq!(stable_counter.fg, Some(RUST_REPS_DARK.counter_normal));
+        assert_ne!(low_plus_one.fg, reward_plus_one.fg);
         assert_ne!(normal_border.fg, reward_border.fg);
     }
 }

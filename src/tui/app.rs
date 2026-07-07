@@ -96,11 +96,11 @@ impl TuiApp {
     }
 
     pub fn settle_animations(&mut self, now: Instant) {
-        self.ui_state.settle_counter_reward(now);
+        self.ui_state.settle_reward_event(now);
     }
 
-    pub fn counter_reward_active_at(&self, now: Instant) -> bool {
-        self.ui_state.counter_reward_active_at(now)
+    pub fn reward_active_at(&self, now: Instant) -> bool {
+        self.ui_state.reward_active_at(now)
     }
 
     fn submit_current_input(&mut self, now: Instant) {
@@ -110,7 +110,7 @@ impl TuiApp {
 
         let submitted = self.ui_state.take_draft_input();
         let command = answer::trim_line_ending(&submitted);
-        self.ui_state.clear_counter_reward();
+        self.ui_state.clear_reward_event();
         let status_lines = if command == ":q" || command == ":quit" {
             {
                 self.should_quit = true;
@@ -162,7 +162,7 @@ impl TuiApp {
         } else {
             match self.session.submit_answer(&submitted) {
                 engine::SubmitResult::Correct => {
-                    self.ui_state.start_counter_reward(now);
+                    self.ui_state.start_reward_event(now);
                     if self.session.is_complete() {
                         self.completed = true;
                         let mut lines = Vec::from(["PASS".to_string()]);
@@ -191,7 +191,7 @@ impl TuiApp {
 
     fn quit(&mut self) {
         self.should_quit = true;
-        self.ui_state.clear_counter_reward();
+        self.ui_state.clear_reward_event();
         self.ui_state
             .set_status_lines(collect_summary_lines("QUIT", &self.session));
     }
@@ -211,8 +211,7 @@ mod tests {
 
     use super::TuiApp;
     use crate::client::{
-        COUNTER_REWARD_ATTACK_DURATION, COUNTER_REWARD_DURATION, COUNTER_REWARD_HOLD_DURATION,
-        ClientAction,
+        ClientAction, REWARD_ATTACK_DURATION, REWARD_DURATION, REWARD_PLUS_ONE_HOLD_DURATION,
     };
 
     fn test_now() -> Instant {
@@ -220,12 +219,13 @@ mod tests {
     }
 
     #[test]
-    fn new_session_starts_without_counter_reward() {
+    fn new_session_starts_without_reward_event() {
         let app = TuiApp::new();
         let now = test_now();
 
         assert_eq!(app.frame_at(now).completed_reps_this_run, 0);
-        assert!(!app.frame_at(now).counter_reward_active);
+        assert!(!app.frame_at(now).reward_active);
+        assert!(!app.frame_at(now).reward.show_plus_one);
     }
 
     #[test]
@@ -240,8 +240,9 @@ mod tests {
         assert_eq!(app.input(), "");
         assert_eq!(app.session().passed(), 1);
         assert_eq!(app.session().attempts(), 1);
-        assert_eq!(app.frame_at(now).counter_reward.intensity, 0);
-        assert!(app.frame_at(now).counter_reward_active);
+        assert_eq!(app.frame_at(now).reward.intensity, 0);
+        assert!(app.frame_at(now).reward_active);
+        assert!(app.frame_at(now).reward.show_plus_one);
         assert_eq!(
             app.session()
                 .current_exercise()
@@ -252,7 +253,7 @@ mod tests {
     }
 
     #[test]
-    fn successful_answer_counter_reward_expires_after_duration() {
+    fn successful_answer_reward_event_expires_after_duration() {
         let mut app = TuiApp::new();
         let now = test_now();
         for ch in "fn main() {}".chars() {
@@ -260,34 +261,29 @@ mod tests {
         }
         app.handle_action_at(ClientAction::Submit, now);
 
-        assert!(app.frame_at(now).counter_reward_active);
-        assert!(
-            app.frame_at(now + Duration::from_millis(50))
-                .counter_reward_active
-        );
+        assert!(app.frame_at(now).reward_active);
+        assert!(app.frame_at(now + Duration::from_millis(50)).reward_active);
         assert_eq!(
-            app.frame_at(now + COUNTER_REWARD_ATTACK_DURATION)
-                .counter_reward
-                .intensity,
+            app.frame_at(now + REWARD_ATTACK_DURATION).reward.intensity,
             100
         );
         assert_eq!(
-            app.frame_at(now + COUNTER_REWARD_ATTACK_DURATION + (COUNTER_REWARD_HOLD_DURATION / 2))
-                .counter_reward
+            app.frame_at(now + REWARD_ATTACK_DURATION + (REWARD_PLUS_ONE_HOLD_DURATION / 2))
+                .reward
                 .intensity,
             100
         );
         assert!(
-            app.frame_at(now + COUNTER_REWARD_DURATION - Duration::from_millis(100))
-                .counter_reward
+            app.frame_at(now + REWARD_DURATION - Duration::from_millis(100))
+                .reward
                 .intensity
                 < 10
         );
 
-        let expired_at = now + COUNTER_REWARD_DURATION;
-        assert!(!app.frame_at(expired_at).counter_reward_active);
+        let expired_at = now + REWARD_DURATION;
+        assert!(!app.frame_at(expired_at).reward_active);
         app.settle_animations(expired_at);
-        assert!(!app.counter_reward_active_at(expired_at));
+        assert!(!app.reward_active_at(expired_at));
     }
 
     #[test]
@@ -302,7 +298,8 @@ mod tests {
         assert_eq!(app.input(), "");
         assert_eq!(app.session().passed(), 0);
         assert_eq!(app.session().attempts(), 1);
-        assert!(!app.frame_at(now).counter_reward_active);
+        assert!(!app.frame_at(now).reward_active);
+        assert!(!app.frame_at(now).reward.show_plus_one);
         assert_eq!(
             app.session()
                 .current_exercise()
@@ -321,7 +318,7 @@ mod tests {
     }
 
     #[test]
-    fn skip_does_not_start_counter_reward() {
+    fn skip_does_not_start_reward_event() {
         let mut app = TuiApp::new();
         let now = test_now();
         for ch in ":skip".chars() {
@@ -332,18 +329,19 @@ mod tests {
         assert_eq!(app.session().passed(), 0);
         assert_eq!(app.session().skipped(), 1);
         assert_eq!(app.frame_at(now).completed_reps_this_run, 0);
-        assert!(!app.frame_at(now).counter_reward_active);
+        assert!(!app.frame_at(now).reward_active);
+        assert!(!app.frame_at(now).reward.show_plus_one);
     }
 
     #[test]
-    fn wrong_input_clears_existing_counter_reward() {
+    fn wrong_input_clears_existing_reward_event() {
         let mut app = TuiApp::new();
         let now = test_now();
         for ch in "fn main() {}".chars() {
             app.handle_action(ClientAction::TypeChar(ch));
         }
         app.handle_action_at(ClientAction::Submit, now);
-        assert!(app.frame_at(now).counter_reward_active);
+        assert!(app.frame_at(now).reward_active);
 
         for ch in "wrong".chars() {
             app.handle_action(ClientAction::TypeChar(ch));
@@ -352,18 +350,19 @@ mod tests {
 
         assert_eq!(app.session().passed(), 1);
         assert_eq!(app.frame_at(now).completed_reps_this_run, 1);
-        assert!(!app.frame_at(now).counter_reward_active);
+        assert!(!app.frame_at(now).reward_active);
+        assert!(!app.frame_at(now).reward.show_plus_one);
     }
 
     #[test]
-    fn skip_clears_existing_counter_reward() {
+    fn skip_clears_existing_reward_event() {
         let mut app = TuiApp::new();
         let now = test_now();
         for ch in "fn main() {}".chars() {
             app.handle_action(ClientAction::TypeChar(ch));
         }
         app.handle_action_at(ClientAction::Submit, now);
-        assert!(app.frame_at(now).counter_reward_active);
+        assert!(app.frame_at(now).reward_active);
 
         for ch in ":skip".chars() {
             app.handle_action(ClientAction::TypeChar(ch));
@@ -372,7 +371,8 @@ mod tests {
 
         assert_eq!(app.session().passed(), 1);
         assert_eq!(app.session().skipped(), 1);
-        assert!(!app.frame_at(now).counter_reward_active);
+        assert!(!app.frame_at(now).reward_active);
+        assert!(!app.frame_at(now).reward.show_plus_one);
     }
 
     #[test]
