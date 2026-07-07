@@ -5,6 +5,7 @@ use ratatui::style::{Color, Modifier, Style};
 pub(crate) struct RustRepsDark {
     pub(crate) background: Color,
     pub(crate) surface: Color,
+    pub(crate) editor_active_line: Color,
     pub(crate) border_normal: Color,
     pub(crate) border_reward: Color,
     pub(crate) text_normal: Color,
@@ -29,6 +30,7 @@ pub(crate) struct RustRepsDark {
 pub(crate) const RUST_REPS_DARK: RustRepsDark = RustRepsDark {
     background: Color::Rgb(8, 10, 14),
     surface: Color::Rgb(12, 15, 21),
+    editor_active_line: Color::Rgb(17, 22, 31),
     border_normal: Color::Rgb(62, 70, 84),
     border_reward: Color::Rgb(116, 238, 158),
     text_normal: Color::Rgb(232, 237, 246),
@@ -58,6 +60,16 @@ pub(crate) fn base_style() -> Style {
 
 pub(crate) fn surface_style() -> Style {
     Style::default().bg(RUST_REPS_DARK.surface)
+}
+
+pub(crate) fn editor_canvas_style() -> Style {
+    Style::default()
+        .fg(RUST_REPS_DARK.text_normal)
+        .bg(RUST_REPS_DARK.surface)
+}
+
+pub(crate) fn editor_active_line_style() -> Style {
+    Style::default().bg(RUST_REPS_DARK.editor_active_line)
 }
 
 #[cfg(test)]
@@ -191,10 +203,16 @@ pub(crate) fn problem_header_style() -> Style {
         .add_modifier(Modifier::BOLD)
 }
 
-pub(crate) fn editor_gutter_style() -> Style {
+pub(crate) fn editor_gutter_style(active: bool) -> Style {
+    let background = if active {
+        RUST_REPS_DARK.editor_active_line
+    } else {
+        RUST_REPS_DARK.surface
+    };
+
     Style::default()
         .fg(RUST_REPS_DARK.text_muted)
-        .bg(RUST_REPS_DARK.surface)
+        .bg(background)
 }
 
 fn plus_one_color(reward: RewardFrame) -> Color {
@@ -229,8 +247,8 @@ fn blend_channel(from: u8, to: u8, intensity: u16) -> u8 {
 #[cfg(test)]
 mod tests {
     use super::{
-        RUST_REPS_DARK, border_style, code_token_style, counter_style, plus_one_style,
-        status_tone_style,
+        RUST_REPS_DARK, border_style, code_token_style, counter_style, editor_active_line_style,
+        editor_canvas_style, editor_gutter_style, plus_one_style, status_tone_style,
     };
     use crate::client::{CodeTokenKind, RewardFrame, StatusTone};
     use ratatui::style::Color;
@@ -332,5 +350,23 @@ mod tests {
         assert_eq!(stable_counter.fg, Some(RUST_REPS_DARK.counter_normal));
         assert_ne!(low_plus_one.fg, reward_plus_one.fg);
         assert_ne!(normal_border.fg, reward_border.fg);
+    }
+
+    #[test]
+    fn editor_canvas_active_line_and_gutter_styles_use_theme_roles() {
+        assert_eq!(editor_canvas_style().bg, Some(RUST_REPS_DARK.surface));
+        assert_eq!(
+            editor_active_line_style().bg,
+            Some(RUST_REPS_DARK.editor_active_line)
+        );
+        assert_eq!(editor_gutter_style(false).bg, Some(RUST_REPS_DARK.surface));
+        assert_eq!(
+            editor_gutter_style(true).bg,
+            Some(RUST_REPS_DARK.editor_active_line)
+        );
+        assert_eq!(
+            editor_gutter_style(false).fg,
+            Some(RUST_REPS_DARK.text_muted)
+        );
     }
 }
