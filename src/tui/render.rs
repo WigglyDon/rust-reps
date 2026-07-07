@@ -1,9 +1,9 @@
 use crate::{
-    client::{ClientFrame, CodeToken, EditorViewport, StatusLine, StatusTone},
+    client::{ClientFrame, CodeToken, EditorViewport, RewardFrame, StatusLine, StatusTone},
     tui::{
         app::TuiApp,
         theme::{
-            base_style, border_style, caret_style, code_token_style, control_hint_style,
+            base_style, border_sweep_style, caret_style, code_token_style, control_hint_style,
             counter_style, editor_gutter_style, plus_one_style, problem_header_style,
             status_tone_style, surface_style,
         },
@@ -11,9 +11,10 @@ use crate::{
 };
 use ratatui::{
     Frame,
+    buffer::Buffer,
     layout::{Alignment, Constraint, Direction, Layout, Margin, Rect},
     text::{Line, Span, Text},
-    widgets::{Block, Borders, Paragraph},
+    widgets::{Block, Paragraph},
 };
 
 const FEEDBACK_CHROME_HEIGHT: u16 = 3;
@@ -33,10 +34,7 @@ fn render_client_frame(frame: &mut Frame<'_>, client_frame: &ClientFrame) {
 
     frame.render_widget(Block::default().style(base_style()), frame.area());
 
-    let game_block = Block::default()
-        .borders(Borders::ALL)
-        .style(surface_style())
-        .border_style(border_style(client_frame.reward));
+    let game_block = Block::default().style(surface_style());
     let game_area = chunks[0];
     let game_body = game_area.inner(Margin {
         vertical: 1,
@@ -48,6 +46,7 @@ fn render_client_frame(frame: &mut Frame<'_>, client_frame: &ClientFrame) {
         .split(game_body);
 
     frame.render_widget(game_block, game_area);
+    render_game_border(frame, game_area, client_frame.reward);
 
     frame.render_widget(
         Paragraph::new(Text::from(problem_lines(client_frame))).style(base_style()),
@@ -91,6 +90,118 @@ fn layout_chunks(area: Rect, feedback_height: u16) -> std::rc::Rc<[Rect]> {
             Constraint::Length(BOTTOM_CHROME_HEIGHT),
         ])
         .split(area)
+}
+
+fn render_game_border(frame: &mut Frame<'_>, area: Rect, reward: RewardFrame) {
+    if area.width < 2 || area.height < 2 {
+        return;
+    }
+
+    let buffer = frame.buffer_mut();
+    for x in area.left()..area.right() {
+        set_border_cell(
+            buffer,
+            area,
+            x,
+            area.top(),
+            border_symbol(area, x, area.top()),
+            reward,
+        );
+        set_border_cell(
+            buffer,
+            area,
+            x,
+            area.bottom() - 1,
+            border_symbol(area, x, area.bottom() - 1),
+            reward,
+        );
+    }
+    for y in area.top()..area.bottom() {
+        set_border_cell(
+            buffer,
+            area,
+            area.left(),
+            y,
+            border_symbol(area, area.left(), y),
+            reward,
+        );
+        set_border_cell(
+            buffer,
+            area,
+            area.right() - 1,
+            y,
+            border_symbol(area, area.right() - 1, y),
+            reward,
+        );
+    }
+}
+
+fn set_border_cell(
+    buffer: &mut Buffer,
+    area: Rect,
+    x: u16,
+    y: u16,
+    symbol: &'static str,
+    reward: RewardFrame,
+) {
+    buffer[(x, y)]
+        .set_symbol(symbol)
+        .set_style(border_sweep_style(reward_sweep_intensity_at(
+            x, y, area, reward,
+        )));
+}
+
+fn border_symbol(area: Rect, x: u16, y: u16) -> &'static str {
+    let left = area.left();
+    let right = area.right() - 1;
+    let top = area.top();
+    let bottom = area.bottom() - 1;
+    match (x, y) {
+        (x, y) if x == left && y == top => "┌",
+        (x, y) if x == right && y == top => "┐",
+        (x, y) if x == left && y == bottom => "└",
+        (x, y) if x == right && y == bottom => "┘",
+        (_, y) if y == top || y == bottom => "─",
+        _ => "│",
+    }
+}
+
+fn reward_sweep_intensity_at(x: u16, y: u16, area: Rect, reward: RewardFrame) -> u8 {
+    if !reward.active {
+        return 0;
+    }
+
+    let cell_progress = border_sweep_cell_progress(x, y, area);
+    let sweep_progress = f32::from(reward.sweep_progress) / 100.0;
+    let wave_width = 0.28;
+    let wave_distance = (cell_progress - sweep_progress).abs();
+    let wave = 1.0 - smoothstep((wave_distance / wave_width).clamp(0.0, 1.0));
+    let tail = if cell_progress <= sweep_progress {
+        let tail_distance = sweep_progress - cell_progress;
+        (1.0 - smoothstep((tail_distance / 0.72).clamp(0.0, 1.0))) * 0.42
+    } else {
+        0.0
+    };
+    let spatial_intensity = wave.max(tail);
+
+    (spatial_intensity * f32::from(reward.intensity))
+        .round()
+        .clamp(0.0, 100.0) as u8
+}
+
+fn border_sweep_cell_progress(x: u16, y: u16, area: Rect) -> f32 {
+    if area.width <= 1 || area.height <= 1 {
+        return 0.0;
+    }
+
+    let horizontal = f32::from(x.saturating_sub(area.left())) / f32::from(area.width - 1);
+    let vertical_from_bottom =
+        f32::from((area.bottom() - 1).saturating_sub(y)) / f32::from(area.height - 1);
+    ((horizontal + vertical_from_bottom) / 2.0).clamp(0.0, 1.0)
+}
+
+fn smoothstep(progress: f32) -> f32 {
+    progress * progress * (3.0 - (2.0 * progress))
 }
 
 fn problem_lines(client_frame: &ClientFrame) -> Vec<Line<'static>> {
@@ -345,9 +456,10 @@ mod tests {
     use std::time::{Duration, Instant};
 
     use super::{
-        BOTTOM_CHROME_HEIGHT, CONTROL_HINTS, FEEDBACK_CHROME_HEIGHT, bottom_chrome_alignment,
-        bottom_chrome_lines, feedback_chrome_lines, feedback_height, layout_chunks, line_text,
-        problem_lines, render_snapshot, render_snapshot_with_workbox_height,
+        BOTTOM_CHROME_HEIGHT, CONTROL_HINTS, FEEDBACK_CHROME_HEIGHT, border_sweep_cell_progress,
+        bottom_chrome_alignment, bottom_chrome_lines, feedback_chrome_lines, feedback_height,
+        layout_chunks, line_text, problem_lines, render_snapshot,
+        render_snapshot_with_workbox_height, reward_sweep_intensity_at,
     };
     use crate::{
         client::{
@@ -364,6 +476,15 @@ mod tests {
 
     fn test_now() -> Instant {
         Instant::now()
+    }
+
+    fn reward_frame(intensity: u8, sweep_progress: u8) -> RewardFrame {
+        RewardFrame {
+            active: intensity > 0,
+            intensity,
+            sweep_progress,
+            show_plus_one: intensity > 0,
+        }
     }
 
     #[test]
@@ -635,21 +756,25 @@ mod tests {
         let idle = border_style(RewardFrame {
             active: false,
             intensity: 0,
+            sweep_progress: 0,
             show_plus_one: false,
         });
         let low = border_style(RewardFrame {
             active: true,
             intensity: 25,
+            sweep_progress: 25,
             show_plus_one: true,
         });
         let medium = border_style(RewardFrame {
             active: true,
             intensity: 55,
+            sweep_progress: 55,
             show_plus_one: true,
         });
         let peak = border_style(RewardFrame {
             active: true,
             intensity: 100,
+            sweep_progress: 100,
             show_plus_one: true,
         });
 
@@ -661,6 +786,77 @@ mod tests {
             assert!(!style.add_modifier.contains(Modifier::BOLD));
         }
         assert_ne!(peak.fg, idle.fg);
+    }
+
+    #[test]
+    fn sweep_cell_progress_runs_from_bottom_left_to_top_right() {
+        let area = Rect::new(2, 3, 20, 10);
+        let bottom_left = border_sweep_cell_progress(area.left(), area.bottom() - 1, area);
+        let top_right = border_sweep_cell_progress(area.right() - 1, area.top(), area);
+        let top_left = border_sweep_cell_progress(area.left(), area.top(), area);
+        let bottom_right = border_sweep_cell_progress(area.right() - 1, area.bottom() - 1, area);
+
+        assert_eq!(bottom_left, 0.0);
+        assert_eq!(top_right, 1.0);
+        assert!(top_left > bottom_left);
+        assert!(bottom_right > bottom_left);
+        assert!(top_left < top_right);
+        assert!(bottom_right < top_right);
+    }
+
+    #[test]
+    fn directional_sweep_lights_bottom_left_before_top_right() {
+        let area = Rect::new(0, 0, 80, 20);
+        let early = reward_frame(100, 10);
+        let bottom_left = reward_sweep_intensity_at(area.left(), area.bottom() - 1, area, early);
+        let top_right = reward_sweep_intensity_at(area.right() - 1, area.top(), area, early);
+
+        assert!(bottom_left > 60);
+        assert!(top_right < 5);
+    }
+
+    #[test]
+    fn directional_sweep_reaches_top_right_later() {
+        let area = Rect::new(0, 0, 80, 20);
+        let early = reward_frame(100, 10);
+        let later = reward_frame(100, 100);
+        let early_top_right = reward_sweep_intensity_at(area.right() - 1, area.top(), area, early);
+        let later_top_right = reward_sweep_intensity_at(area.right() - 1, area.top(), area, later);
+
+        assert!(later_top_right > early_top_right);
+        assert!(later_top_right > 80);
+    }
+
+    #[test]
+    fn directional_sweep_fades_after_passing() {
+        let area = Rect::new(0, 0, 80, 20);
+        let peak = reward_frame(100, 100);
+        let faded = reward_frame(20, 100);
+        let peak_top_right = reward_sweep_intensity_at(area.right() - 1, area.top(), area, peak);
+        let faded_top_right = reward_sweep_intensity_at(area.right() - 1, area.top(), area, faded);
+
+        assert!(peak_top_right > faded_top_right);
+        assert!(faded_top_right > 0);
+    }
+
+    #[test]
+    fn idle_border_sweep_intensity_is_normal() {
+        let area = Rect::new(0, 0, 80, 20);
+        let idle = RewardFrame {
+            active: false,
+            intensity: 0,
+            sweep_progress: 0,
+            show_plus_one: false,
+        };
+
+        assert_eq!(
+            reward_sweep_intensity_at(area.left(), area.bottom() - 1, area, idle),
+            0
+        );
+        assert_eq!(
+            reward_sweep_intensity_at(area.right() - 1, area.top(), area, idle),
+            0
+        );
     }
 
     #[test]

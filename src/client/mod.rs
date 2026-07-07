@@ -57,11 +57,13 @@ pub const REWARD_ATTACK_DURATION: Duration = Duration::from_millis(300);
 pub const REWARD_PLUS_ONE_HOLD_DURATION: Duration = Duration::from_millis(500);
 pub const REWARD_RELEASE_DURATION: Duration = Duration::from_millis(2_500);
 pub const REWARD_DURATION: Duration = Duration::from_millis(3_300);
+pub const REWARD_SWEEP_DURATION: Duration = Duration::from_millis(1_200);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct RewardFrame {
     pub active: bool,
     pub intensity: u8,
+    pub sweep_progress: u8,
     pub show_plus_one: bool,
 }
 
@@ -70,6 +72,7 @@ impl RewardFrame {
         Self {
             active: false,
             intensity: 0,
+            sweep_progress: 0,
             show_plus_one: false,
         }
     }
@@ -115,6 +118,7 @@ impl RewardAnimation {
         RewardFrame {
             active: true,
             intensity: reward_intensity_at(elapsed),
+            sweep_progress: reward_sweep_progress_at(elapsed),
             show_plus_one: true,
         }
     }
@@ -136,6 +140,16 @@ fn reward_intensity_at(elapsed: Duration) -> u8 {
     };
 
     (intensity * 100.0).round().clamp(0.0, 100.0) as u8
+}
+
+fn reward_sweep_progress_at(elapsed: Duration) -> u8 {
+    if elapsed >= REWARD_SWEEP_DURATION {
+        return 100;
+    }
+
+    (smoothstep(duration_progress(elapsed, REWARD_SWEEP_DURATION)) * 100.0)
+        .round()
+        .clamp(0.0, 100.0) as u8
 }
 
 fn duration_progress(elapsed: Duration, duration: Duration) -> f32 {
@@ -583,8 +597,9 @@ mod tests {
 
     use super::{
         ClientAction, ClientUiState, CodeTokenKind, CursorPosition, REWARD_ATTACK_DURATION,
-        REWARD_DURATION, REWARD_PLUS_ONE_HOLD_DURATION, REWARD_RELEASE_DURATION, StatusTone,
-        project_client_frame, project_client_frame_at, tokenize_rust_line,
+        REWARD_DURATION, REWARD_PLUS_ONE_HOLD_DURATION, REWARD_RELEASE_DURATION,
+        REWARD_SWEEP_DURATION, StatusTone, project_client_frame, project_client_frame_at,
+        tokenize_rust_line,
     };
     use crate::engine;
 
@@ -814,8 +829,11 @@ mod tests {
         assert_eq!(REWARD_PLUS_ONE_HOLD_DURATION, Duration::from_millis(500));
         assert_eq!(REWARD_RELEASE_DURATION, Duration::from_millis(2_500));
         assert_eq!(REWARD_DURATION, Duration::from_millis(3_300));
+        assert_eq!(REWARD_SWEEP_DURATION, Duration::from_millis(1_200));
         assert!(REWARD_DURATION >= Duration::from_millis(3_000));
         assert!(REWARD_RELEASE_DURATION > REWARD_ATTACK_DURATION);
+        assert!(REWARD_SWEEP_DURATION > REWARD_ATTACK_DURATION);
+        assert!(REWARD_SWEEP_DURATION < REWARD_DURATION);
     }
 
     #[test]
@@ -835,10 +853,30 @@ mod tests {
         assert!(start.show_plus_one);
         assert!(quick_hit.active);
         assert!(quick_hit.intensity >= 80);
+        assert!(quick_hit.sweep_progress > start.sweep_progress);
         assert!(quick_hit.show_plus_one);
         assert!(attack_end.active);
         assert_eq!(attack_end.intensity, 100);
+        assert!(attack_end.sweep_progress > quick_hit.sweep_progress);
         assert!(attack_end.show_plus_one);
+    }
+
+    #[test]
+    fn reward_sweep_progress_increases_over_time() {
+        let mut ui_state = ClientUiState::new();
+        let now = test_now();
+        ui_state.start_reward_event(now);
+
+        let start = ui_state.reward_frame_at(now);
+        let middle = ui_state.reward_frame_at(now + REWARD_SWEEP_DURATION / 2);
+        let end = ui_state.reward_frame_at(now + REWARD_SWEEP_DURATION);
+        let later =
+            ui_state.reward_frame_at(now + REWARD_SWEEP_DURATION + Duration::from_millis(300));
+
+        assert_eq!(start.sweep_progress, 0);
+        assert!(middle.sweep_progress > start.sweep_progress);
+        assert_eq!(end.sweep_progress, 100);
+        assert_eq!(later.sweep_progress, 100);
     }
 
     #[test]

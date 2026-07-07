@@ -60,6 +60,7 @@ pub(crate) fn surface_style() -> Style {
     Style::default().bg(RUST_REPS_DARK.surface)
 }
 
+#[cfg(test)]
 pub(crate) fn border_style(reward: RewardFrame) -> Style {
     let intensity = if reward.active {
         reward.intensity.min(85)
@@ -71,6 +72,16 @@ pub(crate) fn border_style(reward: RewardFrame) -> Style {
             RUST_REPS_DARK.border_normal,
             RUST_REPS_DARK.border_reward,
             intensity,
+        ))
+        .bg(RUST_REPS_DARK.surface)
+}
+
+pub(crate) fn border_sweep_style(intensity: u8) -> Style {
+    Style::default()
+        .fg(blend_color(
+            RUST_REPS_DARK.border_normal,
+            RUST_REPS_DARK.border_reward,
+            intensity.min(85),
         ))
         .bg(RUST_REPS_DARK.surface)
 }
@@ -285,21 +296,25 @@ mod tests {
         let low_plus_one = plus_one_style(RewardFrame {
             active: false,
             intensity: 0,
+            sweep_progress: 0,
             show_plus_one: false,
         });
         let reward_plus_one = plus_one_style(RewardFrame {
             active: true,
             intensity: 100,
+            sweep_progress: 100,
             show_plus_one: true,
         });
         let normal_border = border_style(RewardFrame {
             active: false,
             intensity: 0,
+            sweep_progress: 0,
             show_plus_one: false,
         });
         let reward_border = border_style(RewardFrame {
             active: true,
             intensity: 100,
+            sweep_progress: 100,
             show_plus_one: true,
         });
 
