@@ -13,6 +13,7 @@ cargo install --path . --force
 rust-reps
 rust-reps plain
 rust-reps 001
+rust-reps lab
 rust-reps --list
 rust-reps --help
 rust-reps --version
@@ -26,6 +27,10 @@ When stdin/stdout are piped, `rust-reps` uses deterministic plain practice mode.
 `rust-reps plain` always starts deterministic plain practice mode.
 
 `rust-reps 001` runs just drill 001 in one-shot mode.
+
+`rust-reps lab` starts the fullscreen client stress lab in an interactive terminal.
+It is not curriculum and does not appear in `--list`.
+Use it to test long problem scrolling, multiline editor behavior, syntax highlighting, and stable layout.
 
 `rust-reps --list` prints the current catalog.
 
@@ -50,7 +55,7 @@ Keys:
 - `Ctrl-Enter` submits only when the terminal reports it distinctly
 - `Shift-Enter` inserts a newline when the terminal reports it distinctly
 - `Esc` or `Ctrl-C` quits
-- `F1` or `?` toggles help panel
+- `F6` skips
 - `Tab` is currently ignored
 
 Plain mode remains available with `rust-reps plain` and for piped stdin.

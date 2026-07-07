@@ -1125,6 +1125,7 @@ Usage:
   rust-reps plain
   rust-reps [DRILL_ID]
   rust-reps play
+  rust-reps lab
   rust-reps --list
   rust-reps --help
   rust-reps --version
@@ -1132,6 +1133,10 @@ Usage:
 Default:
   Starts fullscreen TUI in an interactive terminal.
   Uses plain practice mode when stdin/stdout are piped.
+
+Lab:
+  rust-reps lab starts a fullscreen client stress lab in an interactive terminal.
+  It is not curriculum and does not appear in --list.
 
 Current drills:
 001  fn main() {}
@@ -1155,6 +1160,7 @@ Usage:
   rust-reps plain
   rust-reps [DRILL_ID]
   rust-reps play
+  rust-reps lab
   rust-reps --list
   rust-reps --help
   rust-reps --version
@@ -1162,6 +1168,10 @@ Usage:
 Default:
   Starts fullscreen TUI in an interactive terminal.
   Uses plain practice mode when stdin/stdout are piped.
+
+Lab:
+  rust-reps lab starts a fullscreen client stress lab in an interactive terminal.
+  It is not curriculum and does not appear in --list.
 
 Current drills:
 001  fn main() {}
@@ -1184,6 +1194,7 @@ expect_stdout "one-shot blank line" "$drill_001_blank_line_output" sh -c "printf
 expect_stdout "one-shot trailing space" "$drill_001_try_again_output" sh -c "printf 'fn main() {} \\n' | cargo run -q -- 001"
 expect_stdout "one-shot CRLF correct" "$drill_001_crlf_pass_output" sh -c "printf 'fn main() {}\\r\\n' | cargo run -q -- 001"
 expect_stdout "one-shot help as wrong answer" "$drill_001_try_again_output" sh -c "printf ':help\\n' | cargo run -q -- 001"
+expect_error "lab requires tty" "error: lab mode requires an interactive terminal" cargo run -q -- lab
 
 section "temporary install"
 CARGO_NET_OFFLINE=true cargo install --locked --path . --force --root "$install_root"
@@ -1198,6 +1209,7 @@ Usage:
   rust-reps plain
   rust-reps [DRILL_ID]
   rust-reps play
+  rust-reps lab
   rust-reps --list
   rust-reps --help
   rust-reps --version
@@ -1205,6 +1217,10 @@ Usage:
 Default:
   Starts fullscreen TUI in an interactive terminal.
   Uses plain practice mode when stdin/stdout are piped.
+
+Lab:
+  rust-reps lab starts a fullscreen client stress lab in an interactive terminal.
+  It is not curriculum and does not appear in --list.
 
 Current drills:
 001  fn main() {}
@@ -1219,6 +1235,7 @@ Current drills:
 010  fn add_one(x: i32) -> i32 { x + 1 }
 011  if score > 0 {}
 012  while score < 10 {}' env PATH="$install_root/bin:$PATH" rust-reps --help
+expect_error "installed lab requires tty" "error: lab mode requires an interactive terminal" env PATH="$install_root/bin:$PATH" rust-reps lab
 expect_stdout "installed list" 'Rust Reps
 ----------------
 

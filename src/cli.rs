@@ -5,6 +5,7 @@ pub enum DrillCommand {
     Run(&'static catalog::Drill),
     List,
     Tui,
+    Lab,
     Help,
     Version,
 }
@@ -23,6 +24,9 @@ pub fn select_command(args: &[&str]) -> Result<DrillCommand, String> {
     }
     if id == "tui" {
         return Ok(DrillCommand::Tui);
+    }
+    if id == "lab" {
+        return Ok(DrillCommand::Lab);
     }
     if id == "--help" || id == "-h" {
         return Ok(DrillCommand::Help);

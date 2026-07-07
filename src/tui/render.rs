@@ -599,6 +599,7 @@ mod tests {
             ClientAction, ProblemDisplayLine, ProblemViewport, REWARD_ATTACK_DURATION,
             REWARD_DURATION, REWARD_PLUS_ONE_BODY_DURATION, RewardFrame, StatusTone,
         },
+        engine, lab,
         tui::{
             TuiApp,
             theme::{RUST_REPS_DARK, base_style, border_style, status_tone_style},
@@ -609,6 +610,22 @@ mod tests {
 
     fn test_now() -> Instant {
         Instant::now()
+    }
+
+    fn lab_app() -> TuiApp {
+        TuiApp::with_session(engine::Session::from_exercise_packets(
+            lab::exercise_packets(),
+        ))
+    }
+
+    fn type_text(app: &mut TuiApp, text: &str) {
+        for ch in text.chars() {
+            if ch == '\n' {
+                app.handle_action(ClientAction::InsertNewline);
+            } else {
+                app.handle_action(ClientAction::TypeChar(ch));
+            }
+        }
     }
 
     fn reward_frame(
@@ -866,6 +883,68 @@ mod tests {
         let scrolled_snapshot = render_snapshot(&scrolled_frame);
         assert_eq!(top_snapshot.game.len(), scrolled_snapshot.game.len());
         assert_eq!(top_snapshot.bottom_chrome, scrolled_snapshot.bottom_chrome);
+    }
+
+    #[test]
+    fn lab_long_problem_render_snapshot_shows_visible_subset_and_stable_editor_rail() {
+        let mut app = lab_app();
+        let top_snapshot = render_snapshot(&app.frame());
+
+        app.handle_action(ClientAction::ScrollProblemDown);
+        let scrolled_snapshot = render_snapshot(&app.frame());
+
+        assert!(top_snapshot.game.iter().any(|line| line == "task:"));
+        assert!(top_snapshot.game.iter().any(
+            |line| line == "Build the smallest Rust entry point that still satisfies the lab."
+        ));
+        assert!(
+            top_snapshot
+                .game
+                .iter()
+                .any(|line| line.contains("Problem 1-5/"))
+        );
+        assert!(
+            scrolled_snapshot
+                .game
+                .iter()
+                .any(|line| line == "requirements:")
+        );
+        assert!(
+            scrolled_snapshot
+                .game
+                .iter()
+                .any(|line| line.contains("Problem 5-9/"))
+        );
+        assert!(!scrolled_snapshot.game.iter().any(|line| line == "task:"));
+        assert_eq!(top_snapshot.game.len(), scrolled_snapshot.game.len());
+        assert_eq!(top_snapshot.bottom_chrome, scrolled_snapshot.bottom_chrome);
+        assert!(scrolled_snapshot.game.iter().any(|line| line == " 1 │ |"));
+    }
+
+    #[test]
+    fn lab_multiline_editor_render_snapshot_shows_multiple_lines_and_gutter() {
+        let mut app = TuiApp::with_session(engine::Session::from_exercise_packets(
+            &lab::exercise_packets()[1..],
+        ));
+        type_text(&mut app, lab::MULTILINE_SOLUTION_EXPECTED);
+
+        let snapshot = render_snapshot_with_workbox_height(&app.frame(), 8);
+
+        assert!(
+            snapshot
+                .game
+                .iter()
+                .any(|line| line == " 1 │ fn add_one(x: i32) -> i32 {")
+        );
+        assert!(snapshot.game.iter().any(|line| line == " 2 │     x + 1"));
+        assert!(snapshot.game.iter().any(|line| line == " 3 │ }|"));
+        assert!(
+            snapshot
+                .bottom_chrome
+                .iter()
+                .any(|line| line.contains(PRIMARY_ACTION_HINT))
+        );
+        assert_eq!(snapshot.feedback, Vec::<String>::new());
     }
 
     #[test]

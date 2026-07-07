@@ -15,6 +15,7 @@ pub fn print_help_text() {
     println!("  rust-reps plain");
     println!("  rust-reps [DRILL_ID]");
     println!("  rust-reps play");
+    println!("  rust-reps lab");
     println!("  rust-reps --list");
     println!("  rust-reps --help");
     println!("  rust-reps --version");
@@ -22,6 +23,10 @@ pub fn print_help_text() {
     println!("Default:");
     println!("  Starts fullscreen TUI in an interactive terminal.");
     println!("  Uses plain practice mode when stdin/stdout are piped.");
+    println!();
+    println!("Lab:");
+    println!("  rust-reps lab starts a fullscreen client stress lab in an interactive terminal.");
+    println!("  It is not curriculum and does not appear in --list.");
     println!();
 }
 

@@ -33,7 +33,8 @@ const DRILL_012_PASS_OUTPUT: &str =
     "Rust Reps\n----------------\n\nDrill 012\nPrompt:\n\nwhile score < 10 {}\n\n>PASS\n";
 const DRILL_012_TRY_AGAIN_OUTPUT: &str = "Rust Reps\n----------------\n\nDrill 012\nPrompt:\n\nwhile score < 10 {}\n\n>TRY AGAIN\nExpected:\nwhile score < 10 {}\n";
 const LIST_OUTPUT: &str = "Rust Reps\n----------------\n\nAvailable drills:\n001  fn main() {}\n002  println!(\"Rust Reps\");\n003  let answer = 42;\n004  let name = \"Rust Reps\";\n005  let mut score = 0;\n006  score += 1;\n007  let passed = true;\n008  let score: i32 = 0;\n009  let scores = [1, 2, 3];\n010  fn add_one(x: i32) -> i32 { x + 1 }\n011  if score > 0 {}\n012  while score < 10 {}\n";
-const HELP_OUTPUT: &str = "Rust Reps\n----------------\n\nUsage:\n  rust-reps\n  rust-reps plain\n  rust-reps [DRILL_ID]\n  rust-reps play\n  rust-reps --list\n  rust-reps --help\n  rust-reps --version\n\nDefault:\n  Starts fullscreen TUI in an interactive terminal.\n  Uses plain practice mode when stdin/stdout are piped.\n\nCurrent drills:\n001  fn main() {}\n002  println!(\"Rust Reps\");\n003  let answer = 42;\n004  let name = \"Rust Reps\";\n005  let mut score = 0;\n006  score += 1;\n007  let passed = true;\n008  let score: i32 = 0;\n009  let scores = [1, 2, 3];\n010  fn add_one(x: i32) -> i32 { x + 1 }\n011  if score > 0 {}\n012  while score < 10 {}\n";
+const HELP_OUTPUT: &str = "Rust Reps\n----------------\n\nUsage:\n  rust-reps\n  rust-reps plain\n  rust-reps [DRILL_ID]\n  rust-reps play\n  rust-reps lab\n  rust-reps --list\n  rust-reps --help\n  rust-reps --version\n\nDefault:\n  Starts fullscreen TUI in an interactive terminal.\n  Uses plain practice mode when stdin/stdout are piped.\n\nLab:\n  rust-reps lab starts a fullscreen client stress lab in an interactive terminal.\n  It is not curriculum and does not appear in --list.\n\nCurrent drills:\n001  fn main() {}\n002  println!(\"Rust Reps\");\n003  let answer = 42;\n004  let name = \"Rust Reps\";\n005  let mut score = 0;\n006  score += 1;\n007  let passed = true;\n008  let score: i32 = 0;\n009  let scores = [1, 2, 3];\n010  fn add_one(x: i32) -> i32 { x + 1 }\n011  if score > 0 {}\n012  while score < 10 {}\n";
+const LAB_REQUIRES_TTY_STDERR: &str = "error: lab mode requires an interactive terminal\n";
 const VERSION_OUTPUT: &str = "rust-reps 0.1.0\n";
 const PRACTICE_ALL_CORRECT_INPUT: &str = concat!(
     "fn main() {}\n",
@@ -983,6 +984,18 @@ fn short_help_command_exits_successfully_and_prints_help() {
     assert!(output.status.success());
     assert_eq!(String::from_utf8(output.stdout).unwrap(), HELP_OUTPUT);
     assert_eq!(String::from_utf8(output.stderr).unwrap(), "");
+}
+
+#[test]
+fn lab_command_requires_interactive_terminal_when_piped() {
+    let output = run_rust_reps(&["lab"], "");
+
+    assert!(!output.status.success());
+    assert_eq!(String::from_utf8(output.stdout).unwrap(), "");
+    assert_eq!(
+        String::from_utf8(output.stderr).unwrap(),
+        LAB_REQUIRES_TTY_STDERR
+    );
 }
 
 #[test]

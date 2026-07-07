@@ -1,7 +1,7 @@
 use std::io;
 use std::time::{Duration, Instant};
 
-use crate::client::ClientAction;
+use crate::{client::ClientAction, engine};
 use crossterm::event::{self, Event};
 
 mod app;
@@ -20,8 +20,15 @@ const CURSOR_BLINK_INTERVAL: Duration = Duration::from_millis(500);
 const TARGET_FRAME_RATE: u16 = 60;
 
 pub fn run_tui() -> io::Result<()> {
+    run_tui_app(TuiApp::new())
+}
+
+pub fn run_tui_with_session(session: engine::Session) -> io::Result<()> {
+    run_tui_app(TuiApp::with_session(session))
+}
+
+fn run_tui_app(mut app: TuiApp) -> io::Result<()> {
     let mut terminal = terminal::TuiTerminal::enter()?;
-    let mut app = TuiApp::new();
 
     let loop_result = run_tui_loop(&mut terminal, &mut app);
     let cleanup_result = terminal.cleanup();

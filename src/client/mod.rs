@@ -649,7 +649,7 @@ pub fn project_client_frame_at(
     let snapshot = session.snapshot();
     let exercise = snapshot
         .exercise
-        .unwrap_or_else(engine::first_exercise_packet);
+        .unwrap_or_else(|| session.first_exercise_packet());
     let editor_view = ui_state.editor_view();
     let input = editor_view.text.clone();
     let line_tokens = editor_view
@@ -697,12 +697,19 @@ pub fn project_client_frame_at(
 }
 
 fn problem_display_lines(instruction: &str, prompt: &str) -> Vec<ProblemDisplayLine> {
-    vec![
+    let mut lines = vec![
         ProblemDisplayLine::blank(),
         ProblemDisplayLine::header(instruction),
         ProblemDisplayLine::blank(),
-        ProblemDisplayLine::code(prompt),
-    ]
+    ];
+    lines.extend(prompt.lines().map(|line| {
+        if line.is_empty() {
+            ProblemDisplayLine::blank()
+        } else {
+            ProblemDisplayLine::code(line)
+        }
+    }));
+    lines
 }
 
 pub fn tokenize_rust_line(line: &str) -> Vec<CodeToken> {
@@ -874,7 +881,7 @@ fn is_keyword(identifier: &str) -> bool {
 fn is_type_name(identifier: &str) -> bool {
     matches!(
         identifier,
-        "i32" | "u32" | "usize" | "bool" | "String" | "str" | "char" | "Option"
+        "i32" | "u32" | "usize" | "bool" | "String" | "str" | "char" | "Option" | "Vec" | "Result"
     )
 }
 
@@ -1045,12 +1052,25 @@ mod tests {
                 .any(|token| token.kind == CodeTokenKind::Type && token.text == "str")
         );
 
-        let generic_tokens = tokenize_rust_line("Option<String>");
-        assert_eq!(token_text(&generic_tokens), "Option<String>");
+        let generic_tokens = tokenize_rust_line("Vec<Option<Result<String, i32>>>");
+        assert_eq!(
+            token_text(&generic_tokens),
+            "Vec<Option<Result<String, i32>>>"
+        );
+        assert!(
+            generic_tokens
+                .iter()
+                .any(|token| token.kind == CodeTokenKind::Type && token.text == "Vec")
+        );
         assert!(
             generic_tokens
                 .iter()
                 .any(|token| token.kind == CodeTokenKind::Type && token.text == "Option")
+        );
+        assert!(
+            generic_tokens
+                .iter()
+                .any(|token| token.kind == CodeTokenKind::Type && token.text == "Result")
         );
         assert!(
             generic_tokens
@@ -1072,6 +1092,7 @@ mod tests {
             "// note",
             "&str",
             "Option<String>",
+            "Vec<Option<Result<String, i32>>>",
         ] {
             assert_eq!(token_text(&tokenize_rust_line(line)), line);
         }
@@ -1180,6 +1201,69 @@ mod tests {
             ..problem
         };
         assert_eq!(fitting_problem.scroll_hint(3), None);
+    }
+
+    #[test]
+    fn lab_long_problem_overflows_and_exposes_scroll_hint() {
+        let session = engine::Session::from_exercise_packets(crate::lab::exercise_packets());
+        let ui_state = ClientUiState::new();
+        let frame = project_client_frame(&session, &ui_state);
+        let problem = &frame.game_window.problem;
+
+        assert_eq!(problem.prompt, crate::lab::LONG_PROBLEM_PROMPT);
+        assert!(problem.lines.len() > 10);
+        assert_eq!(problem.viewport.scroll_offset, 0);
+        assert_eq!(
+            problem
+                .visible_lines(5)
+                .iter()
+                .map(|line| line.text.as_str())
+                .collect::<Vec<_>>(),
+            vec![
+                "",
+                "do this:",
+                "",
+                "task:",
+                "Build the smallest Rust entry point that still satisfies the lab."
+            ]
+        );
+        assert_eq!(
+            problem.scroll_hint(5),
+            Some(super::ProblemScrollHint {
+                first_visible: 1,
+                last_visible: 5,
+                total: problem.lines.len(),
+            })
+        );
+    }
+
+    #[test]
+    fn page_down_and_page_up_scroll_lab_problem_without_editor_changes() {
+        let session = engine::Session::from_exercise_packets(crate::lab::exercise_packets());
+        let mut ui_state = ClientUiState::new();
+        ui_state.apply_action(ClientAction::TypeChar('x'));
+        let before_editor = ui_state.editor_view();
+
+        ui_state.apply_action(ClientAction::ScrollProblemDown);
+        let scrolled = project_client_frame(&session, &ui_state);
+        assert_eq!(
+            scrolled.game_window.problem.viewport.scroll_offset,
+            PROBLEM_SCROLL_LINES
+        );
+        assert!(
+            scrolled
+                .game_window
+                .problem
+                .visible_lines(5)
+                .iter()
+                .any(|line| line.text == "requirements:")
+        );
+        assert_eq!(ui_state.editor_view(), before_editor);
+
+        ui_state.apply_action(ClientAction::ScrollProblemUp);
+        let returned = project_client_frame(&session, &ui_state);
+        assert_eq!(returned.game_window.problem.viewport.scroll_offset, 0);
+        assert_eq!(ui_state.editor_view(), before_editor);
     }
 
     #[test]

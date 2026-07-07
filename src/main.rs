@@ -4,6 +4,7 @@ mod cli;
 mod client;
 mod curriculum;
 mod engine;
+mod lab;
 mod practice;
 mod presentation;
 mod tui;
@@ -50,6 +51,10 @@ fn main() {
             run_tui_or_exit();
             return;
         }
+        cli::DrillCommand::Lab => {
+            run_lab_or_exit();
+            return;
+        }
     }
 }
 
@@ -67,6 +72,20 @@ fn should_launch_tui_for(no_args: bool, stdin_is_terminal: bool, stdout_is_termi
 
 fn run_tui_or_exit() {
     if let Err(err) = tui::run_tui() {
+        eprintln!("error: {}", err);
+        process::exit(1);
+    }
+}
+
+fn run_lab_or_exit() {
+    if !io::stdin().is_terminal() || !io::stdout().is_terminal() {
+        eprintln!("error: lab mode requires an interactive terminal");
+        process::exit(1);
+    }
+
+    if let Err(err) = tui::run_tui_with_session(engine::Session::from_exercise_packets(
+        lab::exercise_packets(),
+    )) {
         eprintln!("error: {}", err);
         process::exit(1);
     }
@@ -110,6 +129,7 @@ mod tests {
             cli::DrillCommand::Help => panic!("expected practice command"),
             cli::DrillCommand::Version => panic!("expected practice command"),
             cli::DrillCommand::Tui => panic!("expected practice command"),
+            cli::DrillCommand::Lab => panic!("expected practice command"),
         }
     }
 
@@ -130,6 +150,7 @@ mod tests {
             cli::DrillCommand::Help => panic!("expected practice command"),
             cli::DrillCommand::Version => panic!("expected practice command"),
             cli::DrillCommand::Tui => panic!("expected practice command"),
+            cli::DrillCommand::Lab => panic!("expected practice command"),
         }
     }
 
@@ -142,6 +163,7 @@ mod tests {
             cli::DrillCommand::Help => panic!("expected practice command"),
             cli::DrillCommand::Version => panic!("expected practice command"),
             cli::DrillCommand::Tui => panic!("expected practice command"),
+            cli::DrillCommand::Lab => panic!("expected practice command"),
         }
     }
 
@@ -157,6 +179,7 @@ mod tests {
             cli::DrillCommand::Help => panic!("expected Drill 001"),
             cli::DrillCommand::Version => panic!("expected Drill 001"),
             cli::DrillCommand::Tui => panic!("expected Drill 001"),
+            cli::DrillCommand::Lab => panic!("expected Drill 001"),
         }
     }
 
@@ -172,6 +195,7 @@ mod tests {
             cli::DrillCommand::Help => panic!("expected Drill 012"),
             cli::DrillCommand::Version => panic!("expected Drill 012"),
             cli::DrillCommand::Tui => panic!("expected Drill 012"),
+            cli::DrillCommand::Lab => panic!("expected Drill 012"),
         }
     }
 
@@ -184,6 +208,7 @@ mod tests {
             cli::DrillCommand::Help => panic!("expected list command"),
             cli::DrillCommand::Version => panic!("expected list command"),
             cli::DrillCommand::Tui => panic!("expected list command"),
+            cli::DrillCommand::Lab => panic!("expected list command"),
         }
     }
 
@@ -196,6 +221,7 @@ mod tests {
             cli::DrillCommand::List => panic!("expected help command"),
             cli::DrillCommand::Version => panic!("expected help command"),
             cli::DrillCommand::Tui => panic!("expected help command"),
+            cli::DrillCommand::Lab => panic!("expected help command"),
         }
     }
 
@@ -208,6 +234,7 @@ mod tests {
             cli::DrillCommand::List => panic!("expected help command"),
             cli::DrillCommand::Version => panic!("expected help command"),
             cli::DrillCommand::Tui => panic!("expected help command"),
+            cli::DrillCommand::Lab => panic!("expected help command"),
         }
     }
 
@@ -220,6 +247,7 @@ mod tests {
             cli::DrillCommand::List => panic!("expected version command"),
             cli::DrillCommand::Help => panic!("expected version command"),
             cli::DrillCommand::Tui => panic!("expected version command"),
+            cli::DrillCommand::Lab => panic!("expected version command"),
         }
     }
 
@@ -262,6 +290,20 @@ mod tests {
             cli::DrillCommand::List => panic!("expected tui command"),
             cli::DrillCommand::Help => panic!("expected tui command"),
             cli::DrillCommand::Version => panic!("expected tui command"),
+            cli::DrillCommand::Lab => panic!("expected tui command"),
+        }
+    }
+
+    #[test]
+    fn lab_arg_selects_lab_command() {
+        match cli::select_command(&["lab"]).unwrap() {
+            cli::DrillCommand::Lab => {}
+            cli::DrillCommand::Practice => panic!("expected lab command"),
+            cli::DrillCommand::Run(_) => panic!("expected lab command"),
+            cli::DrillCommand::List => panic!("expected lab command"),
+            cli::DrillCommand::Help => panic!("expected lab command"),
+            cli::DrillCommand::Version => panic!("expected lab command"),
+            cli::DrillCommand::Tui => panic!("expected lab command"),
         }
     }
 

@@ -15,8 +15,12 @@ pub struct TuiApp {
 
 impl TuiApp {
     pub fn new() -> Self {
+        Self::with_session(engine::Session::new())
+    }
+
+    pub fn with_session(session: engine::Session) -> Self {
         Self {
-            session: engine::Session::new(),
+            session,
             ui_state: ClientUiState::new(),
             should_quit: false,
             completed: false,
@@ -50,7 +54,7 @@ impl TuiApp {
     pub fn active_exercise(&self) -> engine::ExercisePacket {
         self.session
             .current_exercise()
-            .unwrap_or_else(engine::first_exercise_packet)
+            .unwrap_or_else(|| self.session.first_exercise_packet())
     }
 
     #[cfg(test)]
@@ -267,6 +271,22 @@ mod tests {
         Instant::now()
     }
 
+    fn lab_app() -> TuiApp {
+        TuiApp::with_session(crate::engine::Session::from_exercise_packets(
+            crate::lab::exercise_packets(),
+        ))
+    }
+
+    fn type_text(app: &mut TuiApp, text: &str) {
+        for ch in text.chars() {
+            if ch == '\n' {
+                app.handle_action(ClientAction::InsertNewline);
+            } else {
+                app.handle_action(ClientAction::TypeChar(ch));
+            }
+        }
+    }
+
     #[test]
     fn new_session_starts_without_reward_event() {
         let app = TuiApp::new();
@@ -475,6 +495,132 @@ mod tests {
                 .id,
             "002"
         );
+    }
+
+    #[test]
+    fn lab_session_starts_at_first_lab_exercise() {
+        let app = lab_app();
+
+        assert_eq!(
+            app.session()
+                .current_exercise()
+                .expect("expected first lab exercise")
+                .id,
+            crate::lab::LONG_PROBLEM_ID
+        );
+        assert_eq!(
+            app.session().total_drills(),
+            crate::lab::exercise_packets().len()
+        );
+        assert_eq!(app.frame().completed_reps_this_run, 0);
+    }
+
+    #[test]
+    fn lab_skip_advances_without_reward() {
+        let mut app = lab_app();
+        let now = test_now();
+
+        app.handle_action_at(ClientAction::Skip, now);
+
+        assert_eq!(app.session().passed(), 0);
+        assert_eq!(app.session().skipped(), 1);
+        assert_eq!(app.frame_at(now).completed_reps_this_run, 0);
+        assert!(!app.frame_at(now).reward_active);
+        assert!(!app.frame_at(now).reward.show_plus_one);
+        assert_eq!(
+            app.session()
+                .current_exercise()
+                .expect("expected second lab exercise")
+                .id,
+            crate::lab::MULTILINE_SOLUTION_ID
+        );
+    }
+
+    #[test]
+    fn lab_correct_multiline_answer_passes() {
+        let mut app = lab_app();
+        let now = test_now();
+        app.handle_action(ClientAction::Skip);
+        type_text(&mut app, crate::lab::MULTILINE_SOLUTION_EXPECTED);
+
+        app.handle_action_at(ClientAction::Submit, now);
+
+        assert_eq!(app.session().passed(), 1);
+        assert_eq!(app.session().attempts(), 1);
+        assert_eq!(app.input(), "");
+        assert!(app.frame_at(now).reward_active);
+        assert!(app.frame_at(now).reward.show_plus_one);
+        assert_eq!(
+            app.session()
+                .current_exercise()
+                .expect("expected syntax sampler lab exercise")
+                .id,
+            crate::lab::SYNTAX_SAMPLER_ID
+        );
+    }
+
+    #[test]
+    fn lab_correct_multiline_answer_with_one_final_newline_passes() {
+        let mut app = lab_app();
+        app.handle_action(ClientAction::Skip);
+        type_text(&mut app, crate::lab::MULTILINE_SOLUTION_EXPECTED);
+        app.handle_action(ClientAction::InsertNewline);
+
+        app.handle_action(ClientAction::Submit);
+
+        assert_eq!(app.session().passed(), 1);
+        assert_eq!(app.session().attempts(), 1);
+        assert_eq!(app.input(), "");
+    }
+
+    #[test]
+    fn lab_extra_blank_line_is_wrong_and_preserves_buffer() {
+        let mut app = lab_app();
+        app.handle_action(ClientAction::Skip);
+        type_text(&mut app, crate::lab::MULTILINE_SOLUTION_EXPECTED);
+        app.handle_action(ClientAction::InsertNewline);
+        app.handle_action(ClientAction::InsertNewline);
+
+        app.handle_action(ClientAction::Submit);
+
+        assert_eq!(app.session().passed(), 0);
+        assert_eq!(app.session().attempts(), 1);
+        assert_eq!(
+            app.session()
+                .current_exercise()
+                .expect("expected multiline lab exercise")
+                .id,
+            crate::lab::MULTILINE_SOLUTION_ID
+        );
+        assert_eq!(
+            app.input(),
+            format!("{}\n\n", crate::lab::MULTILINE_SOLUTION_EXPECTED)
+        );
+        assert_eq!(
+            app.status_lines(),
+            &[
+                "not quite".to_string(),
+                "expected:".to_string(),
+                crate::lab::MULTILINE_SOLUTION_EXPECTED.to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn lab_wrong_multiline_answer_preserves_editor_buffer() {
+        let mut app = lab_app();
+        app.handle_action(ClientAction::Skip);
+        type_text(&mut app, "fn add_one(x: i32) -> i32 {\n    x\n}");
+        let before_cursor = app.frame().game_window.workbox.cursor;
+
+        app.handle_action(ClientAction::Submit);
+
+        assert_eq!(app.session().passed(), 0);
+        assert_eq!(app.session().attempts(), 1);
+        assert_eq!(app.input(), "fn add_one(x: i32) -> i32 {\n    x\n}");
+        assert_eq!(app.frame().game_window.workbox.cursor, before_cursor);
+        assert!(!app.frame().reward_active);
+        assert!(app.frame().failure_active);
     }
 
     #[test]

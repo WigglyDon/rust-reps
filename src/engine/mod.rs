@@ -66,7 +66,30 @@ pub struct SessionSnapshot {
     pub is_complete: bool,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ExerciseSource {
+    Catalog,
+    Packets(&'static [ExercisePacket]),
+}
+
+impl ExerciseSource {
+    fn len(self) -> usize {
+        match self {
+            Self::Catalog => catalog::drills().len(),
+            Self::Packets(packets) => packets.len(),
+        }
+    }
+
+    fn get(self, index: usize) -> Option<ExercisePacket> {
+        match self {
+            Self::Catalog => catalog_exercise_packet_at(index),
+            Self::Packets(packets) => packets.get(index).copied(),
+        }
+    }
+}
+
 pub struct Session {
+    source: ExerciseSource,
     index: usize,
     passed: usize,
     skipped: usize,
@@ -76,6 +99,17 @@ pub struct Session {
 impl Session {
     pub fn new() -> Self {
         Self {
+            source: ExerciseSource::Catalog,
+            index: 0,
+            passed: 0,
+            skipped: 0,
+            attempts: 0,
+        }
+    }
+
+    pub fn from_exercise_packets(packets: &'static [ExercisePacket]) -> Self {
+        Self {
+            source: ExerciseSource::Packets(packets),
             index: 0,
             passed: 0,
             skipped: 0,
@@ -84,7 +118,7 @@ impl Session {
     }
 
     pub fn total_drills(&self) -> usize {
-        catalog::drills().len()
+        self.source.len()
     }
 
     pub fn passed(&self) -> usize {
@@ -104,7 +138,11 @@ impl Session {
     }
 
     pub fn current_exercise(&self) -> Option<ExercisePacket> {
-        exercise_packet_at(self.index)
+        self.source.get(self.index)
+    }
+
+    pub fn first_exercise_packet(&self) -> ExercisePacket {
+        self.source.get(0).unwrap_or_else(first_exercise_packet)
     }
 
     pub fn stats(&self) -> SessionStats {
@@ -152,15 +190,15 @@ impl Session {
 
 pub fn exercise_packets() -> Vec<ExercisePacket> {
     (0..catalog::drills().len())
-        .filter_map(exercise_packet_at)
+        .filter_map(catalog_exercise_packet_at)
         .collect()
 }
 
 pub fn first_exercise_packet() -> ExercisePacket {
-    exercise_packet_at(0).expect("catalog contains at least one exercise")
+    catalog_exercise_packet_at(0).expect("catalog contains at least one exercise")
 }
 
-fn exercise_packet_at(index: usize) -> Option<ExercisePacket> {
+fn catalog_exercise_packet_at(index: usize) -> Option<ExercisePacket> {
     let drill = catalog::drills().get(index)?;
     Some(ExercisePacket {
         id: drill.id,
@@ -177,6 +215,7 @@ fn exercise_packet_at(index: usize) -> Option<ExercisePacket> {
 #[cfg(test)]
 mod tests {
     use super::{ExerciseKind, ExerciseValidator, Session, SkipResult, SubmitResult};
+    use crate::lab;
 
     #[test]
     fn new_session_starts_at_exercise_001() {
@@ -193,6 +232,59 @@ mod tests {
         assert_eq!(session.skipped(), 0);
         assert_eq!(session.attempts(), 0);
         assert!(!session.is_complete());
+    }
+
+    #[test]
+    fn lab_session_can_be_built_from_static_packets() {
+        let session = Session::from_exercise_packets(lab::exercise_packets());
+
+        assert_eq!(
+            session
+                .current_exercise()
+                .expect("expected first lab exercise")
+                .id,
+            "LAB-001"
+        );
+        assert_eq!(session.total_drills(), lab::exercise_packets().len());
+        assert_eq!(session.stats().total_drills, lab::exercise_packets().len());
+        assert!(!session.is_complete());
+    }
+
+    #[test]
+    fn lab_multiline_answer_uses_exact_answer_rules() {
+        let mut session = Session::from_exercise_packets(lab::exercise_packets());
+        assert_eq!(session.skip(), SkipResult::Skipped);
+
+        assert_eq!(
+            session.submit_answer(lab::MULTILINE_SOLUTION_EXPECTED),
+            SubmitResult::Correct
+        );
+        assert_eq!(session.passed(), 1);
+        assert_eq!(session.attempts(), 1);
+    }
+
+    #[test]
+    fn lab_multiline_answer_allows_one_final_line_ending_only() {
+        let mut one_final_lf = Session::from_exercise_packets(lab::exercise_packets());
+        assert_eq!(one_final_lf.skip(), SkipResult::Skipped);
+        assert_eq!(
+            one_final_lf.submit_answer(&format!("{}\n", lab::MULTILINE_SOLUTION_EXPECTED)),
+            SubmitResult::Correct
+        );
+
+        let mut extra_blank_line = Session::from_exercise_packets(lab::exercise_packets());
+        assert_eq!(extra_blank_line.skip(), SkipResult::Skipped);
+        assert_eq!(
+            extra_blank_line.submit_answer(&format!("{}\n\n", lab::MULTILINE_SOLUTION_EXPECTED)),
+            SubmitResult::TryAgain
+        );
+        assert_eq!(
+            extra_blank_line
+                .current_exercise()
+                .expect("expected lab multiline exercise")
+                .id,
+            lab::MULTILINE_SOLUTION_ID
+        );
     }
 
     #[test]
