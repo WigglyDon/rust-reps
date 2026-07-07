@@ -63,7 +63,7 @@ pub(crate) fn surface_style() -> Style {
 #[cfg(test)]
 pub(crate) fn border_style(reward: RewardFrame) -> Style {
     let intensity = if reward.active {
-        reward.intensity.min(85)
+        reward.game_glow_intensity.min(85)
     } else {
         0
     };
@@ -194,7 +194,7 @@ fn plus_one_color(reward: RewardFrame) -> Color {
     blend_color(
         RUST_REPS_DARK.counter_faded,
         RUST_REPS_DARK.reward_plus_one,
-        reward.intensity,
+        reward.plus_one_intensity,
     )
 }
 
@@ -295,25 +295,29 @@ mod tests {
         let stable_counter = counter_style();
         let low_plus_one = plus_one_style(RewardFrame {
             active: false,
-            intensity: 0,
+            plus_one_intensity: 0,
+            game_glow_intensity: 0,
             sweep_progress: 0,
             show_plus_one: false,
         });
         let reward_plus_one = plus_one_style(RewardFrame {
             active: true,
-            intensity: 100,
+            plus_one_intensity: 100,
+            game_glow_intensity: 58,
             sweep_progress: 100,
             show_plus_one: true,
         });
         let normal_border = border_style(RewardFrame {
             active: false,
-            intensity: 0,
+            plus_one_intensity: 0,
+            game_glow_intensity: 0,
             sweep_progress: 0,
             show_plus_one: false,
         });
         let reward_border = border_style(RewardFrame {
             active: true,
-            intensity: 100,
+            plus_one_intensity: 100,
+            game_glow_intensity: 58,
             sweep_progress: 100,
             show_plus_one: true,
         });

@@ -53,16 +53,19 @@ impl CodeToken {
     }
 }
 
-pub const REWARD_ATTACK_DURATION: Duration = Duration::from_millis(300);
-pub const REWARD_PLUS_ONE_HOLD_DURATION: Duration = Duration::from_millis(500);
-pub const REWARD_RELEASE_DURATION: Duration = Duration::from_millis(2_500);
-pub const REWARD_DURATION: Duration = Duration::from_millis(3_300);
-pub const REWARD_SWEEP_DURATION: Duration = Duration::from_millis(1_200);
+pub const REWARD_ATTACK_DURATION: Duration = Duration::from_millis(150);
+pub const REWARD_PLUS_ONE_BODY_DURATION: Duration = Duration::from_millis(1_050);
+pub const REWARD_RELEASE_DURATION: Duration = Duration::from_millis(1_050);
+pub const REWARD_DURATION: Duration = Duration::from_millis(2_250);
+pub const REWARD_SWEEP_DURATION: Duration = Duration::from_millis(850);
+pub const REWARD_GAME_GLOW_DELAY: Duration = Duration::from_millis(80);
+pub const REWARD_GAME_GLOW_MAX_INTENSITY: u8 = 58;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct RewardFrame {
     pub active: bool,
-    pub intensity: u8,
+    pub plus_one_intensity: u8,
+    pub game_glow_intensity: u8,
     pub sweep_progress: u8,
     pub show_plus_one: bool,
 }
@@ -71,7 +74,8 @@ impl RewardFrame {
     fn idle() -> Self {
         Self {
             active: false,
-            intensity: 0,
+            plus_one_intensity: 0,
+            game_glow_intensity: 0,
             sweep_progress: 0,
             show_plus_one: false,
         }
@@ -117,19 +121,20 @@ impl RewardAnimation {
 
         RewardFrame {
             active: true,
-            intensity: reward_intensity_at(elapsed),
+            plus_one_intensity: plus_one_intensity_at(elapsed),
+            game_glow_intensity: game_glow_intensity_at(elapsed),
             sweep_progress: reward_sweep_progress_at(elapsed),
             show_plus_one: true,
         }
     }
 }
 
-fn reward_intensity_at(elapsed: Duration) -> u8 {
+fn plus_one_intensity_at(elapsed: Duration) -> u8 {
     if elapsed >= REWARD_DURATION {
         return 0;
     }
 
-    let release_starts_at = REWARD_ATTACK_DURATION + REWARD_PLUS_ONE_HOLD_DURATION;
+    let release_starts_at = REWARD_ATTACK_DURATION + REWARD_PLUS_ONE_BODY_DURATION;
     let intensity = if elapsed < REWARD_ATTACK_DURATION {
         ease_out_cubic(duration_progress(elapsed, REWARD_ATTACK_DURATION))
     } else if elapsed < release_starts_at {
@@ -140,6 +145,18 @@ fn reward_intensity_at(elapsed: Duration) -> u8 {
     };
 
     (intensity * 100.0).round().clamp(0.0, 100.0) as u8
+}
+
+fn game_glow_intensity_at(elapsed: Duration) -> u8 {
+    if elapsed < REWARD_GAME_GLOW_DELAY || elapsed >= REWARD_DURATION {
+        return 0;
+    }
+
+    let delayed_elapsed = elapsed.saturating_sub(REWARD_GAME_GLOW_DELAY);
+    let plus_one_intensity = plus_one_intensity_at(delayed_elapsed);
+    ((f32::from(plus_one_intensity) * f32::from(REWARD_GAME_GLOW_MAX_INTENSITY)) / 100.0)
+        .round()
+        .clamp(0.0, f32::from(REWARD_GAME_GLOW_MAX_INTENSITY)) as u8
 }
 
 fn reward_sweep_progress_at(elapsed: Duration) -> u8 {
@@ -597,9 +614,9 @@ mod tests {
 
     use super::{
         ClientAction, ClientUiState, CodeTokenKind, CursorPosition, REWARD_ATTACK_DURATION,
-        REWARD_DURATION, REWARD_PLUS_ONE_HOLD_DURATION, REWARD_RELEASE_DURATION,
-        REWARD_SWEEP_DURATION, StatusTone, project_client_frame, project_client_frame_at,
-        tokenize_rust_line,
+        REWARD_DURATION, REWARD_GAME_GLOW_DELAY, REWARD_GAME_GLOW_MAX_INTENSITY,
+        REWARD_PLUS_ONE_BODY_DURATION, REWARD_RELEASE_DURATION, REWARD_SWEEP_DURATION, StatusTone,
+        project_client_frame, project_client_frame_at, tokenize_rust_line,
     };
     use crate::engine;
 
@@ -818,26 +835,33 @@ mod tests {
         let frame = project_client_frame_at(&session, &ui_state, now);
 
         assert_eq!(frame.completed_reps_this_run, 0);
-        assert_eq!(frame.reward.intensity, 0);
+        assert_eq!(frame.reward.plus_one_intensity, 0);
+        assert_eq!(frame.reward.game_glow_intensity, 0);
         assert!(!frame.reward.show_plus_one);
         assert!(!frame.reward_active);
     }
 
     #[test]
-    fn reward_timing_uses_slower_bottom_rail_pulse() {
-        assert_eq!(REWARD_ATTACK_DURATION, Duration::from_millis(300));
-        assert_eq!(REWARD_PLUS_ONE_HOLD_DURATION, Duration::from_millis(500));
-        assert_eq!(REWARD_RELEASE_DURATION, Duration::from_millis(2_500));
-        assert_eq!(REWARD_DURATION, Duration::from_millis(3_300));
-        assert_eq!(REWARD_SWEEP_DURATION, Duration::from_millis(1_200));
-        assert!(REWARD_DURATION >= Duration::from_millis(3_000));
+    fn reward_timing_uses_shorter_middle_heavy_boop() {
+        assert_eq!(REWARD_ATTACK_DURATION, Duration::from_millis(150));
+        assert_eq!(REWARD_PLUS_ONE_BODY_DURATION, Duration::from_millis(1_050));
+        assert_eq!(REWARD_RELEASE_DURATION, Duration::from_millis(1_050));
+        assert_eq!(REWARD_DURATION, Duration::from_millis(2_250));
+        assert_eq!(REWARD_SWEEP_DURATION, Duration::from_millis(850));
+        assert_eq!(REWARD_GAME_GLOW_DELAY, Duration::from_millis(80));
+        assert_eq!(REWARD_GAME_GLOW_MAX_INTENSITY, 58);
+        assert!(REWARD_DURATION >= Duration::from_millis(2_200));
+        assert!(REWARD_DURATION < Duration::from_millis(2_600));
+        assert!(REWARD_DURATION < Duration::from_millis(3_300));
         assert!(REWARD_RELEASE_DURATION > REWARD_ATTACK_DURATION);
+        assert!(REWARD_PLUS_ONE_BODY_DURATION > REWARD_ATTACK_DURATION);
         assert!(REWARD_SWEEP_DURATION > REWARD_ATTACK_DURATION);
         assert!(REWARD_SWEEP_DURATION < REWARD_DURATION);
+        assert!(REWARD_GAME_GLOW_MAX_INTENSITY < 100);
     }
 
     #[test]
-    fn reward_event_attack_reaches_high_intensity_quickly() {
+    fn plus_one_boop_reaches_readable_strength_quickly() {
         let mut ui_state = ClientUiState::new();
         let now = test_now();
 
@@ -849,14 +873,18 @@ mod tests {
         let attack_end = ui_state.reward_frame_at(now + REWARD_ATTACK_DURATION);
 
         assert!(start.active);
-        assert_eq!(start.intensity, 0);
+        assert_eq!(start.plus_one_intensity, 0);
+        assert_eq!(start.game_glow_intensity, 0);
         assert!(start.show_plus_one);
         assert!(quick_hit.active);
-        assert!(quick_hit.intensity >= 80);
+        assert!(quick_hit.plus_one_intensity >= 80);
+        assert_eq!(quick_hit.game_glow_intensity, 0);
         assert!(quick_hit.sweep_progress > start.sweep_progress);
         assert!(quick_hit.show_plus_one);
         assert!(attack_end.active);
-        assert_eq!(attack_end.intensity, 100);
+        assert_eq!(attack_end.plus_one_intensity, 100);
+        assert!(attack_end.game_glow_intensity > 0);
+        assert!(attack_end.plus_one_intensity > attack_end.game_glow_intensity);
         assert!(attack_end.sweep_progress > quick_hit.sweep_progress);
         assert!(attack_end.show_plus_one);
     }
@@ -880,29 +908,52 @@ mod tests {
     }
 
     #[test]
-    fn reward_event_holds_plus_one_briefly_then_releases_slowly() {
+    fn game_glow_lags_plus_one_and_stays_secondary() {
+        let mut ui_state = ClientUiState::new();
+        let now = test_now();
+        ui_state.start_reward_event(now);
+
+        let before_glow = ui_state.reward_frame_at(now + REWARD_GAME_GLOW_DELAY / 2);
+        let glow_peak =
+            ui_state.reward_frame_at(now + REWARD_ATTACK_DURATION + REWARD_GAME_GLOW_DELAY);
+
+        assert!(before_glow.plus_one_intensity > 0);
+        assert_eq!(before_glow.game_glow_intensity, 0);
+        assert_eq!(glow_peak.plus_one_intensity, 100);
+        assert!(glow_peak.game_glow_intensity > 0);
+        assert_eq!(
+            glow_peak.game_glow_intensity,
+            REWARD_GAME_GLOW_MAX_INTENSITY
+        );
+        assert!(glow_peak.plus_one_intensity > glow_peak.game_glow_intensity);
+    }
+
+    #[test]
+    fn plus_one_boop_holds_body_then_releases_cleanly() {
         let mut ui_state = ClientUiState::new();
         let now = test_now();
         ui_state.start_reward_event(now);
 
         let hold_mid = ui_state
-            .reward_frame_at(now + REWARD_ATTACK_DURATION + (REWARD_PLUS_ONE_HOLD_DURATION / 2));
-        let release_starts_at = REWARD_ATTACK_DURATION + REWARD_PLUS_ONE_HOLD_DURATION;
+            .reward_frame_at(now + REWARD_ATTACK_DURATION + (REWARD_PLUS_ONE_BODY_DURATION / 2));
+        let release_starts_at = REWARD_ATTACK_DURATION + REWARD_PLUS_ONE_BODY_DURATION;
         let early_release =
             ui_state.reward_frame_at(now + release_starts_at + Duration::from_millis(250));
         let late_release =
             ui_state.reward_frame_at(now + release_starts_at + Duration::from_millis(800));
 
-        assert_eq!(hold_mid.intensity, 100);
+        assert_eq!(hold_mid.plus_one_intensity, 100);
+        assert!(hold_mid.plus_one_intensity > hold_mid.game_glow_intensity);
         assert!(hold_mid.show_plus_one);
         assert!(REWARD_RELEASE_DURATION > REWARD_ATTACK_DURATION);
         assert!(early_release.active);
         assert!(early_release.show_plus_one);
         assert!(late_release.active);
         assert!(late_release.show_plus_one);
-        assert!(early_release.intensity < hold_mid.intensity);
-        assert!(early_release.intensity > late_release.intensity);
-        assert!(late_release.intensity > 0);
+        assert!(early_release.plus_one_intensity < hold_mid.plus_one_intensity);
+        assert!(early_release.plus_one_intensity > late_release.plus_one_intensity);
+        assert!(late_release.plus_one_intensity > 0);
+        assert!(early_release.plus_one_intensity > early_release.game_glow_intensity);
     }
 
     #[test]
@@ -1009,7 +1060,8 @@ mod tests {
         let frame = project_client_frame_at(&fresh_session, &ui_state, now);
 
         assert_eq!(frame.completed_reps_this_run, 0);
-        assert_eq!(frame.reward.intensity, 0);
+        assert_eq!(frame.reward.plus_one_intensity, 0);
+        assert_eq!(frame.reward.game_glow_intensity, 0);
         assert!(!frame.reward.show_plus_one);
         assert!(!frame.reward_active);
     }

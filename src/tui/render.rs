@@ -173,18 +173,18 @@ fn reward_sweep_intensity_at(x: u16, y: u16, area: Rect, reward: RewardFrame) ->
 
     let cell_progress = border_sweep_cell_progress(x, y, area);
     let sweep_progress = f32::from(reward.sweep_progress) / 100.0;
-    let wave_width = 0.28;
+    let wave_width = 0.24;
     let wave_distance = (cell_progress - sweep_progress).abs();
     let wave = 1.0 - smoothstep((wave_distance / wave_width).clamp(0.0, 1.0));
     let tail = if cell_progress <= sweep_progress {
         let tail_distance = sweep_progress - cell_progress;
-        (1.0 - smoothstep((tail_distance / 0.72).clamp(0.0, 1.0))) * 0.42
+        (1.0 - smoothstep((tail_distance / 0.58).clamp(0.0, 1.0))) * 0.28
     } else {
         0.0
     };
     let spatial_intensity = wave.max(tail);
 
-    (spatial_intensity * f32::from(reward.intensity))
+    (spatial_intensity * f32::from(reward.game_glow_intensity))
         .round()
         .clamp(0.0, 100.0) as u8
 }
@@ -463,7 +463,7 @@ mod tests {
     };
     use crate::{
         client::{
-            ClientAction, REWARD_ATTACK_DURATION, REWARD_DURATION, REWARD_PLUS_ONE_HOLD_DURATION,
+            ClientAction, REWARD_ATTACK_DURATION, REWARD_DURATION, REWARD_PLUS_ONE_BODY_DURATION,
             RewardFrame, StatusTone,
         },
         tui::{
@@ -478,12 +478,17 @@ mod tests {
         Instant::now()
     }
 
-    fn reward_frame(intensity: u8, sweep_progress: u8) -> RewardFrame {
+    fn reward_frame(
+        plus_one_intensity: u8,
+        game_glow_intensity: u8,
+        sweep_progress: u8,
+    ) -> RewardFrame {
         RewardFrame {
-            active: intensity > 0,
-            intensity,
+            active: plus_one_intensity > 0 || game_glow_intensity > 0,
+            plus_one_intensity,
+            game_glow_intensity,
             sweep_progress,
-            show_plus_one: intensity > 0,
+            show_plus_one: plus_one_intensity > 0,
         }
     }
 
@@ -707,7 +712,7 @@ mod tests {
         assert_eq!(line.spans[1].style.fg, Some(RUST_REPS_DARK.reward_plus_one));
 
         let frame =
-            app.frame_at(now + REWARD_ATTACK_DURATION + (REWARD_PLUS_ONE_HOLD_DURATION / 2));
+            app.frame_at(now + REWARD_ATTACK_DURATION + (REWARD_PLUS_ONE_BODY_DURATION / 2));
         let lines = bottom_chrome_lines(&frame);
         let line = lines.get(1).expect("expected bottom rail reward line");
         assert_eq!(line.spans[0].content.as_ref(), "reps 1");
@@ -755,25 +760,29 @@ mod tests {
     fn border_style_maps_reward_settle_phases() {
         let idle = border_style(RewardFrame {
             active: false,
-            intensity: 0,
+            plus_one_intensity: 0,
+            game_glow_intensity: 0,
             sweep_progress: 0,
             show_plus_one: false,
         });
         let low = border_style(RewardFrame {
             active: true,
-            intensity: 25,
+            plus_one_intensity: 80,
+            game_glow_intensity: 20,
             sweep_progress: 25,
             show_plus_one: true,
         });
         let medium = border_style(RewardFrame {
             active: true,
-            intensity: 55,
+            plus_one_intensity: 100,
+            game_glow_intensity: 40,
             sweep_progress: 55,
             show_plus_one: true,
         });
         let peak = border_style(RewardFrame {
             active: true,
-            intensity: 100,
+            plus_one_intensity: 100,
+            game_glow_intensity: 58,
             sweep_progress: 100,
             show_plus_one: true,
         });
@@ -807,31 +816,31 @@ mod tests {
     #[test]
     fn directional_sweep_lights_bottom_left_before_top_right() {
         let area = Rect::new(0, 0, 80, 20);
-        let early = reward_frame(100, 10);
+        let early = reward_frame(100, 58, 10);
         let bottom_left = reward_sweep_intensity_at(area.left(), area.bottom() - 1, area, early);
         let top_right = reward_sweep_intensity_at(area.right() - 1, area.top(), area, early);
 
-        assert!(bottom_left > 60);
+        assert!(bottom_left > 30);
         assert!(top_right < 5);
     }
 
     #[test]
     fn directional_sweep_reaches_top_right_later() {
         let area = Rect::new(0, 0, 80, 20);
-        let early = reward_frame(100, 10);
-        let later = reward_frame(100, 100);
+        let early = reward_frame(100, 58, 10);
+        let later = reward_frame(100, 58, 100);
         let early_top_right = reward_sweep_intensity_at(area.right() - 1, area.top(), area, early);
         let later_top_right = reward_sweep_intensity_at(area.right() - 1, area.top(), area, later);
 
         assert!(later_top_right > early_top_right);
-        assert!(later_top_right > 80);
+        assert!(later_top_right > 45);
     }
 
     #[test]
     fn directional_sweep_fades_after_passing() {
         let area = Rect::new(0, 0, 80, 20);
-        let peak = reward_frame(100, 100);
-        let faded = reward_frame(20, 100);
+        let peak = reward_frame(100, 58, 100);
+        let faded = reward_frame(20, 12, 100);
         let peak_top_right = reward_sweep_intensity_at(area.right() - 1, area.top(), area, peak);
         let faded_top_right = reward_sweep_intensity_at(area.right() - 1, area.top(), area, faded);
 
@@ -844,7 +853,8 @@ mod tests {
         let area = Rect::new(0, 0, 80, 20);
         let idle = RewardFrame {
             active: false,
-            intensity: 0,
+            plus_one_intensity: 0,
+            game_glow_intensity: 0,
             sweep_progress: 0,
             show_plus_one: false,
         };

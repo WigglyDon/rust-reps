@@ -211,7 +211,7 @@ mod tests {
 
     use super::TuiApp;
     use crate::client::{
-        ClientAction, REWARD_ATTACK_DURATION, REWARD_DURATION, REWARD_PLUS_ONE_HOLD_DURATION,
+        ClientAction, REWARD_ATTACK_DURATION, REWARD_DURATION, REWARD_PLUS_ONE_BODY_DURATION,
     };
     use crate::tui::input::classify_key_event;
     use crossterm::event::{KeyCode, KeyEvent};
@@ -242,7 +242,8 @@ mod tests {
         assert_eq!(app.input(), "");
         assert_eq!(app.session().passed(), 1);
         assert_eq!(app.session().attempts(), 1);
-        assert_eq!(app.frame_at(now).reward.intensity, 0);
+        assert_eq!(app.frame_at(now).reward.plus_one_intensity, 0);
+        assert_eq!(app.frame_at(now).reward.game_glow_intensity, 0);
         assert!(app.frame_at(now).reward_active);
         assert!(app.frame_at(now).reward.show_plus_one);
         assert_eq!(
@@ -287,19 +288,21 @@ mod tests {
         assert!(app.frame_at(now).reward_active);
         assert!(app.frame_at(now + Duration::from_millis(50)).reward_active);
         assert_eq!(
-            app.frame_at(now + REWARD_ATTACK_DURATION).reward.intensity,
+            app.frame_at(now + REWARD_ATTACK_DURATION)
+                .reward
+                .plus_one_intensity,
             100
         );
         assert_eq!(
-            app.frame_at(now + REWARD_ATTACK_DURATION + (REWARD_PLUS_ONE_HOLD_DURATION / 2))
+            app.frame_at(now + REWARD_ATTACK_DURATION + (REWARD_PLUS_ONE_BODY_DURATION / 2))
                 .reward
-                .intensity,
+                .plus_one_intensity,
             100
         );
         assert!(
             app.frame_at(now + REWARD_DURATION - Duration::from_millis(100))
                 .reward
-                .intensity
+                .plus_one_intensity
                 < 10
         );
 
@@ -323,6 +326,7 @@ mod tests {
         assert_eq!(app.session().attempts(), 1);
         assert!(!app.frame_at(now).reward_active);
         assert!(!app.frame_at(now).reward.show_plus_one);
+        assert_eq!(app.frame_at(now).reward.game_glow_intensity, 0);
         assert_eq!(
             app.session()
                 .current_exercise()
@@ -356,6 +360,7 @@ mod tests {
         assert_eq!(app.session().attempts(), 1);
         assert!(!app.frame_at(now).reward_active);
         assert!(!app.frame_at(now).reward.show_plus_one);
+        assert_eq!(app.frame_at(now).reward.game_glow_intensity, 0);
         assert_eq!(
             app.status_lines(),
             &[
@@ -380,6 +385,7 @@ mod tests {
         assert_eq!(app.frame_at(now).completed_reps_this_run, 0);
         assert!(!app.frame_at(now).reward_active);
         assert!(!app.frame_at(now).reward.show_plus_one);
+        assert_eq!(app.frame_at(now).reward.game_glow_intensity, 0);
     }
 
     #[test]
