@@ -55,7 +55,7 @@ Keys:
 - `Ctrl-Enter` submits only when the terminal reports it distinctly
 - `Shift-Enter` inserts a newline when the terminal reports it distinctly
 - `Esc` or `Ctrl-C` quits
-- `F6` skips
+- `F7` skips
 - `Tab` is currently ignored
 
 Plain mode remains available with `rust-reps plain` and for piped stdin.

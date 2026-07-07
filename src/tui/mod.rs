@@ -96,7 +96,21 @@ fn run_tui_loop(terminal: &mut terminal::TuiTerminal, app: &mut TuiApp) -> io::R
                     let size = terminal.terminal.size()?;
                     let area = ratatui::layout::Rect::new(0, 0, size.width, size.height);
                     let layout = render::input_layout(area, app, action_at);
-                    classify_mouse_event(mouse, layout.mouse_pane_at(mouse.column, mouse.row))
+                    app.set_editor_viewport_height(render::visible_editor_rows(
+                        layout.editor.height,
+                    ));
+                    let client_frame = app.frame_at(action_at);
+                    let editor_cursor = render::editor_cursor_at(
+                        layout.editor,
+                        &client_frame,
+                        mouse.column,
+                        mouse.row,
+                    );
+                    classify_mouse_event(
+                        mouse,
+                        layout.mouse_pane_at(mouse.column, mouse.row),
+                        editor_cursor,
+                    )
                 }
                 _ => ClientAction::Ignore,
             };

@@ -98,6 +98,7 @@ impl TuiApp {
             ClientAction::TypeChar(_)
             | ClientAction::Backspace
             | ClientAction::InsertNewline
+            | ClientAction::MoveCursorTo(_)
             | ClientAction::MoveCursorLeft
             | ClientAction::MoveCursorRight
             | ClientAction::MoveCursorUp
@@ -292,8 +293,8 @@ mod tests {
 
     use super::TuiApp;
     use crate::client::{
-        ClientAction, FAILURE_PULSE_DURATION, REWARD_ATTACK_DURATION, REWARD_DURATION,
-        REWARD_PLUS_ONE_BODY_DURATION,
+        ClientAction, CursorPosition, FAILURE_PULSE_DURATION, REWARD_ATTACK_DURATION,
+        REWARD_DURATION, REWARD_PLUS_ONE_BODY_DURATION,
     };
     use crate::tui::input::classify_key_event;
     use crossterm::event::{KeyCode, KeyEvent};
@@ -506,12 +507,12 @@ mod tests {
     }
 
     #[test]
-    fn f6_skips_current_exercise_without_reward_or_rep_increment() {
+    fn f7_skips_current_exercise_without_reward_or_rep_increment() {
         let mut app = TuiApp::new();
         let now = test_now();
         app.handle_action(ClientAction::TypeChar('x'));
 
-        let action = classify_key_event(KeyEvent::from(KeyCode::F(6)));
+        let action = classify_key_event(KeyEvent::from(KeyCode::F(7)));
         assert_eq!(action, ClientAction::Skip);
         app.handle_action_at(action, now);
 
@@ -531,6 +532,47 @@ mod tests {
                 .id,
             "002"
         );
+    }
+
+    #[test]
+    fn f6_does_not_skip_as_a_hidden_alias() {
+        let mut app = TuiApp::new();
+        let now = test_now();
+        let action = classify_key_event(KeyEvent::from(KeyCode::F(6)));
+
+        assert_eq!(action, ClientAction::Ignore);
+        app.handle_action_at(action, now);
+
+        assert_eq!(app.session().skipped(), 0);
+        assert_eq!(
+            app.session()
+                .current_exercise()
+                .expect("expected first exercise")
+                .id,
+            "001"
+        );
+    }
+
+    #[test]
+    fn move_cursor_to_action_places_next_insert_at_clicked_position() {
+        let mut app = TuiApp::new();
+        for ch in "fn main() {}".chars() {
+            app.handle_action(ClientAction::TypeChar(ch));
+        }
+
+        app.handle_action(ClientAction::MoveCursorTo(CursorPosition {
+            line: 0,
+            column: 3,
+        }));
+        assert_eq!(app.input(), "fn main() {}");
+        assert_eq!(
+            app.frame().game_window.workbox.cursor,
+            CursorPosition { line: 0, column: 3 }
+        );
+
+        app.handle_action(ClientAction::TypeChar('X'));
+
+        assert_eq!(app.input(), "fn Xmain() {}");
     }
 
     #[test]

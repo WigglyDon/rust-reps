@@ -191,6 +191,13 @@ pub(crate) fn primary_action_style() -> Style {
         .add_modifier(Modifier::BOLD)
 }
 
+pub(crate) fn footer_counter_style() -> Style {
+    Style::default()
+        .fg(RUST_REPS_DARK.success)
+        .bg(RUST_REPS_DARK.background)
+        .add_modifier(Modifier::BOLD)
+}
+
 pub(crate) fn caret_feedback_style(failure: FailureFrame) -> Style {
     let intensity = if failure.active {
         failure.intensity.min(90)

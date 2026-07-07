@@ -95,7 +95,7 @@ fn long_wrapped_problem(number: usize) -> (String, String) {
              requirements:\n\
              - keep the answer tiny\n\
              - type it exactly\n\
-             - use PageDown and PageUp to inspect overflow\n\
+             - keep overflowing task text bounded inside the task panel\n\
              - keep the editor viewport independent\n\
              \n\
              examples:\n\
@@ -364,6 +364,16 @@ mod tests {
         assert!(syntax.expected_answer.contains("// sample"));
         assert!(SYNTAX_SAMPLER_EXPECTED.contains("'R'"));
         assert!(MULTILINE_SOLUTION_EXPECTED.contains("x + 1"));
+    }
+
+    #[test]
+    fn lab_prompts_do_not_teach_page_scroll_copy() {
+        for index in 0..STRESS_FAMILY_COUNT {
+            let packet = exercise_packet_at(index);
+
+            assert!(!packet.prompt.contains("PageDown"));
+            assert!(!packet.prompt.contains("PageUp"));
+        }
     }
 
     #[test]

@@ -1,6 +1,6 @@
-use crate::client::ClientAction;
+use crate::client::{ClientAction, CursorPosition};
 
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKind};
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum MousePane {
@@ -19,7 +19,7 @@ pub fn classify_key_event(key: KeyEvent) -> ClientAction {
         }
         KeyCode::Enter if key.modifiers.is_empty() => ClientAction::InsertNewline,
         KeyCode::F(5) => ClientAction::Submit,
-        KeyCode::F(6) => ClientAction::Skip,
+        KeyCode::F(7) => ClientAction::Skip,
         KeyCode::F(1) => ClientAction::Ignore,
         KeyCode::Backspace => ClientAction::Backspace,
         KeyCode::Left => ClientAction::MoveCursorLeft,
@@ -41,12 +41,19 @@ pub fn classify_key_event(key: KeyEvent) -> ClientAction {
     }
 }
 
-pub(crate) fn classify_mouse_event(mouse: MouseEvent, pane: MousePane) -> ClientAction {
+pub(crate) fn classify_mouse_event(
+    mouse: MouseEvent,
+    pane: MousePane,
+    editor_cursor: Option<CursorPosition>,
+) -> ClientAction {
     match (mouse.kind, pane) {
         (MouseEventKind::ScrollUp, MousePane::Problem) => ClientAction::ScrollProblemLineUp,
         (MouseEventKind::ScrollDown, MousePane::Problem) => ClientAction::ScrollProblemLineDown,
         (MouseEventKind::ScrollUp, MousePane::Editor) => ClientAction::ScrollEditorUp,
         (MouseEventKind::ScrollDown, MousePane::Editor) => ClientAction::ScrollEditorDown,
+        (MouseEventKind::Down(MouseButton::Left), MousePane::Editor) => editor_cursor
+            .map(ClientAction::MoveCursorTo)
+            .unwrap_or(ClientAction::Ignore),
         _ => ClientAction::Ignore,
     }
 }
@@ -54,7 +61,10 @@ pub(crate) fn classify_mouse_event(mouse: MouseEvent, pane: MousePane) -> Client
 #[cfg(test)]
 mod tests {
     use super::{ClientAction, MousePane, classify_key_event, classify_mouse_event};
-    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKind};
+    use crate::client::CursorPosition;
+    use crossterm::event::{
+        KeyCode, KeyEvent, KeyModifiers, MouseButton, MouseEvent, MouseEventKind,
+    };
 
     #[test]
     fn character_key_classifies_as_append() {
@@ -170,9 +180,15 @@ mod tests {
     }
 
     #[test]
-    fn f6_classifies_as_skip() {
-        let intent = classify_key_event(KeyEvent::from(KeyCode::F(6)));
+    fn f7_classifies_as_skip() {
+        let intent = classify_key_event(KeyEvent::from(KeyCode::F(7)));
         assert_eq!(intent, ClientAction::Skip);
+    }
+
+    #[test]
+    fn f6_is_not_a_hidden_skip_alias() {
+        let intent = classify_key_event(KeyEvent::from(KeyCode::F(6)));
+        assert_eq!(intent, ClientAction::Ignore);
     }
 
     #[test]
@@ -191,23 +207,23 @@ mod tests {
         };
 
         assert_eq!(
-            classify_mouse_event(scroll_down, MousePane::Problem),
+            classify_mouse_event(scroll_down, MousePane::Problem, None),
             ClientAction::ScrollProblemLineDown
         );
         assert_eq!(
-            classify_mouse_event(scroll_up, MousePane::Problem),
+            classify_mouse_event(scroll_up, MousePane::Problem, None),
             ClientAction::ScrollProblemLineUp
         );
         assert_eq!(
-            classify_mouse_event(scroll_down, MousePane::Editor),
+            classify_mouse_event(scroll_down, MousePane::Editor, None),
             ClientAction::ScrollEditorDown
         );
         assert_eq!(
-            classify_mouse_event(scroll_up, MousePane::Editor),
+            classify_mouse_event(scroll_up, MousePane::Editor, None),
             ClientAction::ScrollEditorUp
         );
         assert_eq!(
-            classify_mouse_event(scroll_down, MousePane::Outside),
+            classify_mouse_event(scroll_down, MousePane::Outside, None),
             ClientAction::Ignore
         );
     }
@@ -222,7 +238,38 @@ mod tests {
         };
 
         assert_eq!(
-            classify_mouse_event(event, MousePane::Problem),
+            classify_mouse_event(event, MousePane::Problem, None),
+            ClientAction::Ignore
+        );
+    }
+
+    #[test]
+    fn editor_left_click_classifies_as_cursor_move_when_position_is_known() {
+        let event = MouseEvent {
+            kind: MouseEventKind::Down(MouseButton::Left),
+            column: 4,
+            row: 2,
+            modifiers: KeyModifiers::empty(),
+        };
+        let cursor = CursorPosition { line: 1, column: 3 };
+
+        assert_eq!(
+            classify_mouse_event(event, MousePane::Editor, Some(cursor)),
+            ClientAction::MoveCursorTo(cursor)
+        );
+    }
+
+    #[test]
+    fn editor_left_click_without_position_is_ignored() {
+        let event = MouseEvent {
+            kind: MouseEventKind::Down(MouseButton::Left),
+            column: 4,
+            row: 2,
+            modifiers: KeyModifiers::empty(),
+        };
+
+        assert_eq!(
+            classify_mouse_event(event, MousePane::Editor, None),
             ClientAction::Ignore
         );
     }

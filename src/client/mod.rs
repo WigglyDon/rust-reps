@@ -11,6 +11,7 @@ pub enum ClientAction {
     TypeChar(char),
     Backspace,
     InsertNewline,
+    MoveCursorTo(CursorPosition),
     MoveCursorLeft,
     MoveCursorRight,
     MoveCursorUp,
@@ -688,6 +689,10 @@ impl ClientUiState {
             }
             ClientAction::InsertNewline => {
                 self.editor.apply_action(EditorAction::InsertNewline);
+                self.show_cursor();
+            }
+            ClientAction::MoveCursorTo(position) => {
+                self.editor.set_cursor(position);
                 self.show_cursor();
             }
             ClientAction::MoveCursorLeft => {
