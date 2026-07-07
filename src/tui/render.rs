@@ -22,8 +22,10 @@ const FEEDBACK_CHROME_HEIGHT: u16 = 3;
 const PROBLEM_ZONE_HEIGHT: u16 = 6;
 const COMMAND_RAIL_HEIGHT: u16 = 4;
 const MIN_GUTTER_WIDTH: usize = 2;
+const REPS_SLOT_WIDTH: usize = 7;
+const PLUS_ONE_SLOT_WIDTH: usize = 6;
 const PRIMARY_ACTION_HINT: &str = "F5 submit";
-const SECONDARY_CONTROL_HINTS: &str = "Enter newline · Esc quit · ? help";
+const SECONDARY_CONTROL_HINTS: &str = "F6 skip · Esc quit";
 #[cfg(test)]
 const SNAPSHOT_WORKBOX_HEIGHT: u16 = 6;
 
@@ -385,14 +387,22 @@ fn bottom_chrome_lines(client_frame: &ClientFrame) -> Vec<Line<'static>> {
 
 fn primary_rail_spans(client_frame: &ClientFrame) -> Vec<Span<'static>> {
     let mut spans = vec![Span::styled(
-        format!("reps {}", client_frame.completed_reps_this_run),
+        format!(
+            "{:<REPS_SLOT_WIDTH$}",
+            format!("reps {}", client_frame.completed_reps_this_run)
+        ),
         counter_style(),
     )];
     if client_frame.reward.show_plus_one {
-        spans.push(Span::styled("   +1", plus_one_style(client_frame.reward)));
+        spans.push(Span::styled(
+            format!("{:^PLUS_ONE_SLOT_WIDTH$}", "+1"),
+            plus_one_style(client_frame.reward),
+        ));
+    } else {
+        spans.push(Span::raw(" ".repeat(PLUS_ONE_SLOT_WIDTH)));
     }
 
-    spans.push(Span::raw("   "));
+    spans.push(Span::raw("  "));
     spans.push(Span::styled(PRIMARY_ACTION_HINT, primary_action_style()));
     spans
 }
@@ -725,7 +735,7 @@ mod tests {
             snapshot.bottom_chrome,
             vec![
                 "".to_string(),
-                format!("reps 0   {PRIMARY_ACTION_HINT}"),
+                format!("reps 0         {PRIMARY_ACTION_HINT}"),
                 SECONDARY_CONTROL_HINTS.to_string(),
                 "".to_string(),
             ]
@@ -743,16 +753,16 @@ mod tests {
         let snapshot = render_snapshot(&app.frame());
         let rail = snapshot.bottom_chrome.join("\n");
 
-        for expected in ["F5 submit", "Enter newline", "Esc quit", "? help"] {
+        for expected in ["F5 submit", "F6 skip", "Esc quit"] {
             assert!(rail.contains(expected), "missing {expected}");
         }
         let f5 = rail.find("F5 submit").expect("missing F5 submit");
-        let enter = rail.find("Enter newline").expect("missing Enter newline");
+        let skip = rail.find("F6 skip").expect("missing F6 skip");
         let esc = rail.find("Esc quit").expect("missing Esc quit");
-        let help = rail.find("? help").expect("missing ? help");
-        assert!(f5 < enter);
-        assert!(enter < esc);
-        assert!(esc < help);
+        assert!(f5 < skip);
+        assert!(skip < esc);
+        assert!(!rail.contains("Enter newline"));
+        assert!(!rail.contains("? help"));
 
         for line in &snapshot.bottom_chrome {
             for forbidden in ["Passed", "Skipped", "Attempts", "READY", "%", "/12"] {
@@ -766,7 +776,7 @@ mod tests {
             snapshot
                 .bottom_chrome
                 .iter()
-                .any(|line| line == &format!("reps 0   {PRIMARY_ACTION_HINT}"))
+                .any(|line| line == &format!("reps 0         {PRIMARY_ACTION_HINT}"))
         );
     }
 
@@ -779,7 +789,7 @@ mod tests {
         let controls_line = lines.get(2).expect("expected bottom rail controls line");
 
         assert_eq!(lines.len(), usize::from(COMMAND_RAIL_HEIGHT));
-        assert_eq!(reward_line.spans[0].content.as_ref(), "reps 0");
+        assert_eq!(reward_line.spans[0].content.as_ref(), "reps 0 ");
         assert_eq!(
             reward_line.spans[0].style.fg,
             Some(RUST_REPS_DARK.counter_normal)
@@ -790,10 +800,11 @@ mod tests {
                 .add_modifier
                 .contains(Modifier::BOLD)
         );
-        assert_eq!(reward_line.spans[1].content.as_ref(), "   ");
-        assert_eq!(reward_line.spans[2].content.as_ref(), PRIMARY_ACTION_HINT);
+        assert_eq!(reward_line.spans[1].content.as_ref(), "      ");
+        assert_eq!(reward_line.spans[2].content.as_ref(), "  ");
+        assert_eq!(reward_line.spans[3].content.as_ref(), PRIMARY_ACTION_HINT);
         assert!(
-            reward_line.spans[2]
+            reward_line.spans[3]
                 .style
                 .add_modifier
                 .contains(Modifier::BOLD)
@@ -820,10 +831,10 @@ mod tests {
         let lines = bottom_chrome_lines(&frame);
         let line = lines.get(1).expect("expected bottom rail reward line");
 
-        assert_eq!(line.spans[0].content.as_ref(), "reps 1");
+        assert_eq!(line.spans[0].content.as_ref(), "reps 1 ");
         assert_eq!(line.spans[0].style.fg, Some(RUST_REPS_DARK.counter_normal));
         assert!(line.spans[0].style.add_modifier.contains(Modifier::BOLD));
-        assert_eq!(line.spans[1].content.as_ref(), "   +1");
+        assert_eq!(line.spans[1].content.as_ref(), "  +1  ");
         assert_eq!(line.spans[1].style.fg, Some(RUST_REPS_DARK.reward_plus_one));
         assert!(line.spans[1].style.add_modifier.contains(Modifier::BOLD));
         assert_eq!(line.spans[3].content.as_ref(), PRIMARY_ACTION_HINT);
@@ -841,8 +852,8 @@ mod tests {
         let frame = app.frame_at(now);
         let lines = bottom_chrome_lines(&frame);
         let line = lines.get(1).expect("expected bottom rail reward line");
-        assert_eq!(line.spans[0].content.as_ref(), "reps 1");
-        assert_eq!(line.spans[1].content.as_ref(), "   +1");
+        assert_eq!(line.spans[0].content.as_ref(), "reps 1 ");
+        assert_eq!(line.spans[1].content.as_ref(), "  +1  ");
         assert_ne!(line.spans[1].style.fg, Some(RUST_REPS_DARK.reward_plus_one));
 
         let frame = app.frame_at(now + REWARD_ATTACK_DURATION);
@@ -854,22 +865,22 @@ mod tests {
             app.frame_at(now + REWARD_ATTACK_DURATION + (REWARD_PLUS_ONE_BODY_DURATION / 2));
         let lines = bottom_chrome_lines(&frame);
         let line = lines.get(1).expect("expected bottom rail reward line");
-        assert_eq!(line.spans[0].content.as_ref(), "reps 1");
+        assert_eq!(line.spans[0].content.as_ref(), "reps 1 ");
         assert_eq!(line.spans[0].style.fg, Some(RUST_REPS_DARK.counter_normal));
-        assert_eq!(line.spans[1].content.as_ref(), "   +1");
+        assert_eq!(line.spans[1].content.as_ref(), "  +1  ");
         assert_eq!(line.spans[1].style.fg, Some(RUST_REPS_DARK.reward_plus_one));
 
         let frame = app.frame_at(now + REWARD_DURATION - Duration::from_millis(500));
         let lines = bottom_chrome_lines(&frame);
         let line = lines.get(1).expect("expected bottom rail reward line");
-        assert_eq!(line.spans[0].content.as_ref(), "reps 1");
-        assert_eq!(line.spans[1].content.as_ref(), "   +1");
+        assert_eq!(line.spans[0].content.as_ref(), "reps 1 ");
+        assert_eq!(line.spans[1].content.as_ref(), "  +1  ");
         assert_ne!(line.spans[1].style.fg, Some(RUST_REPS_DARK.reward_plus_one));
 
         let frame = app.frame_at(now + REWARD_DURATION);
         let lines = bottom_chrome_lines(&frame);
         let line = lines.get(1).expect("expected bottom rail reward line");
-        assert_eq!(line.spans[0].content.as_ref(), "reps 1");
+        assert_eq!(line.spans[0].content.as_ref(), "reps 1 ");
         assert_eq!(line.spans[0].style.fg, Some(RUST_REPS_DARK.counter_normal));
         assert!(!line_text(line).contains("+1"));
         assert!(line_text(line).contains(PRIMARY_ACTION_HINT));
@@ -888,10 +899,49 @@ mod tests {
         let lines = bottom_chrome_lines(&frame);
         let line = lines.get(1).expect("expected bottom rail reward line");
 
-        assert_eq!(line.spans[0].content.as_ref(), "reps 1");
+        assert_eq!(line.spans[0].content.as_ref(), "reps 1 ");
         assert_eq!(line.spans[0].style.fg, Some(RUST_REPS_DARK.counter_normal));
         assert!(!line_text(line).contains("+1"));
         assert!(line_text(line).contains(PRIMARY_ACTION_HINT));
+    }
+
+    #[test]
+    fn plus_one_reserved_slot_keeps_primary_action_position_stable() {
+        let mut success_app = TuiApp::new();
+        let now = test_now();
+        for ch in "fn main() {}".chars() {
+            success_app.handle_action(ClientAction::TypeChar(ch));
+        }
+        success_app.handle_action_at(ClientAction::Submit, now);
+
+        let mut wrong_app = TuiApp::new();
+        for ch in "wrong".chars() {
+            wrong_app.handle_action(ClientAction::TypeChar(ch));
+        }
+        wrong_app.handle_action(ClientAction::Submit);
+
+        let mut skip_app = TuiApp::new();
+        skip_app.handle_action(ClientAction::Skip);
+
+        let idle_line = line_text(&bottom_chrome_lines(&TuiApp::new().frame())[1]);
+        let success_line =
+            line_text(&bottom_chrome_lines(&success_app.frame_at(now + REWARD_ATTACK_DURATION))[1]);
+        let wrong_line = line_text(&bottom_chrome_lines(&wrong_app.frame())[1]);
+        let skip_line = line_text(&bottom_chrome_lines(&skip_app.frame())[1]);
+
+        let primary_position = idle_line
+            .find(PRIMARY_ACTION_HINT)
+            .expect("expected F5 submit");
+        assert_eq!(
+            success_line.find(PRIMARY_ACTION_HINT),
+            Some(primary_position)
+        );
+        assert_eq!(wrong_line.find(PRIMARY_ACTION_HINT), Some(primary_position));
+        assert_eq!(skip_line.find(PRIMARY_ACTION_HINT), Some(primary_position));
+        assert!(!idle_line.contains("+1"));
+        assert!(success_line.contains("+1"));
+        assert!(!wrong_line.contains("+1"));
+        assert!(!skip_line.contains("+1"));
     }
 
     #[test]
@@ -1068,10 +1118,7 @@ mod tests {
     #[test]
     fn skip_and_quit_do_not_render_plus_one() {
         let mut skip_app = TuiApp::new();
-        for ch in ":skip".chars() {
-            skip_app.handle_action(ClientAction::TypeChar(ch));
-        }
-        skip_app.handle_action(ClientAction::Submit);
+        skip_app.handle_action(ClientAction::Skip);
         let skip_snapshot = render_snapshot(&skip_app.frame());
 
         let mut quit_app = TuiApp::new();
@@ -1208,8 +1255,8 @@ mod tests {
     }
 
     #[test]
-    fn render_snapshot_shows_help_only_when_toggled() {
-        let mut app = TuiApp::new();
+    fn render_snapshot_has_no_default_help_overlay() {
+        let app = TuiApp::new();
         let frame = app.frame();
         let default_snapshot = render_snapshot(&frame);
         assert!(
@@ -1224,59 +1271,18 @@ mod tests {
                 .iter()
                 .any(|line| line == "Backspace: delete char")
         );
-
-        app.handle_action(ClientAction::ToggleHelp);
-        let frame = app.frame();
-        let help_snapshot = render_snapshot(&frame);
         assert!(
-            help_snapshot
-                .feedback
-                .iter()
-                .any(|line| line == "Controls:")
-        );
-        assert!(
-            help_snapshot
-                .feedback
-                .iter()
-                .any(|line| line.contains("Enter newline"))
-        );
-        assert!(
-            help_snapshot
-                .feedback
-                .iter()
-                .any(|line| line.contains("F5 submit"))
-        );
-        assert!(
-            help_snapshot
-                .feedback
-                .iter()
-                .any(|line| line.contains("Esc quit"))
-        );
-        assert!(
-            help_snapshot
-                .feedback
+            !default_snapshot
+                .bottom_chrome
                 .iter()
                 .any(|line| line.contains("? help"))
         );
         assert!(
-            help_snapshot
-                .feedback
+            !default_snapshot
+                .bottom_chrome
                 .iter()
-                .any(|line| line.contains("Arrows/Home/End navigate"))
+                .any(|line| line.contains("Enter newline"))
         );
-        assert!(
-            help_snapshot
-                .feedback
-                .iter()
-                .any(|line| line.contains("Shift+Enter newline if reported"))
-        );
-        assert!(
-            help_snapshot
-                .feedback
-                .iter()
-                .any(|line| line.contains("Ctrl+Enter submit if supported"))
-        );
-        assert!(!help_snapshot.game.iter().any(|line| line == "Controls:"));
     }
 
     #[test]

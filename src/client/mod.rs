@@ -18,8 +18,8 @@ pub enum ClientAction {
     MoveLineStart,
     MoveLineEnd,
     Submit,
+    Skip,
     Quit,
-    ToggleHelp,
     CursorTick,
     Ignore,
 }
@@ -267,14 +267,13 @@ impl ClientUiState {
                 self.editor.apply_action(EditorAction::MoveLineEnd);
                 self.show_cursor();
             }
-            ClientAction::ToggleHelp => {
-                self.help_open = !self.help_open;
-                self.show_cursor();
-            }
             ClientAction::CursorTick => {
                 self.cursor_visible = !self.cursor_visible;
             }
-            ClientAction::Submit | ClientAction::Quit | ClientAction::Ignore => {}
+            ClientAction::Submit
+            | ClientAction::Skip
+            | ClientAction::Quit
+            | ClientAction::Ignore => {}
         }
     }
 
@@ -283,6 +282,11 @@ impl ClientUiState {
         let input = self.editor.text();
         self.editor.clear();
         input
+    }
+
+    pub fn clear_draft_input(&mut self) {
+        self.show_cursor();
+        self.editor.clear();
     }
 
     pub fn set_status_lines(&mut self, status_lines: Vec<String>) {
@@ -596,16 +600,8 @@ fn is_type_name(identifier: &str) -> bool {
 }
 
 fn help_lines(open: bool) -> Vec<String> {
-    if open {
-        vec![
-            "Controls:".to_string(),
-            "F5 submit · Enter newline · Esc quit · ? help".to_string(),
-            "Arrows/Home/End navigate · Shift+Enter newline if reported · Ctrl+Enter submit if supported"
-                .to_string(),
-        ]
-    } else {
-        Vec::new()
-    }
+    let _ = open;
+    Vec::new()
 }
 
 #[cfg(test)]
@@ -1130,18 +1126,16 @@ mod tests {
     }
 
     #[test]
-    fn ui_state_handles_type_backspace_help_and_cursor_tick() {
+    fn ui_state_handles_type_backspace_and_cursor_tick() {
         let mut ui_state = ClientUiState::new();
 
         ui_state.apply_action(ClientAction::TypeChar('a'));
         ui_state.apply_action(ClientAction::InsertNewline);
         ui_state.apply_action(ClientAction::TypeChar('b'));
         ui_state.apply_action(ClientAction::Backspace);
-        ui_state.apply_action(ClientAction::ToggleHelp);
         ui_state.apply_action(ClientAction::CursorTick);
 
         assert_eq!(ui_state.editor_view().text, "a\n");
-        assert!(ui_state.help_open());
         assert!(!ui_state.cursor_visible());
     }
 

@@ -12,8 +12,8 @@ pub fn classify_key_event(key: KeyEvent) -> ClientAction {
         }
         KeyCode::Enter if key.modifiers.is_empty() => ClientAction::InsertNewline,
         KeyCode::F(5) => ClientAction::Submit,
-        KeyCode::Char('?') => ClientAction::ToggleHelp,
-        KeyCode::F(1) => ClientAction::ToggleHelp,
+        KeyCode::F(6) => ClientAction::Skip,
+        KeyCode::F(1) => ClientAction::Ignore,
         KeyCode::Backspace => ClientAction::Backspace,
         KeyCode::Left => ClientAction::MoveCursorLeft,
         KeyCode::Right => ClientAction::MoveCursorRight,
@@ -127,14 +127,20 @@ mod tests {
     }
 
     #[test]
-    fn question_mark_toggles_help() {
+    fn question_mark_inserts_like_normal_editor_text() {
         let intent = classify_key_event(KeyEvent::from(KeyCode::Char('?')));
-        assert_eq!(intent, ClientAction::ToggleHelp);
+        assert_eq!(intent, ClientAction::TypeChar('?'));
     }
 
     #[test]
-    fn f1_toggles_help() {
+    fn f1_is_ignored_without_default_help_overlay() {
         let intent = classify_key_event(KeyEvent::from(KeyCode::F(1)));
-        assert_eq!(intent, ClientAction::ToggleHelp);
+        assert_eq!(intent, ClientAction::Ignore);
+    }
+
+    #[test]
+    fn f6_classifies_as_skip() {
+        let intent = classify_key_event(KeyEvent::from(KeyCode::F(6)));
+        assert_eq!(intent, ClientAction::Skip);
     }
 }

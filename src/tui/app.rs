@@ -76,6 +76,7 @@ impl TuiApp {
         match action {
             ClientAction::Quit => self.quit(),
             ClientAction::Submit => self.submit_current_input(now),
+            ClientAction::Skip => self.skip_current_exercise(),
             ClientAction::Ignore => {}
             ClientAction::TypeChar(_)
             | ClientAction::Backspace
@@ -86,7 +87,6 @@ impl TuiApp {
             | ClientAction::MoveCursorDown
             | ClientAction::MoveLineStart
             | ClientAction::MoveLineEnd
-            | ClientAction::ToggleHelp
             | ClientAction::CursorTick => self.ui_state.apply_action(action),
         }
     }
@@ -185,6 +185,23 @@ impl TuiApp {
                     collect_summary_lines("QUIT", &self.session)
                 }
             }
+        };
+        self.ui_state.set_status_lines(status_lines);
+    }
+
+    fn skip_current_exercise(&mut self) {
+        if self.completed {
+            return;
+        }
+
+        self.ui_state.clear_reward_event();
+        self.ui_state.clear_draft_input();
+        let _ = self.session.skip();
+        let status_lines = if self.session.is_complete() {
+            self.completed = true;
+            collect_complete_lines(&self.session)
+        } else {
+            vec!["SKIP".to_string()]
         };
         self.ui_state.set_status_lines(status_lines);
     }
@@ -372,6 +389,32 @@ mod tests {
     }
 
     #[test]
+    fn f6_skips_current_exercise_without_reward_or_rep_increment() {
+        let mut app = TuiApp::new();
+        let now = test_now();
+        app.handle_action(ClientAction::TypeChar('x'));
+
+        let action = classify_key_event(KeyEvent::from(KeyCode::F(6)));
+        assert_eq!(action, ClientAction::Skip);
+        app.handle_action_at(action, now);
+
+        assert_eq!(app.input(), "");
+        assert_eq!(app.session().passed(), 0);
+        assert_eq!(app.session().skipped(), 1);
+        assert_eq!(app.frame_at(now).completed_reps_this_run, 0);
+        assert!(!app.frame_at(now).reward_active);
+        assert!(!app.frame_at(now).reward.show_plus_one);
+        assert_eq!(app.frame_at(now).reward.game_glow_intensity, 0);
+        assert_eq!(
+            app.session()
+                .current_exercise()
+                .expect("expected second exercise")
+                .id,
+            "002"
+        );
+    }
+
+    #[test]
     fn skip_does_not_start_reward_event() {
         let mut app = TuiApp::new();
         let now = test_now();
@@ -545,6 +588,55 @@ mod tests {
         assert_eq!(app.session().passed(), 1);
         assert_eq!(app.session().attempts(), 1);
         assert_eq!(app.frame().game_window.workbox.lines, vec!["".to_string()]);
+    }
+
+    #[test]
+    fn f5_submits_correct_one_line_answer_with_one_editor_newline() {
+        let mut app = TuiApp::new();
+        for ch in "fn main() {}".chars() {
+            app.handle_action(ClientAction::TypeChar(ch));
+        }
+        app.handle_action(ClientAction::InsertNewline);
+
+        let action = classify_key_event(KeyEvent::from(KeyCode::F(5)));
+        assert_eq!(action, ClientAction::Submit);
+        app.handle_action(action);
+
+        assert_eq!(app.session().passed(), 1);
+        assert_eq!(app.session().attempts(), 1);
+        assert_eq!(app.frame().game_window.workbox.lines, vec!["".to_string()]);
+    }
+
+    #[test]
+    fn f5_submits_extra_blank_line_as_wrong_answer() {
+        let mut app = TuiApp::new();
+        for ch in "fn main() {}".chars() {
+            app.handle_action(ClientAction::TypeChar(ch));
+        }
+        app.handle_action(ClientAction::InsertNewline);
+        app.handle_action(ClientAction::InsertNewline);
+
+        let action = classify_key_event(KeyEvent::from(KeyCode::F(5)));
+        assert_eq!(action, ClientAction::Submit);
+        app.handle_action(action);
+
+        assert_eq!(app.session().passed(), 0);
+        assert_eq!(app.session().attempts(), 1);
+        assert_eq!(
+            app.session()
+                .current_exercise()
+                .expect("expected active exercise")
+                .id,
+            "001"
+        );
+        assert_eq!(
+            app.status_lines(),
+            &[
+                "not quite".to_string(),
+                "expected:".to_string(),
+                "fn main() {}".to_string(),
+            ]
+        );
     }
 
     #[test]
