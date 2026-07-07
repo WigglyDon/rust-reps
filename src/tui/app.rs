@@ -79,6 +79,12 @@ impl TuiApp {
             ClientAction::Ignore => {}
             ClientAction::TypeChar(_)
             | ClientAction::Backspace
+            | ClientAction::MoveCursorLeft
+            | ClientAction::MoveCursorRight
+            | ClientAction::MoveCursorUp
+            | ClientAction::MoveCursorDown
+            | ClientAction::MoveLineStart
+            | ClientAction::MoveLineEnd
             | ClientAction::ToggleHelp
             | ClientAction::CursorTick => self.ui_state.apply_action(action),
         }
@@ -378,6 +384,34 @@ mod tests {
         app.handle_action(ClientAction::Backspace);
 
         assert_eq!(app.input(), "ab");
+    }
+
+    #[test]
+    fn arrow_navigation_edits_at_cursor() {
+        let mut app = TuiApp::new();
+
+        app.handle_action(ClientAction::TypeChar('a'));
+        app.handle_action(ClientAction::TypeChar('c'));
+        app.handle_action(ClientAction::MoveCursorLeft);
+        app.handle_action(ClientAction::TypeChar('b'));
+
+        assert_eq!(app.input(), "abc");
+        assert_eq!(app.frame().game_window.workbox.cursor.column, 2);
+    }
+
+    #[test]
+    fn correct_submit_clears_editor_and_resets_cursor() {
+        let mut app = TuiApp::new();
+        for ch in "fn main() {}".chars() {
+            app.handle_action(ClientAction::TypeChar(ch));
+        }
+
+        app.handle_action(ClientAction::Submit);
+
+        let workbox = app.frame().game_window.workbox;
+        assert_eq!(workbox.input, "");
+        assert_eq!(workbox.cursor.line, 0);
+        assert_eq!(workbox.cursor.column, 0);
     }
 
     #[test]

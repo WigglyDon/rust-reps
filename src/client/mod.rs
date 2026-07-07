@@ -10,6 +10,12 @@ pub use editor::{CursorPosition, EditorAction, EditorBuffer, EditorView, EditorV
 pub enum ClientAction {
     TypeChar(char),
     Backspace,
+    MoveCursorLeft,
+    MoveCursorRight,
+    MoveCursorUp,
+    MoveCursorDown,
+    MoveLineStart,
+    MoveLineEnd,
     Submit,
     Quit,
     ToggleHelp,
@@ -199,6 +205,30 @@ impl ClientUiState {
             }
             ClientAction::Backspace => {
                 self.editor.apply_action(EditorAction::Backspace);
+                self.show_cursor();
+            }
+            ClientAction::MoveCursorLeft => {
+                self.editor.apply_action(EditorAction::MoveLeft);
+                self.show_cursor();
+            }
+            ClientAction::MoveCursorRight => {
+                self.editor.apply_action(EditorAction::MoveRight);
+                self.show_cursor();
+            }
+            ClientAction::MoveCursorUp => {
+                self.editor.apply_action(EditorAction::MoveUp);
+                self.show_cursor();
+            }
+            ClientAction::MoveCursorDown => {
+                self.editor.apply_action(EditorAction::MoveDown);
+                self.show_cursor();
+            }
+            ClientAction::MoveLineStart => {
+                self.editor.apply_action(EditorAction::MoveLineStart);
+                self.show_cursor();
+            }
+            ClientAction::MoveLineEnd => {
+                self.editor.apply_action(EditorAction::MoveLineEnd);
                 self.show_cursor();
             }
             ClientAction::ToggleHelp => {
@@ -542,8 +572,9 @@ mod tests {
 
     use super::{
         COUNTER_REWARD_ATTACK_DURATION, COUNTER_REWARD_DURATION, COUNTER_REWARD_HOLD_DURATION,
-        COUNTER_REWARD_RELEASE_DURATION, ClientAction, ClientUiState, CodeTokenKind, StatusTone,
-        project_client_frame, project_client_frame_at, tokenize_rust_line,
+        COUNTER_REWARD_RELEASE_DURATION, ClientAction, ClientUiState, CodeTokenKind,
+        CursorPosition, StatusTone, project_client_frame, project_client_frame_at,
+        tokenize_rust_line,
     };
     use crate::engine;
 
@@ -977,6 +1008,108 @@ mod tests {
         assert_eq!(ui_state.editor_view().text, "a");
         assert!(ui_state.help_open());
         assert!(!ui_state.cursor_visible());
+    }
+
+    #[test]
+    fn client_action_move_left_and_right_change_editor_cursor() {
+        let mut ui_state = ClientUiState::new();
+        for ch in "abc".chars() {
+            ui_state.apply_action(ClientAction::TypeChar(ch));
+        }
+
+        ui_state.apply_action(ClientAction::MoveCursorLeft);
+        assert_eq!(
+            ui_state.editor_view().cursor,
+            CursorPosition { line: 0, column: 2 }
+        );
+        ui_state.apply_action(ClientAction::MoveCursorRight);
+        assert_eq!(
+            ui_state.editor_view().cursor,
+            CursorPosition { line: 0, column: 3 }
+        );
+    }
+
+    #[test]
+    fn printable_char_inserts_at_cursor() {
+        let mut ui_state = ClientUiState::new();
+        ui_state.apply_action(ClientAction::TypeChar('a'));
+        ui_state.apply_action(ClientAction::TypeChar('c'));
+        ui_state.apply_action(ClientAction::MoveCursorLeft);
+
+        ui_state.apply_action(ClientAction::TypeChar('b'));
+
+        assert_eq!(ui_state.editor_view().text, "abc");
+        assert_eq!(
+            ui_state.editor_view().cursor,
+            CursorPosition { line: 0, column: 2 }
+        );
+    }
+
+    #[test]
+    fn backspace_deletes_before_cursor() {
+        let mut ui_state = ClientUiState::new();
+        for ch in "abc".chars() {
+            ui_state.apply_action(ClientAction::TypeChar(ch));
+        }
+        ui_state.apply_action(ClientAction::MoveCursorLeft);
+
+        ui_state.apply_action(ClientAction::Backspace);
+
+        assert_eq!(ui_state.editor_view().text, "ac");
+        assert_eq!(
+            ui_state.editor_view().cursor,
+            CursorPosition { line: 0, column: 1 }
+        );
+    }
+
+    #[test]
+    fn cursor_navigation_clamps_safely_on_single_line_editor() {
+        let mut ui_state = ClientUiState::new();
+        ui_state.apply_action(ClientAction::TypeChar('x'));
+
+        ui_state.apply_action(ClientAction::MoveCursorLeft);
+        ui_state.apply_action(ClientAction::MoveCursorLeft);
+        assert_eq!(
+            ui_state.editor_view().cursor,
+            CursorPosition { line: 0, column: 0 }
+        );
+
+        ui_state.apply_action(ClientAction::MoveCursorRight);
+        ui_state.apply_action(ClientAction::MoveCursorRight);
+        assert_eq!(
+            ui_state.editor_view().cursor,
+            CursorPosition { line: 0, column: 1 }
+        );
+
+        ui_state.apply_action(ClientAction::MoveCursorUp);
+        assert_eq!(
+            ui_state.editor_view().cursor,
+            CursorPosition { line: 0, column: 1 }
+        );
+        ui_state.apply_action(ClientAction::MoveCursorDown);
+        assert_eq!(
+            ui_state.editor_view().cursor,
+            CursorPosition { line: 0, column: 1 }
+        );
+    }
+
+    #[test]
+    fn home_and_end_move_to_line_boundaries() {
+        let mut ui_state = ClientUiState::new();
+        for ch in "abc".chars() {
+            ui_state.apply_action(ClientAction::TypeChar(ch));
+        }
+
+        ui_state.apply_action(ClientAction::MoveLineStart);
+        assert_eq!(
+            ui_state.editor_view().cursor,
+            CursorPosition { line: 0, column: 0 }
+        );
+        ui_state.apply_action(ClientAction::MoveLineEnd);
+        assert_eq!(
+            ui_state.editor_view().cursor,
+            CursorPosition { line: 0, column: 3 }
+        );
     }
 
     #[test]

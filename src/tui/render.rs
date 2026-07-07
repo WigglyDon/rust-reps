@@ -136,8 +136,11 @@ fn input_spans(client_frame: &ClientFrame) -> Vec<Span<'static>> {
         " "
     };
     let mut spans = vec![Span::styled("1 │ ", editor_gutter_style())];
-    spans.extend(code_spans(&client_frame.game_window.workbox.input_tokens));
-    spans.push(Span::styled(cursor.to_string(), caret_style()));
+    spans.extend(code_spans_with_cursor(
+        &client_frame.game_window.workbox.input_tokens,
+        client_frame.game_window.workbox.cursor.column,
+        cursor,
+    ));
     spans
 }
 
@@ -176,6 +179,56 @@ fn code_spans(tokens: &[CodeToken]) -> Vec<Span<'static>> {
         .iter()
         .map(|token| Span::styled(token.text.clone(), code_token_style(token.kind)))
         .collect()
+}
+
+fn code_spans_with_cursor(
+    tokens: &[CodeToken],
+    cursor_column: usize,
+    cursor: &'static str,
+) -> Vec<Span<'static>> {
+    let mut spans = Vec::new();
+    let mut chars_before_cursor = 0;
+    let mut cursor_inserted = false;
+
+    for token in tokens {
+        let token_len = token.text.chars().count();
+        if !cursor_inserted && cursor_column <= chars_before_cursor + token_len {
+            let split_column = cursor_column.saturating_sub(chars_before_cursor);
+            let (before, after) = split_at_char_column(&token.text, split_column);
+            if !before.is_empty() {
+                spans.push(Span::styled(before, code_token_style(token.kind)));
+            }
+            spans.push(Span::styled(cursor.to_string(), caret_style()));
+            if !after.is_empty() {
+                spans.push(Span::styled(after, code_token_style(token.kind)));
+            }
+            cursor_inserted = true;
+        } else {
+            spans.push(Span::styled(
+                token.text.clone(),
+                code_token_style(token.kind),
+            ));
+        }
+        chars_before_cursor += token_len;
+    }
+
+    if !cursor_inserted {
+        spans.push(Span::styled(cursor.to_string(), caret_style()));
+    }
+
+    spans
+}
+
+fn split_at_char_column(text: &str, column: usize) -> (String, String) {
+    let split_index = text
+        .char_indices()
+        .map(|(index, _)| index)
+        .nth(column)
+        .unwrap_or(text.len());
+    (
+        text[..split_index].to_string(),
+        text[split_index..].to_string(),
+    )
 }
 
 fn bottom_chrome_alignment() -> Alignment {
@@ -594,6 +647,19 @@ mod tests {
         let snapshot = render_snapshot(&frame);
 
         assert!(snapshot.game.iter().any(|line| line == "1 │ hello|"));
+    }
+
+    #[test]
+    fn render_snapshot_shows_caret_in_middle_of_input() {
+        let mut app = TuiApp::new();
+        for ch in "abc".chars() {
+            app.handle_action(ClientAction::TypeChar(ch));
+        }
+        app.handle_action(ClientAction::MoveCursorLeft);
+        let frame = app.frame();
+        let snapshot = render_snapshot(&frame);
+
+        assert!(snapshot.game.iter().any(|line| line == "1 │ ab|c"));
     }
 
     #[test]

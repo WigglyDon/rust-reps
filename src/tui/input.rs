@@ -10,6 +10,12 @@ pub fn classify_key_event(key: KeyEvent) -> ClientAction {
         KeyCode::F(1) => ClientAction::ToggleHelp,
         KeyCode::Backspace => ClientAction::Backspace,
         KeyCode::Enter => ClientAction::Submit,
+        KeyCode::Left => ClientAction::MoveCursorLeft,
+        KeyCode::Right => ClientAction::MoveCursorRight,
+        KeyCode::Up => ClientAction::MoveCursorUp,
+        KeyCode::Down => ClientAction::MoveCursorDown,
+        KeyCode::Home => ClientAction::MoveLineStart,
+        KeyCode::End => ClientAction::MoveLineEnd,
         KeyCode::Char(ch) => ClientAction::TypeChar(ch),
         KeyCode::Tab => ClientAction::Ignore,
         _ => ClientAction::Ignore,
@@ -37,6 +43,38 @@ mod tests {
     fn enter_classifies_as_submit() {
         let intent = classify_key_event(KeyEvent::from(KeyCode::Enter));
         assert_eq!(intent, ClientAction::Submit);
+    }
+
+    #[test]
+    fn arrow_keys_classify_as_editor_navigation() {
+        assert_eq!(
+            classify_key_event(KeyEvent::from(KeyCode::Left)),
+            ClientAction::MoveCursorLeft
+        );
+        assert_eq!(
+            classify_key_event(KeyEvent::from(KeyCode::Right)),
+            ClientAction::MoveCursorRight
+        );
+        assert_eq!(
+            classify_key_event(KeyEvent::from(KeyCode::Up)),
+            ClientAction::MoveCursorUp
+        );
+        assert_eq!(
+            classify_key_event(KeyEvent::from(KeyCode::Down)),
+            ClientAction::MoveCursorDown
+        );
+    }
+
+    #[test]
+    fn home_and_end_classify_as_line_navigation() {
+        assert_eq!(
+            classify_key_event(KeyEvent::from(KeyCode::Home)),
+            ClientAction::MoveLineStart
+        );
+        assert_eq!(
+            classify_key_event(KeyEvent::from(KeyCode::End)),
+            ClientAction::MoveLineEnd
+        );
     }
 
     #[test]

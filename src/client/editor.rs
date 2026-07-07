@@ -38,6 +38,8 @@ pub enum EditorAction {
     MoveRight,
     MoveUp,
     MoveDown,
+    MoveLineStart,
+    MoveLineEnd,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -102,6 +104,8 @@ impl EditorBuffer {
             EditorAction::MoveRight => self.move_right(),
             EditorAction::MoveUp => self.move_up(),
             EditorAction::MoveDown => self.move_down(),
+            EditorAction::MoveLineStart => self.move_line_start(),
+            EditorAction::MoveLineEnd => self.move_line_end(),
         }
     }
 
@@ -221,6 +225,16 @@ impl EditorBuffer {
                 .column
                 .min(char_count(&self.lines[self.cursor.line]));
         }
+    }
+
+    pub fn move_line_start(&mut self) {
+        self.clamp_cursor();
+        self.cursor.column = 0;
+    }
+
+    pub fn move_line_end(&mut self) {
+        self.clamp_cursor();
+        self.cursor.column = char_count(&self.lines[self.cursor.line]);
     }
 
     pub fn clamp_cursor(&mut self) {
@@ -370,6 +384,17 @@ mod tests {
     }
 
     #[test]
+    fn cursor_line_start_and_end_move_and_clamp() {
+        let mut editor = EditorBuffer::new();
+        editor.insert_string("abcd");
+
+        editor.move_line_start();
+        assert_eq!(editor.cursor(), CursorPosition { line: 0, column: 0 });
+        editor.move_line_end();
+        assert_eq!(editor.cursor(), CursorPosition { line: 0, column: 4 });
+    }
+
+    #[test]
     fn set_text_handles_single_line_text() {
         let mut editor = EditorBuffer::new();
 
@@ -447,6 +472,8 @@ mod tests {
         editor.apply_action(EditorAction::InsertString("cd".to_string()));
         editor.apply_action(EditorAction::MoveUp);
         editor.apply_action(EditorAction::MoveDown);
+        editor.apply_action(EditorAction::MoveLineStart);
+        editor.apply_action(EditorAction::MoveLineEnd);
         editor.apply_action(EditorAction::Backspace);
         editor.apply_action(EditorAction::SetText("reset".to_string()));
         editor.apply_action(EditorAction::Clear);
