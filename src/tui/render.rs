@@ -1,7 +1,7 @@
 use crate::{
     client::{
         ClientFrame, CodeToken, FailureFrame, ProblemDisplayLine, ProblemLineKind, RewardFrame,
-        StatusLine, StatusTone,
+        StatusLine, StatusTone, ViewportOverflow,
     },
     tui::{
         app::TuiApp,
@@ -22,15 +22,16 @@ use ratatui::{
 };
 
 const FEEDBACK_CHROME_HEIGHT: u16 = 4;
-const PROBLEM_ZONE_HEIGHT: u16 = 6;
-const COMMAND_RAIL_HEIGHT: u16 = 4;
+const PROBLEM_ZONE_HEIGHT: u16 = 8;
+const MIN_EDITOR_ZONE_HEIGHT: u16 = 7;
+const COMMAND_RAIL_HEIGHT: u16 = 3;
 const MIN_GUTTER_WIDTH: usize = 2;
 const REPS_SLOT_WIDTH: usize = 7;
 const PLUS_ONE_SLOT_WIDTH: usize = 6;
 const PRIMARY_ACTION_HINT: &str = "F5 submit";
 const SECONDARY_CONTROL_HINTS: &str = "F6 skip · Esc quit";
 #[cfg(test)]
-const SNAPSHOT_WORKBOX_HEIGHT: u16 = 6;
+const SNAPSHOT_WORKBOX_HEIGHT: u16 = 8;
 
 pub(crate) fn render_ui(frame: &mut Frame<'_>, app: &mut TuiApp, now: std::time::Instant) {
     let preliminary_frame = app.frame_at(now);
@@ -61,11 +62,27 @@ fn render_client_frame(frame: &mut Frame<'_>, client_frame: &ClientFrame) {
         .style(base_style()),
         chunks[0],
     );
+    render_viewport_indicator(
+        frame,
+        chunks[0],
+        client_frame
+            .game_window
+            .problem
+            .overflow(usize::from(chunks[0].height)),
+    );
 
     frame.render_widget(
         Paragraph::new(Text::from(workbox_lines(client_frame, chunks[1].height)))
             .style(editor_canvas_style()),
         chunks[1],
+    );
+    render_viewport_indicator(
+        frame,
+        chunks[1],
+        client_frame
+            .game_window
+            .workbox
+            .overflow(visible_editor_rows(chunks[1].height)),
     );
 
     if !feedback_lines.is_empty() {
@@ -80,15 +97,50 @@ fn render_client_frame(frame: &mut Frame<'_>, client_frame: &ClientFrame) {
 
 fn layout_chunks(area: Rect, feedback_height: u16) -> std::rc::Rc<[Rect]> {
     let body = shell_body(area);
+    let reserved_panes = body.height.min(2);
+    let rail_height = COMMAND_RAIL_HEIGHT.min(body.height.saturating_sub(reserved_panes));
+    let feedback_height =
+        feedback_height.min(body.height.saturating_sub(rail_height + reserved_panes));
+    let pane_height = body.height.saturating_sub(rail_height + feedback_height);
+    let (problem_height, editor_height) = pane_heights(pane_height);
+
     Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(PROBLEM_ZONE_HEIGHT),
-            Constraint::Min(6),
+            Constraint::Length(problem_height),
+            Constraint::Length(editor_height),
             Constraint::Length(feedback_height),
-            Constraint::Length(COMMAND_RAIL_HEIGHT),
+            Constraint::Length(rail_height),
         ])
         .split(body)
+}
+
+fn pane_heights(available_height: u16) -> (u16, u16) {
+    if available_height == 0 {
+        return (0, 0);
+    }
+
+    if available_height == 1 {
+        return (1, 0);
+    }
+
+    let minimum_total = PROBLEM_ZONE_HEIGHT + MIN_EDITOR_ZONE_HEIGHT;
+    if available_height < minimum_total {
+        let problem_height = (available_height / 2).max(1);
+        return (
+            problem_height,
+            available_height.saturating_sub(problem_height),
+        );
+    }
+
+    let mut problem_height = (available_height / 2).max(PROBLEM_ZONE_HEIGHT);
+    if available_height.saturating_sub(problem_height) < MIN_EDITOR_ZONE_HEIGHT {
+        problem_height = available_height.saturating_sub(MIN_EDITOR_ZONE_HEIGHT);
+    }
+    (
+        problem_height,
+        available_height.saturating_sub(problem_height),
+    )
 }
 
 fn shell_body(area: Rect) -> Rect {
@@ -99,7 +151,53 @@ fn shell_body(area: Rect) -> Rect {
 }
 
 fn problem_wrap_width(area: Rect) -> usize {
-    usize::from(area.width).saturating_sub(1)
+    usize::from(area.width).saturating_sub(2)
+}
+
+fn render_viewport_indicator(frame: &mut Frame<'_>, area: Rect, overflow: ViewportOverflow) {
+    if area.width == 0 || area.height == 0 || !overflow.has_overflow() {
+        return;
+    }
+
+    let x = area.right() - 1;
+    let buffer = frame.buffer_mut();
+    for (row, symbol) in viewport_indicator_cells(area.height, overflow) {
+        buffer[(x, area.top() + row)]
+            .set_symbol(symbol)
+            .set_style(problem_header_style());
+    }
+}
+
+fn viewport_indicator_cells(height: u16, overflow: ViewportOverflow) -> Vec<(u16, &'static str)> {
+    if height == 0 || !overflow.has_overflow() {
+        return Vec::new();
+    }
+
+    let mut cells = Vec::new();
+    if overflow.above {
+        cells.push((0, "↑"));
+    }
+    if overflow.below {
+        cells.push((height - 1, "↓"));
+    }
+
+    let track_start = if overflow.above { 1 } else { 0 };
+    let track_end = height.saturating_sub(if overflow.below { 1 } else { 0 });
+    if track_start < track_end {
+        let track_height = track_end - track_start;
+        let max_offset = overflow.total.saturating_sub(overflow.visible);
+        let thumb_row = if max_offset == 0 || track_height <= 1 {
+            track_start
+        } else {
+            let track_span = usize::from(track_height - 1);
+            track_start + ((overflow.offset.min(max_offset) * track_span / max_offset) as u16)
+        };
+        cells.push((thumb_row, "┃"));
+    }
+
+    cells.sort_by_key(|(row, _)| *row);
+    cells.dedup_by_key(|(row, _)| *row);
+    cells
 }
 
 fn render_game_border(frame: &mut Frame<'_>, area: Rect, reward: RewardFrame) {
@@ -226,31 +324,11 @@ fn problem_lines_for_height(client_frame: &ClientFrame, problem_height: u16) -> 
 
     let problem = &client_frame.game_window.problem;
     let available_rows = usize::from(problem_height);
-    let scrollable = problem.lines.len() > available_rows;
-    let content_rows = if scrollable && available_rows > 1 {
-        available_rows - 1
-    } else {
-        available_rows
-    };
-    let mut lines = problem
-        .visible_lines(content_rows)
+    problem
+        .visible_lines(available_rows)
         .iter()
         .map(problem_display_line)
-        .collect::<Vec<_>>();
-
-    if scrollable {
-        if let Some(hint) = problem.scroll_hint(content_rows) {
-            lines.push(Line::from(Span::styled(
-                format!(
-                    "Problem {}-{}/{} · PgUp/PgDn",
-                    hint.first_visible, hint.last_visible, hint.total
-                ),
-                problem_header_style(),
-            )));
-        }
-    }
-
-    lines
+        .collect::<Vec<_>>()
 }
 
 fn problem_display_line(line: &ProblemDisplayLine) -> Line<'static> {
@@ -450,12 +528,10 @@ fn feedback_line(status_line: StatusLine) -> Option<Line<'static>> {
 
 #[cfg(test)]
 fn bottom_chrome_lines(client_frame: &ClientFrame) -> Vec<Line<'static>> {
-    vec![
-        Line::from(""),
-        Line::from(primary_rail_spans(client_frame)),
-        Line::from(secondary_rail_spans()),
-        Line::from(""),
-    ]
+    let mut rail_spans = primary_rail_spans(client_frame);
+    rail_spans.push(Span::raw("    "));
+    rail_spans.extend(secondary_rail_spans());
+    vec![Line::from(""), Line::from(rail_spans), Line::from("")]
 }
 
 fn primary_rail_spans(client_frame: &ClientFrame) -> Vec<Span<'static>> {
@@ -600,17 +676,18 @@ mod tests {
     use std::time::{Duration, Instant};
 
     use super::{
-        COMMAND_RAIL_HEIGHT, FEEDBACK_CHROME_HEIGHT, PRIMARY_ACTION_HINT, PROBLEM_ZONE_HEIGHT,
-        SECONDARY_CONTROL_HINTS, SNAPSHOT_WORKBOX_HEIGHT, border_sweep_cell_progress,
-        bottom_chrome_alignment, bottom_chrome_lines, feedback_chrome_lines, feedback_height,
-        gutter_width, layout_chunks, line_text, problem_lines, render_snapshot,
-        render_snapshot_with_workbox_height, reward_sweep_intensity_at, visible_editor_rows,
-        workbox_lines,
+        COMMAND_RAIL_HEIGHT, FEEDBACK_CHROME_HEIGHT, MIN_EDITOR_ZONE_HEIGHT, PRIMARY_ACTION_HINT,
+        PROBLEM_ZONE_HEIGHT, SECONDARY_CONTROL_HINTS, SNAPSHOT_WORKBOX_HEIGHT,
+        border_sweep_cell_progress, bottom_chrome_alignment, bottom_chrome_lines,
+        feedback_chrome_lines, feedback_height, gutter_width, layout_chunks, line_text,
+        problem_lines, render_snapshot, render_snapshot_with_workbox_height,
+        reward_sweep_intensity_at, viewport_indicator_cells, visible_editor_rows, workbox_lines,
     };
     use crate::{
         client::{
             ClientAction, ProblemDisplayLine, ProblemViewport, REWARD_ATTACK_DURATION,
             REWARD_DURATION, REWARD_PLUS_ONE_BODY_DURATION, RewardFrame, StatusTone,
+            ViewportOverflow,
         },
         engine, lab,
         tui::{
@@ -830,7 +907,7 @@ mod tests {
     }
 
     #[test]
-    fn scroll_hint_appears_only_when_problem_content_overflows() {
+    fn viewport_indicator_appears_only_when_pane_content_overflows() {
         let short_snapshot = render_snapshot(&TuiApp::new().frame());
         assert!(
             !short_snapshot
@@ -839,13 +916,119 @@ mod tests {
                 .any(|line| line.contains("PgUp/PgDn"))
         );
 
-        let long_snapshot = render_snapshot(&frame_with_long_problem(0));
         assert!(
-            long_snapshot
-                .game
-                .iter()
-                .any(|line| line == "Problem 1-5/10 · PgUp/PgDn")
+            viewport_indicator_cells(
+                8,
+                ViewportOverflow {
+                    above: false,
+                    below: false,
+                    offset: 0,
+                    visible: 8,
+                    total: 8,
+                }
+            )
+            .is_empty()
         );
+        assert_eq!(
+            viewport_indicator_cells(
+                8,
+                ViewportOverflow {
+                    above: false,
+                    below: true,
+                    offset: 0,
+                    visible: 8,
+                    total: 12,
+                }
+            ),
+            vec![(0, "┃"), (7, "↓")]
+        );
+    }
+
+    #[test]
+    fn viewport_indicator_marks_middle_and_bottom_scroll_positions() {
+        assert_eq!(
+            viewport_indicator_cells(
+                8,
+                ViewportOverflow {
+                    above: true,
+                    below: true,
+                    offset: 4,
+                    visible: 3,
+                    total: 10,
+                }
+            ),
+            vec![(0, "↑"), (3, "┃"), (7, "↓")]
+        );
+        assert_eq!(
+            viewport_indicator_cells(
+                8,
+                ViewportOverflow {
+                    above: true,
+                    below: false,
+                    offset: 7,
+                    visible: 3,
+                    total: 10,
+                }
+            ),
+            vec![(0, "↑"), (7, "┃")]
+        );
+    }
+
+    #[test]
+    fn editor_overflow_states_map_to_pane_local_indicators() {
+        let mut app = TuiApp::new();
+        type_text(&mut app, "one\ntwo\nthree");
+        let fitting = app.frame().game_window.workbox.overflow(3);
+        assert!(!fitting.has_overflow());
+        assert!(viewport_indicator_cells(4, fitting).is_empty());
+
+        type_text(&mut app, "\nfour\nfive\nsix");
+        app.set_editor_viewport_height(3);
+        while app.frame().game_window.workbox.cursor.line > 0 {
+            app.handle_action(ClientAction::MoveCursorUp);
+        }
+        let top = app.frame().game_window.workbox.overflow(3);
+        assert_eq!(top.above, false);
+        assert_eq!(top.below, true);
+        assert!(
+            viewport_indicator_cells(4, top)
+                .iter()
+                .any(|(_, symbol)| *symbol == "↓")
+        );
+
+        app.handle_action(ClientAction::MoveCursorDown);
+        app.handle_action(ClientAction::MoveCursorDown);
+        app.handle_action(ClientAction::MoveCursorDown);
+        let middle = app.frame().game_window.workbox.overflow(3);
+        assert!(middle.above);
+        assert!(middle.below);
+        let middle_symbols = viewport_indicator_cells(4, middle)
+            .into_iter()
+            .map(|(_, symbol)| symbol)
+            .collect::<Vec<_>>();
+        assert!(middle_symbols.contains(&"↑"));
+        assert!(middle_symbols.contains(&"↓"));
+
+        while app.frame().game_window.workbox.cursor.line
+            < app
+                .frame()
+                .game_window
+                .workbox
+                .lines
+                .len()
+                .saturating_sub(1)
+        {
+            app.handle_action(ClientAction::MoveCursorDown);
+        }
+        let bottom = app.frame().game_window.workbox.overflow(3);
+        assert!(bottom.above);
+        assert!(!bottom.below);
+        let bottom_symbols = viewport_indicator_cells(4, bottom)
+            .into_iter()
+            .map(|(_, symbol)| symbol)
+            .collect::<Vec<_>>();
+        assert!(bottom_symbols.contains(&"↑"));
+        assert!(!bottom_symbols.contains(&"↓"));
     }
 
     #[test]
@@ -853,15 +1036,65 @@ mod tests {
         let snapshot = render_snapshot(&frame_with_long_problem(4));
 
         assert!(snapshot.game.iter().any(|line| line == "problem line 5"));
-        assert!(snapshot.game.iter().any(|line| line == "problem line 9"));
-        assert!(
-            snapshot
-                .game
-                .iter()
-                .any(|line| line == "Problem 5-9/10 · PgUp/PgDn")
-        );
+        assert!(snapshot.game.iter().any(|line| line == "problem line 10"));
         assert!(!snapshot.game.iter().any(|line| line == "problem line 1"));
-        assert!(!snapshot.game.iter().any(|line| line == "problem line 10"));
+        assert!(!snapshot.game.iter().any(|line| line.contains("PgUp/PgDn")));
+    }
+
+    #[test]
+    fn problem_overflow_states_map_to_pane_local_indicators() {
+        let top_frame = frame_with_long_problem(0);
+        let middle_frame = frame_with_long_problem(4);
+        let bottom_frame = frame_with_long_problem(99);
+
+        let visible_rows = 5;
+        let top = top_frame.game_window.problem.overflow(visible_rows);
+        let middle = middle_frame.game_window.problem.overflow(visible_rows);
+        let bottom = bottom_frame.game_window.problem.overflow(visible_rows);
+
+        assert_eq!((top.above, top.below), (false, true));
+        assert_eq!((middle.above, middle.below), (true, true));
+        assert_eq!((bottom.above, bottom.below), (true, false));
+        assert!(
+            viewport_indicator_cells(visible_rows as u16, top)
+                .iter()
+                .any(|(_, symbol)| *symbol == "↓")
+        );
+        assert!(
+            viewport_indicator_cells(visible_rows as u16, middle)
+                .iter()
+                .any(|(_, symbol)| *symbol == "↑")
+        );
+        assert!(
+            viewport_indicator_cells(visible_rows as u16, middle)
+                .iter()
+                .any(|(_, symbol)| *symbol == "↓")
+        );
+        assert!(
+            !viewport_indicator_cells(visible_rows as u16, bottom)
+                .iter()
+                .any(|(_, symbol)| *symbol == "↓")
+        );
+    }
+
+    #[test]
+    fn long_problem_rendering_is_clipped_to_reserved_pane() {
+        let session = engine::Session::lab();
+        let ui_state = crate::client::ClientUiState::new();
+        let frame =
+            crate::client::project_client_frame_for_layout(&session, &ui_state, test_now(), 18);
+        let lines = problem_lines(&frame)
+            .iter()
+            .map(line_text)
+            .collect::<Vec<_>>();
+
+        assert_eq!(lines.len(), usize::from(PROBLEM_ZONE_HEIGHT));
+        assert!(
+            lines
+                .iter()
+                .filter(|line| !line.is_empty())
+                .all(|line| line.chars().count() <= 18)
+        );
     }
 
     #[test]
@@ -915,19 +1148,13 @@ mod tests {
             top_snapshot
                 .game
                 .iter()
-                .any(|line| line.contains("Problem 1-5/"))
+                .all(|line| !line.contains("PgUp/PgDn"))
         );
         assert!(
             scrolled_snapshot
                 .game
                 .iter()
                 .any(|line| line == "requirements:")
-        );
-        assert!(
-            scrolled_snapshot
-                .game
-                .iter()
-                .any(|line| line.contains("Problem 5-9/"))
         );
         assert!(!scrolled_snapshot.game.iter().any(|line| line == "task:"));
         assert_eq!(top_snapshot.game.len(), scrolled_snapshot.game.len());
@@ -970,8 +1197,7 @@ mod tests {
             snapshot.bottom_chrome,
             vec![
                 "".to_string(),
-                format!("reps 0         {PRIMARY_ACTION_HINT}"),
-                SECONDARY_CONTROL_HINTS.to_string(),
+                format!("reps 0         {PRIMARY_ACTION_HINT}    {SECONDARY_CONTROL_HINTS}"),
                 "".to_string(),
             ]
         );
@@ -1007,12 +1233,8 @@ mod tests {
                 );
             }
         }
-        assert!(
-            snapshot
-                .bottom_chrome
-                .iter()
-                .any(|line| line == &format!("reps 0         {PRIMARY_ACTION_HINT}"))
-        );
+        assert!(snapshot.bottom_chrome.iter().any(|line| line
+            == &format!("reps 0         {PRIMARY_ACTION_HINT}    {SECONDARY_CONTROL_HINTS}")));
     }
 
     #[test]
@@ -1021,7 +1243,6 @@ mod tests {
         let frame = app.frame();
         let lines = bottom_chrome_lines(&frame);
         let reward_line = lines.get(1).expect("expected bottom rail reward line");
-        let controls_line = lines.get(2).expect("expected bottom rail controls line");
 
         assert_eq!(lines.len(), usize::from(COMMAND_RAIL_HEIGHT));
         assert_eq!(reward_line.spans[0].content.as_ref(), "reps 0 ");
@@ -1044,12 +1265,13 @@ mod tests {
                 .add_modifier
                 .contains(Modifier::BOLD)
         );
+        assert_eq!(reward_line.spans[4].content.as_ref(), "    ");
         assert_eq!(
-            controls_line.spans[0].content.as_ref(),
+            reward_line.spans[5].content.as_ref(),
             SECONDARY_CONTROL_HINTS
         );
         assert_eq!(
-            controls_line.spans[0].style.fg,
+            reward_line.spans[5].style.fg,
             Some(RUST_REPS_DARK.text_muted)
         );
     }
@@ -1073,7 +1295,7 @@ mod tests {
         assert_eq!(line.spans[1].style.fg, Some(RUST_REPS_DARK.reward_plus_one));
         assert!(line.spans[1].style.add_modifier.contains(Modifier::BOLD));
         assert_eq!(line.spans[3].content.as_ref(), PRIMARY_ACTION_HINT);
-        assert_eq!(lines[2].spans[0].content.as_ref(), SECONDARY_CONTROL_HINTS);
+        assert_eq!(line.spans[5].content.as_ref(), SECONDARY_CONTROL_HINTS);
     }
 
     #[test]
@@ -1119,7 +1341,7 @@ mod tests {
         assert_eq!(line.spans[0].style.fg, Some(RUST_REPS_DARK.counter_normal));
         assert!(!line_text(line).contains("+1"));
         assert!(line_text(line).contains(PRIMARY_ACTION_HINT));
-        assert_eq!(lines[2].spans[0].content.as_ref(), SECONDARY_CONTROL_HINTS);
+        assert_eq!(line.spans[5].content.as_ref(), SECONDARY_CONTROL_HINTS);
     }
 
     #[test]
@@ -1322,6 +1544,7 @@ mod tests {
         assert_eq!(wrong_chunks, success_chunks);
         assert_eq!(idle_chunks.len(), 4);
         assert_eq!(idle_chunks[0].height, PROBLEM_ZONE_HEIGHT);
+        assert_eq!(idle_chunks[1].height, MIN_EDITOR_ZONE_HEIGHT);
         assert_eq!(idle_chunks[2].height, FEEDBACK_CHROME_HEIGHT);
         assert_eq!(idle_chunks[3].height, COMMAND_RAIL_HEIGHT);
     }

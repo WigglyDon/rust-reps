@@ -173,10 +173,41 @@ pub struct ProblemVisibleRange {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct ProblemScrollHint {
-    pub first_visible: usize,
-    pub last_visible: usize,
+pub struct ViewportOverflow {
+    pub above: bool,
+    pub below: bool,
+    pub offset: usize,
+    pub visible: usize,
     pub total: usize,
+}
+
+impl ViewportOverflow {
+    pub fn from_parts(total: usize, visible: usize, offset: usize) -> Self {
+        if total == 0 || visible == 0 || total <= visible {
+            return Self {
+                above: false,
+                below: false,
+                offset: 0,
+                visible,
+                total,
+            };
+        }
+
+        let visible = visible.min(total);
+        let max_offset = total.saturating_sub(visible);
+        let offset = offset.min(max_offset);
+        Self {
+            above: offset > 0,
+            below: offset < max_offset,
+            offset,
+            visible,
+            total,
+        }
+    }
+
+    pub fn has_overflow(self) -> bool {
+        self.above || self.below
+    }
 }
 
 fn max_scroll_offset(total_lines: usize) -> usize {
@@ -588,17 +619,9 @@ impl ProblemView {
         self.viewport.visible_range(self.lines.len(), visible_lines)
     }
 
-    pub fn scroll_hint(&self, visible_lines: usize) -> Option<ProblemScrollHint> {
-        if self.lines.len() <= visible_lines || visible_lines == 0 {
-            return None;
-        }
-
+    pub fn overflow(&self, visible_lines: usize) -> ViewportOverflow {
         let range = self.visible_range(visible_lines);
-        Some(ProblemScrollHint {
-            first_visible: range.start + 1,
-            last_visible: range.end,
-            total: self.lines.len(),
-        })
+        ViewportOverflow::from_parts(self.lines.len(), visible_lines, range.start)
     }
 }
 
@@ -611,6 +634,16 @@ pub struct WorkboxView {
     pub input_tokens: Vec<CodeToken>,
     pub line_tokens: Vec<Vec<CodeToken>>,
     pub cursor_visible: bool,
+}
+
+impl WorkboxView {
+    pub fn overflow(&self, visible_lines: usize) -> ViewportOverflow {
+        ViewportOverflow::from_parts(
+            self.lines.len().max(1),
+            visible_lines,
+            self.viewport.first_line,
+        )
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -1203,7 +1236,7 @@ mod tests {
     }
 
     #[test]
-    fn visible_problem_lines_and_scroll_hint_are_derived_from_viewport() {
+    fn visible_problem_lines_and_overflow_are_derived_from_viewport() {
         let problem = ProblemView {
             instruction: "do this:".to_string(),
             prompt: "line 1".to_string(),
@@ -1222,14 +1255,15 @@ mod tests {
 
         assert_eq!(visible, vec!["line 5", "line 6", "line 7"]);
         assert_eq!(
-            problem.scroll_hint(3),
-            Some(super::ProblemScrollHint {
-                first_visible: 5,
-                last_visible: 7,
+            problem.overflow(3),
+            super::ViewportOverflow {
+                above: true,
+                below: true,
+                offset: 4,
+                visible: 3,
                 total: 8,
-            })
+            }
         );
-
         let fitting_problem = ProblemView {
             viewport: ProblemViewport::new(),
             lines: vec![
@@ -1238,11 +1272,20 @@ mod tests {
             ],
             ..problem
         };
-        assert_eq!(fitting_problem.scroll_hint(3), None);
+        assert_eq!(
+            fitting_problem.overflow(3),
+            super::ViewportOverflow {
+                above: false,
+                below: false,
+                offset: 0,
+                visible: 3,
+                total: 2,
+            }
+        );
     }
 
     #[test]
-    fn lab_long_problem_overflows_and_exposes_scroll_hint() {
+    fn lab_long_problem_overflows_and_exposes_viewport_state() {
         let session = engine::Session::lab();
         let ui_state = ClientUiState::new();
         let frame = project_client_frame_for_layout(&session, &ui_state, test_now(), 48);
@@ -1259,13 +1302,41 @@ mod tests {
         assert_eq!(&visible[..4], &["", "do this:", "", "task:"]);
         assert!(visible[4].starts_with("Build the smallest Rust entry point"));
         assert_eq!(
-            problem.scroll_hint(5),
-            Some(super::ProblemScrollHint {
-                first_visible: 1,
-                last_visible: 5,
+            problem.overflow(5),
+            super::ViewportOverflow {
+                above: false,
+                below: true,
+                offset: 0,
+                visible: 5,
                 total: problem.lines.len(),
-            })
+            }
         );
+    }
+
+    #[test]
+    fn editor_overflow_projection_tracks_visible_buffer_slice() {
+        let mut ui_state = ClientUiState::new();
+        ui_state.set_editor_viewport_height(3);
+        ui_state.editor.set_text("one\ntwo\nthree\nfour\nfive");
+        for _ in 0..4 {
+            ui_state.apply_action(ClientAction::MoveCursorDown);
+        }
+
+        let session = engine::Session::new();
+        let frame = project_client_frame(&session, &ui_state);
+        let workbox = &frame.game_window.workbox;
+
+        assert_eq!(
+            workbox.overflow(3),
+            super::ViewportOverflow {
+                above: true,
+                below: false,
+                offset: 2,
+                visible: 3,
+                total: 5,
+            }
+        );
+        assert_eq!(workbox.lines.join("\n"), "one\ntwo\nthree\nfour\nfive");
     }
 
     #[test]
