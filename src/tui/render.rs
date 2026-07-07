@@ -1,14 +1,14 @@
 use crate::{
     client::{
-        ClientFrame, CodeToken, FailureFrame, ProblemDisplayLine, ProblemLineKind, RewardFrame,
-        StatusLine, StatusTone, ViewportOverflow,
+        ClientFrame, CodeToken, EditorAnchor, FailureFrame, ProblemDisplayLine, ProblemLineKind,
+        RewardFrame, StatusLine, StatusTone, ViewportOverflow,
     },
     tui::{
         app::TuiApp,
         input::MousePane,
         theme::{
             base_style, border_sweep_style, caret_feedback_style, code_token_style,
-            control_hint_style, counter_style, editor_canvas_style, editor_gutter_feedback_style,
+            control_hint_style, editor_canvas_style, editor_gutter_feedback_style,
             editor_line_style, plus_one_style, primary_action_style, problem_header_style,
             status_tone_style, surface_style,
         },
@@ -18,6 +18,7 @@ use ratatui::{
     Frame,
     buffer::Buffer,
     layout::{Constraint, Direction, Layout, Margin, Rect},
+    style::Modifier,
     text::{Line, Span, Text},
     widgets::{Block, Paragraph},
 };
@@ -26,10 +27,9 @@ const FEEDBACK_CHROME_HEIGHT: u16 = 4;
 const EDITOR_PANEL_PERCENT: u16 = 56;
 const COMMAND_RAIL_HEIGHT: u16 = 3;
 const MIN_GUTTER_WIDTH: usize = 2;
-const REPS_SLOT_WIDTH: usize = 7;
-const PLUS_ONE_SLOT_WIDTH: usize = 6;
 const PRIMARY_ACTION_HINT: &str = "F5 submit";
-const SECONDARY_CONTROL_HINTS: &str = "F6 skip · Esc quit · wheel scroll · Pg scroll";
+const SKIP_ACTION_HINT: &str = "F6 skip";
+const QUIT_ACTION_HINT: &str = "Esc quit";
 #[cfg(test)]
 const SNAPSHOT_PROBLEM_HEIGHT: u16 = 8;
 #[cfg(test)]
@@ -85,6 +85,8 @@ fn render_client_frame(frame: &mut Frame<'_>, client_frame: &ClientFrame) {
         .style(editor_canvas_style()),
         layout.editor,
     );
+    render_editor_cursor(frame, layout.editor, client_frame);
+    render_editor_toasts(frame, layout.editor, client_frame);
     render_viewport_indicator(
         frame,
         layout.editor,
@@ -400,7 +402,7 @@ fn workbox_lines(client_frame: &ClientFrame, workbox_height: u16) -> Vec<Line<'s
         .max(1);
     let max_first_line = total_lines.saturating_sub(visible_lines);
     let first_line = source_viewport.first_line.min(max_first_line);
-    let visible_end = first_line + visible_lines;
+    let visible_end = (first_line + visible_lines).min(total_lines);
     let gutter_width = gutter_width(total_lines.max(visible_end));
     let mut lines = vec![Line::from("").style(editor_canvas_style())];
 
@@ -412,15 +414,11 @@ fn workbox_lines(client_frame: &ClientFrame, workbox_height: u16) -> Vec<Line<'s
             .get(line_index)
             .map(Vec::as_slice)
             .unwrap_or(&[]);
-        let cursor_column = (line_index == client_frame.game_window.workbox.cursor.line)
-            .then_some(client_frame.game_window.workbox.cursor.column);
         let active = line_index == client_frame.game_window.workbox.cursor.line;
         lines.push(editor_line(
             line_index,
             gutter_width,
             tokens,
-            cursor_column,
-            client_frame.game_window.workbox.cursor_visible,
             active,
             client_frame.failure,
         ));
@@ -431,6 +429,142 @@ fn workbox_lines(client_frame: &ClientFrame, workbox_height: u16) -> Vec<Line<'s
     }
 
     lines
+}
+
+fn render_editor_cursor(frame: &mut Frame<'_>, area: Rect, client_frame: &ClientFrame) {
+    let workbox = &client_frame.game_window.workbox;
+    if !workbox.cursor_visible {
+        return;
+    }
+
+    let Some(anchor) = visible_cursor_anchor(area, client_frame) else {
+        return;
+    };
+    let Some((x, y)) = editor_anchor_position(area, client_frame, anchor, 1) else {
+        return;
+    };
+
+    frame.buffer_mut()[(x, y)]
+        .set_style(caret_feedback_style(client_frame.failure).add_modifier(Modifier::REVERSED));
+}
+
+fn visible_cursor_anchor(area: Rect, client_frame: &ClientFrame) -> Option<EditorAnchor> {
+    let workbox = &client_frame.game_window.workbox;
+    let visible_editor_rows = visible_editor_rows(area.height);
+    let total_lines = workbox.lines.len().max(1);
+    let visible_lines = workbox
+        .viewport
+        .visible_lines
+        .min(visible_editor_rows)
+        .max(1)
+        .min(total_lines);
+    let max_first_line = total_lines.saturating_sub(visible_lines);
+    let first_line = workbox.viewport.first_line.min(max_first_line);
+    let end_line = first_line + visible_lines;
+
+    if workbox.cursor.line < first_line || workbox.cursor.line >= end_line {
+        return None;
+    }
+
+    Some(EditorAnchor {
+        row: workbox.cursor.line - first_line,
+        column: workbox.cursor.column,
+    })
+}
+
+fn render_editor_toasts(frame: &mut Frame<'_>, area: Rect, client_frame: &ClientFrame) {
+    if client_frame.reward.show_plus_one {
+        render_editor_toast(
+            frame,
+            area,
+            client_frame,
+            client_frame.reward.anchor,
+            "+1",
+            plus_one_style(client_frame.reward),
+        );
+    }
+    if client_frame.failure.active {
+        render_editor_toast(
+            frame,
+            area,
+            client_frame,
+            client_frame.failure.anchor,
+            "not quite",
+            status_tone_style(StatusTone::TryAgain),
+        );
+    }
+    if client_frame.skip.active {
+        render_editor_toast(
+            frame,
+            area,
+            client_frame,
+            client_frame.skip.anchor,
+            "skipped",
+            status_tone_style(StatusTone::Warning),
+        );
+    }
+}
+
+fn render_editor_toast(
+    frame: &mut Frame<'_>,
+    area: Rect,
+    client_frame: &ClientFrame,
+    anchor: Option<EditorAnchor>,
+    text: &str,
+    style: ratatui::style::Style,
+) {
+    let Some(anchor) = anchor else {
+        return;
+    };
+    let text_width = text.chars().count().max(1);
+    let Some((mut x, y)) = editor_anchor_position(area, client_frame, anchor, text_width) else {
+        return;
+    };
+    let right_limit = area.right().saturating_sub(1);
+    if x >= right_limit {
+        return;
+    }
+    let text_width = text_width.min(usize::from(right_limit.saturating_sub(x)));
+    let buffer = frame.buffer_mut();
+    for ch in text.chars().take(text_width) {
+        buffer[(x, y)].set_symbol(&ch.to_string()).set_style(style);
+        x = x.saturating_add(1);
+    }
+}
+
+fn editor_anchor_position(
+    area: Rect,
+    client_frame: &ClientFrame,
+    anchor: EditorAnchor,
+    text_width: usize,
+) -> Option<(u16, u16)> {
+    if area.width == 0 || area.height <= 1 {
+        return None;
+    }
+
+    let row = usize_to_u16(anchor.row);
+    let y = area.top().saturating_add(1).saturating_add(row);
+    if y >= area.bottom() {
+        return None;
+    }
+
+    let total_lines = client_frame.game_window.workbox.lines.len().max(1);
+    let content_left = area
+        .left()
+        .saturating_add(usize_to_u16(gutter_width(total_lines)))
+        .saturating_add(3);
+    let indicator_safe_right = area.right().saturating_sub(1);
+    if content_left >= indicator_safe_right {
+        return None;
+    }
+
+    let desired_x = content_left.saturating_add(usize_to_u16(anchor.column));
+    let max_x = indicator_safe_right.saturating_sub(usize_to_u16(text_width));
+    Some((desired_x.min(max_x).max(content_left), y))
+}
+
+fn usize_to_u16(value: usize) -> u16 {
+    value.min(usize::from(u16::MAX)) as u16
 }
 
 fn feedback_chrome_lines(client_frame: &ClientFrame) -> Vec<Line<'static>> {
@@ -498,8 +632,6 @@ fn editor_line(
     line_index: usize,
     gutter_width: usize,
     tokens: &[CodeToken],
-    cursor_column: Option<usize>,
-    cursor_visible: bool,
     active: bool,
     failure: FailureFrame,
 ) -> Line<'static> {
@@ -508,8 +640,6 @@ fn editor_line(
         line_index,
         gutter_width,
         tokens,
-        cursor_column,
-        cursor_visible,
         active,
         failure,
     ))
@@ -520,8 +650,6 @@ fn editor_line_spans(
     line_index: usize,
     gutter_width: usize,
     tokens: &[CodeToken],
-    cursor_column: Option<usize>,
-    cursor_visible: bool,
     active: bool,
     failure: FailureFrame,
 ) -> Vec<Span<'static>> {
@@ -533,17 +661,7 @@ fn editor_line_spans(
         editor_gutter_feedback_style(active, failure),
     )];
 
-    if let Some(cursor_column) = cursor_column {
-        let cursor = if cursor_visible { "|" } else { " " };
-        spans.extend(code_spans_with_cursor(
-            tokens,
-            cursor_column,
-            cursor,
-            caret_feedback_style(failure),
-        ));
-    } else {
-        spans.extend(code_spans(tokens));
-    }
+    spans.extend(code_spans(tokens));
 
     spans
 }
@@ -573,39 +691,14 @@ fn bottom_chrome_lines(client_frame: &ClientFrame) -> Vec<Line<'static>> {
 }
 
 fn command_rail_spans(client_frame: &ClientFrame) -> Vec<Span<'static>> {
-    let mut rail_spans = primary_rail_spans(client_frame);
-    rail_spans.push(Span::raw("    "));
-    rail_spans.extend(secondary_rail_spans());
-    rail_spans
-}
-
-fn primary_rail_spans(client_frame: &ClientFrame) -> Vec<Span<'static>> {
-    let mut spans = vec![Span::styled(
-        format!(
-            "{:<REPS_SLOT_WIDTH$}",
-            format!("reps {}", client_frame.completed_reps_this_run)
-        ),
-        counter_style(),
-    )];
-    if client_frame.reward.show_plus_one {
-        spans.push(Span::styled(
-            format!("{:^PLUS_ONE_SLOT_WIDTH$}", "+1"),
-            plus_one_style(client_frame.reward),
-        ));
-    } else {
-        spans.push(Span::raw(" ".repeat(PLUS_ONE_SLOT_WIDTH)));
-    }
-
-    spans.push(Span::raw("  "));
-    spans.push(Span::styled(PRIMARY_ACTION_HINT, primary_action_style()));
-    spans
-}
-
-fn secondary_rail_spans() -> Vec<Span<'static>> {
-    vec![Span::styled(
-        SECONDARY_CONTROL_HINTS.to_string(),
-        control_hint_style(),
-    )]
+    let _ = client_frame;
+    vec![
+        Span::styled(PRIMARY_ACTION_HINT, primary_action_style()),
+        Span::styled(" · ", control_hint_style()),
+        Span::styled(SKIP_ACTION_HINT, control_hint_style()),
+        Span::styled(" · ", control_hint_style()),
+        Span::styled(QUIT_ACTION_HINT, control_hint_style()),
+    ]
 }
 
 fn code_spans(tokens: &[CodeToken]) -> Vec<Span<'static>> {
@@ -613,57 +706,6 @@ fn code_spans(tokens: &[CodeToken]) -> Vec<Span<'static>> {
         .iter()
         .map(|token| Span::styled(token.text.clone(), code_token_style(token.kind)))
         .collect()
-}
-
-fn code_spans_with_cursor(
-    tokens: &[CodeToken],
-    cursor_column: usize,
-    cursor: &'static str,
-    caret_style: ratatui::style::Style,
-) -> Vec<Span<'static>> {
-    let mut spans = Vec::new();
-    let mut chars_before_cursor = 0;
-    let mut cursor_inserted = false;
-
-    for token in tokens {
-        let token_len = token.text.chars().count();
-        if !cursor_inserted && cursor_column <= chars_before_cursor + token_len {
-            let split_column = cursor_column.saturating_sub(chars_before_cursor);
-            let (before, after) = split_at_char_column(&token.text, split_column);
-            if !before.is_empty() {
-                spans.push(Span::styled(before, code_token_style(token.kind)));
-            }
-            spans.push(Span::styled(cursor.to_string(), caret_style));
-            if !after.is_empty() {
-                spans.push(Span::styled(after, code_token_style(token.kind)));
-            }
-            cursor_inserted = true;
-        } else {
-            spans.push(Span::styled(
-                token.text.clone(),
-                code_token_style(token.kind),
-            ));
-        }
-        chars_before_cursor += token_len;
-    }
-
-    if !cursor_inserted {
-        spans.push(Span::styled(cursor.to_string(), caret_style));
-    }
-
-    spans
-}
-
-fn split_at_char_column(text: &str, column: usize) -> (String, String) {
-    let split_index = text
-        .char_indices()
-        .map(|(index, _)| index)
-        .nth(column)
-        .unwrap_or(text.len());
-    (
-        text[..split_index].to_string(),
-        text[split_index..].to_string(),
-    )
 }
 
 #[cfg(test)]
@@ -721,18 +763,19 @@ mod tests {
     use std::time::{Duration, Instant};
 
     use super::{
-        COMMAND_RAIL_HEIGHT, FEEDBACK_CHROME_HEIGHT, PRIMARY_ACTION_HINT, SECONDARY_CONTROL_HINTS,
-        SNAPSHOT_PROBLEM_HEIGHT, SNAPSHOT_WORKBOX_HEIGHT, border_sweep_cell_progress,
-        bottom_chrome_alignment, bottom_chrome_lines, feedback_chrome_lines, feedback_height,
-        gutter_width, layout_chunks, line_text, problem_lines, render_snapshot,
-        render_snapshot_with_workbox_height, reward_sweep_intensity_at, shell_layout,
-        viewport_indicator_cells, visible_editor_rows, workbox_lines,
+        COMMAND_RAIL_HEIGHT, FEEDBACK_CHROME_HEIGHT, PRIMARY_ACTION_HINT, QUIT_ACTION_HINT,
+        SKIP_ACTION_HINT, SNAPSHOT_PROBLEM_HEIGHT, SNAPSHOT_WORKBOX_HEIGHT,
+        border_sweep_cell_progress, bottom_chrome_alignment, bottom_chrome_lines,
+        feedback_chrome_lines, feedback_height, gutter_width, layout_chunks, line_text,
+        problem_lines, render_snapshot, render_snapshot_with_workbox_height,
+        reward_sweep_intensity_at, shell_layout, viewport_indicator_cells, visible_editor_rows,
+        workbox_lines,
     };
     use crate::{
         client::{
-            ClientAction, ProblemDisplayLine, ProblemViewport, REWARD_ATTACK_DURATION,
-            REWARD_DURATION, REWARD_PLUS_ONE_BODY_DURATION, RewardFrame, StatusTone,
-            ViewportOverflow,
+            ClientAction, EditorAnchor, ProblemDisplayLine, ProblemViewport,
+            REWARD_ATTACK_DURATION, REWARD_DURATION, REWARD_PLUS_ONE_BODY_DURATION, RewardFrame,
+            StatusTone, ViewportOverflow,
         },
         engine, lab,
         tui::{
@@ -772,6 +815,7 @@ mod tests {
             game_glow_intensity,
             sweep_progress,
             show_plus_one: plus_one_intensity > 0,
+            anchor: None,
         }
     }
 
@@ -806,8 +850,8 @@ mod tests {
         let input_position = snapshot
             .game
             .iter()
-            .position(|line| line == " 1 │ |")
-            .expect("expected editor gutter and caret in game snapshot");
+            .position(|line| line == " 1 │ ")
+            .expect("expected editor gutter in game snapshot");
 
         assert!(instruction_position < prompt_value_position);
         assert!(prompt_value_position < input_position);
@@ -831,8 +875,8 @@ mod tests {
         let editor_position = snapshot
             .game
             .iter()
-            .position(|line| line == " 1 │ |")
-            .expect("expected editor gutter and caret");
+            .position(|line| line == " 1 │ ")
+            .expect("expected editor gutter");
         let rail_position = snapshot
             .bottom_chrome
             .iter()
@@ -845,7 +889,7 @@ mod tests {
             snapshot
                 .bottom_chrome
                 .iter()
-                .any(|line| line.contains(SECONDARY_CONTROL_HINTS))
+                .any(|line| line.contains(SKIP_ACTION_HINT) && line.contains(QUIT_ACTION_HINT))
         );
     }
 
@@ -900,12 +944,12 @@ mod tests {
         let input_position = snapshot
             .game
             .iter()
-            .position(|line| line == " 1 │ |")
+            .position(|line| line == " 1 │ ")
             .expect("expected editor input line");
 
         assert!(input_position > 0);
         assert_eq!(snapshot.game[input_position - 1], "");
-        assert!(snapshot.game.iter().any(|line| line == " 2 │ "));
+        assert!(!snapshot.game.iter().any(|line| line == " 2 │ "));
         assert!(
             !snapshot.game.iter().any(|line| line.contains('─')),
             "editor surface should not use a partial horizontal divider"
@@ -928,9 +972,10 @@ mod tests {
         let rendered: Vec<String> = lines.iter().map(line_text).collect();
 
         assert_eq!(rendered[0], "");
-        assert_eq!(rendered[1], " 1 │ |");
-        assert_eq!(rendered[2], " 2 │ ");
-        assert_eq!(rendered[3], " 3 │ ");
+        assert_eq!(rendered[1], " 1 │ ");
+        assert_eq!(rendered[2], "");
+        assert_eq!(rendered[3], "");
+        assert!(!rendered.iter().any(|line| line == " 2 │ "));
         assert!(!rendered.iter().any(|line| line.contains("fn main")));
     }
 
@@ -951,7 +996,7 @@ mod tests {
             Some(RUST_REPS_DARK.editor_active_line)
         );
         assert_eq!(blank_line.style.bg, Some(RUST_REPS_DARK.surface));
-        assert_eq!(blank_line.spans[0].style.bg, Some(RUST_REPS_DARK.surface));
+        assert!(blank_line.spans.is_empty());
     }
 
     #[test]
@@ -1247,7 +1292,7 @@ mod tests {
         assert!(!scrolled_snapshot.game.iter().any(|line| line == "task:"));
         assert_eq!(top_snapshot.game.len(), scrolled_snapshot.game.len());
         assert_eq!(top_snapshot.bottom_chrome, scrolled_snapshot.bottom_chrome);
-        assert!(scrolled_snapshot.game.iter().any(|line| line == " 1 │ |"));
+        assert!(scrolled_snapshot.game.iter().any(|line| line == " 1 │ "));
     }
 
     #[test]
@@ -1266,7 +1311,7 @@ mod tests {
                 .any(|line| line == " 1 │ fn add_one(x: i32) -> i32 {")
         );
         assert!(snapshot.game.iter().any(|line| line == " 2 │     x + 1"));
-        assert!(snapshot.game.iter().any(|line| line == " 3 │ }|"));
+        assert!(snapshot.game.iter().any(|line| line == " 3 │ }"));
         assert!(
             snapshot
                 .bottom_chrome
@@ -1277,7 +1322,7 @@ mod tests {
     }
 
     #[test]
-    fn idle_counter_renders_inside_command_rail() {
+    fn idle_command_rail_renders_only_controls() {
         let app = TuiApp::new();
         let frame = app.frame();
         let snapshot = render_snapshot(&frame);
@@ -1285,11 +1330,17 @@ mod tests {
             snapshot.bottom_chrome,
             vec![
                 "".to_string(),
-                format!("reps 0         {PRIMARY_ACTION_HINT}    {SECONDARY_CONTROL_HINTS}"),
+                format!("{PRIMARY_ACTION_HINT} · {SKIP_ACTION_HINT} · {QUIT_ACTION_HINT}"),
                 "".to_string(),
             ]
         );
         assert_eq!(bottom_chrome_alignment(), Alignment::Left);
+        assert!(
+            !snapshot
+                .bottom_chrome
+                .iter()
+                .any(|line| line.contains("reps"))
+        );
         assert!(!snapshot.bottom_chrome.iter().any(|line| line.contains('●')));
         assert!(!snapshot.bottom_chrome.iter().any(|line| line.contains('✓')));
         assert!(!snapshot.game.iter().any(|line| line.contains("Passed")));
@@ -1302,29 +1353,23 @@ mod tests {
         let snapshot = render_snapshot(&app.frame());
         let rail = snapshot.bottom_chrome.join("\n");
 
-        for expected in [
-            "F5 submit",
-            "F6 skip",
-            "Esc quit",
-            "wheel scroll",
-            "Pg scroll",
-        ] {
+        for expected in ["F5 submit", "F6 skip", "Esc quit"] {
             assert!(rail.contains(expected), "missing {expected}");
         }
         let f5 = rail.find("F5 submit").expect("missing F5 submit");
         let skip = rail.find("F6 skip").expect("missing F6 skip");
         let esc = rail.find("Esc quit").expect("missing Esc quit");
-        let scroll = rail.find("wheel scroll").expect("missing scroll hint");
-        let page = rail.find("Pg scroll").expect("missing page fallback hint");
         assert!(f5 < skip);
         assert!(skip < esc);
-        assert!(esc < scroll);
-        assert!(scroll < page);
+        assert_eq!(rail.trim_end().rfind("Esc quit"), Some(esc));
         assert!(!rail.contains("Enter newline"));
         assert!(!rail.contains("? help"));
+        assert!(!rail.contains("wheel scroll"));
+        assert!(!rail.contains("Pg scroll"));
+        assert!(!rail.contains("reps"));
 
         for line in &snapshot.bottom_chrome {
-            for forbidden in ["Passed", "Skipped", "Attempts", "READY", "%", "/12"] {
+            for forbidden in ["Passed", "Skipped", "Attempts", "READY", "%", "/12", "reps"] {
                 assert!(
                     !line.contains(forbidden),
                     "bottom rail should not contain {forbidden}"
@@ -1332,50 +1377,36 @@ mod tests {
             }
         }
         assert!(snapshot.bottom_chrome.iter().any(|line| line
-            == &format!("reps 0         {PRIMARY_ACTION_HINT}    {SECONDARY_CONTROL_HINTS}")));
+            == &format!("{PRIMARY_ACTION_HINT} · {SKIP_ACTION_HINT} · {QUIT_ACTION_HINT}")));
     }
 
     #[test]
-    fn command_rail_groups_counter_reward_and_primary_action() {
+    fn command_rail_groups_primary_skip_and_quit_controls() {
         let app = TuiApp::new();
         let frame = app.frame();
         let lines = bottom_chrome_lines(&frame);
         let reward_line = lines.get(1).expect("expected bottom rail reward line");
 
         assert_eq!(lines.len(), usize::from(COMMAND_RAIL_HEIGHT));
-        assert_eq!(reward_line.spans[0].content.as_ref(), "reps 0 ");
-        assert_eq!(
-            reward_line.spans[0].style.fg,
-            Some(RUST_REPS_DARK.counter_normal)
-        );
+        assert_eq!(reward_line.spans[0].content.as_ref(), PRIMARY_ACTION_HINT);
         assert!(
             reward_line.spans[0]
                 .style
                 .add_modifier
                 .contains(Modifier::BOLD)
         );
-        assert_eq!(reward_line.spans[1].content.as_ref(), "      ");
-        assert_eq!(reward_line.spans[2].content.as_ref(), "  ");
-        assert_eq!(reward_line.spans[3].content.as_ref(), PRIMARY_ACTION_HINT);
-        assert!(
-            reward_line.spans[3]
-                .style
-                .add_modifier
-                .contains(Modifier::BOLD)
-        );
-        assert_eq!(reward_line.spans[4].content.as_ref(), "    ");
+        assert_eq!(reward_line.spans[1].content.as_ref(), " · ");
+        assert_eq!(reward_line.spans[2].content.as_ref(), SKIP_ACTION_HINT);
+        assert_eq!(reward_line.spans[3].content.as_ref(), " · ");
+        assert_eq!(reward_line.spans[4].content.as_ref(), QUIT_ACTION_HINT);
         assert_eq!(
-            reward_line.spans[5].content.as_ref(),
-            SECONDARY_CONTROL_HINTS
-        );
-        assert_eq!(
-            reward_line.spans[5].style.fg,
+            reward_line.spans[4].style.fg,
             Some(RUST_REPS_DARK.text_muted)
         );
     }
 
     #[test]
-    fn success_reward_shows_plus_one_next_to_stable_counter() {
+    fn success_reward_anchors_plus_one_at_editor_cursor_not_rail() {
         let mut app = TuiApp::new();
         let now = test_now();
         for ch in "fn main() {}".chars() {
@@ -1386,14 +1417,15 @@ mod tests {
         let lines = bottom_chrome_lines(&frame);
         let line = lines.get(1).expect("expected bottom rail reward line");
 
-        assert_eq!(line.spans[0].content.as_ref(), "reps 1 ");
-        assert_eq!(line.spans[0].style.fg, Some(RUST_REPS_DARK.counter_normal));
-        assert!(line.spans[0].style.add_modifier.contains(Modifier::BOLD));
-        assert_eq!(line.spans[1].content.as_ref(), "  +1  ");
-        assert_eq!(line.spans[1].style.fg, Some(RUST_REPS_DARK.reward_plus_one));
-        assert!(line.spans[1].style.add_modifier.contains(Modifier::BOLD));
-        assert_eq!(line.spans[3].content.as_ref(), PRIMARY_ACTION_HINT);
-        assert_eq!(line.spans[5].content.as_ref(), SECONDARY_CONTROL_HINTS);
+        assert_eq!(
+            frame.reward.anchor,
+            Some(EditorAnchor { row: 0, column: 12 })
+        );
+        assert!(frame.reward.show_plus_one);
+        assert_eq!(frame.reward.plus_one_intensity, 100);
+        assert_eq!(line.spans[0].content.as_ref(), PRIMARY_ACTION_HINT);
+        assert!(!line_text(line).contains("+1"));
+        assert!(!line_text(line).contains("reps"));
     }
 
     #[test]
@@ -1407,39 +1439,32 @@ mod tests {
         let frame = app.frame_at(now);
         let lines = bottom_chrome_lines(&frame);
         let line = lines.get(1).expect("expected bottom rail reward line");
-        assert_eq!(line.spans[0].content.as_ref(), "reps 1 ");
-        assert_eq!(line.spans[1].content.as_ref(), "  +1  ");
-        assert_ne!(line.spans[1].style.fg, Some(RUST_REPS_DARK.reward_plus_one));
+        assert_eq!(
+            frame.reward.anchor,
+            Some(EditorAnchor { row: 0, column: 12 })
+        );
+        assert_eq!(frame.reward.plus_one_intensity, 0);
+        assert!(!line_text(line).contains("+1"));
 
         let frame = app.frame_at(now + REWARD_ATTACK_DURATION);
-        let lines = bottom_chrome_lines(&frame);
-        let line = lines.get(1).expect("expected bottom rail reward line");
-        assert_eq!(line.spans[1].style.fg, Some(RUST_REPS_DARK.reward_plus_one));
+        assert_eq!(frame.reward.plus_one_intensity, 100);
+        assert!(frame.reward.show_plus_one);
 
         let frame =
             app.frame_at(now + REWARD_ATTACK_DURATION + (REWARD_PLUS_ONE_BODY_DURATION / 2));
-        let lines = bottom_chrome_lines(&frame);
-        let line = lines.get(1).expect("expected bottom rail reward line");
-        assert_eq!(line.spans[0].content.as_ref(), "reps 1 ");
-        assert_eq!(line.spans[0].style.fg, Some(RUST_REPS_DARK.counter_normal));
-        assert_eq!(line.spans[1].content.as_ref(), "  +1  ");
-        assert_eq!(line.spans[1].style.fg, Some(RUST_REPS_DARK.reward_plus_one));
+        assert_eq!(frame.reward.plus_one_intensity, 100);
+        assert!(frame.reward.show_plus_one);
 
         let frame = app.frame_at(now + REWARD_DURATION - Duration::from_millis(500));
-        let lines = bottom_chrome_lines(&frame);
-        let line = lines.get(1).expect("expected bottom rail reward line");
-        assert_eq!(line.spans[0].content.as_ref(), "reps 1 ");
-        assert_eq!(line.spans[1].content.as_ref(), "  +1  ");
-        assert_ne!(line.spans[1].style.fg, Some(RUST_REPS_DARK.reward_plus_one));
+        assert!(frame.reward.plus_one_intensity < 50);
+        assert!(frame.reward.show_plus_one);
 
         let frame = app.frame_at(now + REWARD_DURATION);
         let lines = bottom_chrome_lines(&frame);
         let line = lines.get(1).expect("expected bottom rail reward line");
-        assert_eq!(line.spans[0].content.as_ref(), "reps 1 ");
-        assert_eq!(line.spans[0].style.fg, Some(RUST_REPS_DARK.counter_normal));
+        assert!(!frame.reward.show_plus_one);
         assert!(!line_text(line).contains("+1"));
         assert!(line_text(line).contains(PRIMARY_ACTION_HINT));
-        assert_eq!(line.spans[5].content.as_ref(), SECONDARY_CONTROL_HINTS);
     }
 
     #[test]
@@ -1454,14 +1479,13 @@ mod tests {
         let lines = bottom_chrome_lines(&frame);
         let line = lines.get(1).expect("expected bottom rail reward line");
 
-        assert_eq!(line.spans[0].content.as_ref(), "reps 1 ");
-        assert_eq!(line.spans[0].style.fg, Some(RUST_REPS_DARK.counter_normal));
         assert!(!line_text(line).contains("+1"));
         assert!(line_text(line).contains(PRIMARY_ACTION_HINT));
+        assert!(!line_text(line).contains("reps"));
     }
 
     #[test]
-    fn plus_one_reserved_slot_keeps_primary_action_position_stable() {
+    fn primary_action_position_stays_stable_across_result_states() {
         let mut success_app = TuiApp::new();
         let now = test_now();
         for ch in "fn main() {}".chars() {
@@ -1494,9 +1518,13 @@ mod tests {
         assert_eq!(wrong_line.find(PRIMARY_ACTION_HINT), Some(primary_position));
         assert_eq!(skip_line.find(PRIMARY_ACTION_HINT), Some(primary_position));
         assert!(!idle_line.contains("+1"));
-        assert!(success_line.contains("+1"));
+        assert!(!success_line.contains("+1"));
         assert!(!wrong_line.contains("+1"));
         assert!(!skip_line.contains("+1"));
+        assert!(!idle_line.contains("reps"));
+        assert!(!success_line.contains("reps"));
+        assert!(!wrong_line.contains("reps"));
+        assert!(!skip_line.contains("reps"));
     }
 
     #[test]
@@ -1507,6 +1535,7 @@ mod tests {
             game_glow_intensity: 0,
             sweep_progress: 0,
             show_plus_one: false,
+            anchor: None,
         });
         let low = border_style(RewardFrame {
             active: true,
@@ -1514,6 +1543,7 @@ mod tests {
             game_glow_intensity: 20,
             sweep_progress: 25,
             show_plus_one: true,
+            anchor: None,
         });
         let medium = border_style(RewardFrame {
             active: true,
@@ -1521,6 +1551,7 @@ mod tests {
             game_glow_intensity: 40,
             sweep_progress: 55,
             show_plus_one: true,
+            anchor: None,
         });
         let peak = border_style(RewardFrame {
             active: true,
@@ -1528,6 +1559,7 @@ mod tests {
             game_glow_intensity: 58,
             sweep_progress: 100,
             show_plus_one: true,
+            anchor: None,
         });
 
         assert_eq!(idle.fg, Some(RUST_REPS_DARK.border_normal));
@@ -1600,6 +1632,7 @@ mod tests {
             game_glow_intensity: 0,
             sweep_progress: 0,
             show_plus_one: false,
+            anchor: None,
         };
 
         assert_eq!(
@@ -1667,17 +1700,27 @@ mod tests {
         let frame = app.frame();
         let snapshot = render_snapshot(&frame);
 
-        assert!(
-            snapshot
-                .bottom_chrome
-                .iter()
-                .any(|line| line.starts_with("reps 0"))
-        );
+        assert_eq!(frame.completed_reps_this_run, 0);
+        assert!(frame.failure.active);
+        assert!(!frame.reward.show_plus_one);
+        assert!(!frame.skip.active);
         assert!(
             !snapshot
                 .bottom_chrome
                 .iter()
                 .any(|line| line.contains("+1"))
+        );
+        assert!(
+            !snapshot
+                .bottom_chrome
+                .iter()
+                .any(|line| line.contains("reps"))
+        );
+        assert!(
+            !snapshot
+                .bottom_chrome
+                .iter()
+                .any(|line| line.contains("PASS"))
         );
     }
 
@@ -1691,12 +1734,8 @@ mod tests {
         quit_app.handle_action(ClientAction::Quit);
         let quit_snapshot = render_snapshot(&quit_app.frame());
 
-        assert!(
-            skip_snapshot
-                .bottom_chrome
-                .iter()
-                .any(|line| line.starts_with("reps 0"))
-        );
+        assert!(skip_app.frame().skip.active);
+        assert!(!skip_app.frame().reward.show_plus_one);
         assert!(
             !skip_snapshot
                 .bottom_chrome
@@ -1704,16 +1743,23 @@ mod tests {
                 .any(|line| line.contains("+1"))
         );
         assert!(
-            quit_snapshot
+            !skip_snapshot
                 .bottom_chrome
                 .iter()
-                .any(|line| line.starts_with("reps 0"))
+                .any(|line| line.contains("reps"))
         );
+        assert!(!quit_app.frame().skip.active);
         assert!(
             !quit_snapshot
                 .bottom_chrome
                 .iter()
                 .any(|line| line.contains("+1"))
+        );
+        assert!(
+            !quit_snapshot
+                .bottom_chrome
+                .iter()
+                .any(|line| line.contains("reps"))
         );
     }
 
@@ -1767,25 +1813,27 @@ mod tests {
         let lines = workbox_lines(&frame, SNAPSHOT_WORKBOX_HEIGHT);
         let active_line = lines
             .iter()
-            .find(|line| line_text(line) == " 1 │ wrong|")
+            .find(|line| line_text(line) == " 1 │ wrong")
             .expect("expected active editor line with preserved wrong answer");
-        let caret = active_line
-            .spans
-            .iter()
-            .find(|span| span.content.as_ref() == "|")
-            .expect("expected rendered caret");
 
         assert_eq!(
             active_line.style.bg,
             Some(RUST_REPS_DARK.editor_failure_line)
         );
-        assert!(red_dominant(
-            caret.style.fg.expect("expected failure caret foreground")
-        ));
+        assert_eq!(
+            frame.failure.anchor,
+            Some(EditorAnchor { row: 0, column: 5 })
+        );
         assert_ne!(
             active_line.spans[0].style.fg,
             Some(RUST_REPS_DARK.text_muted)
         );
+        assert!(red_dominant(
+            active_line.spans[0]
+                .style
+                .fg
+                .expect("expected failure gutter foreground")
+        ));
     }
 
     #[test]
@@ -1811,7 +1859,8 @@ mod tests {
         let skip_lines = feedback_chrome_lines(&skip_app.frame());
 
         assert_eq!(line_text(&skip_lines[0]), "");
-        assert_eq!(line_text(&skip_lines[1]), "SKIP");
+        assert_eq!(line_text(&skip_lines[1]), "skipped");
+        assert!(skip_app.frame().skip.active);
 
         let mut complete_app = TuiApp::new();
         for _ in 0..12 {
@@ -1862,7 +1911,8 @@ mod tests {
         let frame = app.frame();
         let snapshot = render_snapshot(&frame);
 
-        assert!(snapshot.game.iter().any(|line| line == " 1 │ hello|"));
+        assert!(snapshot.game.iter().any(|line| line == " 1 │ hello"));
+        assert_eq!(frame.game_window.workbox.cursor.column, 5);
     }
 
     #[test]
@@ -1875,7 +1925,39 @@ mod tests {
         let frame = app.frame();
         let snapshot = render_snapshot(&frame);
 
-        assert!(snapshot.game.iter().any(|line| line == " 1 │ ab|c"));
+        assert!(snapshot.game.iter().any(|line| line == " 1 │ abc"));
+        assert_eq!(frame.game_window.workbox.cursor.column, 2);
+    }
+
+    #[test]
+    fn moving_cursor_does_not_change_rendered_code_text_or_width() {
+        let mut app = TuiApp::new();
+        for ch in "let score: i32 = 1;".chars() {
+            app.handle_action(ClientAction::TypeChar(ch));
+        }
+        let end_snapshot = render_snapshot(&app.frame());
+        let end_line = end_snapshot
+            .game
+            .iter()
+            .find(|line| line.starts_with(" 1 │ let score"))
+            .expect("expected rendered editor line")
+            .clone();
+
+        for _ in 0..8 {
+            app.handle_action(ClientAction::MoveCursorLeft);
+        }
+        let middle_snapshot = render_snapshot(&app.frame());
+        let middle_line = middle_snapshot
+            .game
+            .iter()
+            .find(|line| line.starts_with(" 1 │ let score"))
+            .expect("expected rendered editor line")
+            .clone();
+
+        assert_eq!(end_line, " 1 │ let score: i32 = 1;");
+        assert_eq!(middle_line, end_line);
+        assert_eq!(middle_line.chars().count(), end_line.chars().count());
+        assert_eq!(app.input(), "let score: i32 = 1;");
     }
 
     #[test]
@@ -1884,13 +1966,13 @@ mod tests {
         app.tick_cursor();
         let frame = app.frame();
         let empty_snapshot = render_snapshot(&frame);
-        assert!(empty_snapshot.game.iter().any(|line| line == " 1 │  "));
+        assert!(empty_snapshot.game.iter().any(|line| line == " 1 │ "));
 
         app.handle_action(ClientAction::TypeChar('x'));
         app.tick_cursor();
         let frame = app.frame();
         let typed_snapshot = render_snapshot(&frame);
-        assert!(typed_snapshot.game.iter().any(|line| line == " 1 │ x "));
+        assert!(typed_snapshot.game.iter().any(|line| line == " 1 │ x"));
     }
 
     #[test]
@@ -1973,7 +2055,7 @@ mod tests {
     }
 
     #[test]
-    fn render_snapshot_hides_pass_and_shows_plus_one_after_success() {
+    fn render_snapshot_hides_pass_and_keeps_reward_editor_local_after_success() {
         let mut app = TuiApp::new();
         let now = test_now();
         for ch in "fn main() {}".chars() {
@@ -1990,12 +2072,23 @@ mod tests {
                 .iter()
                 .any(|line| line == "println!(\"Rust Reps\");")
         );
-        assert!(snapshot.game.iter().any(|line| line == " 1 │ |"));
+        assert!(snapshot.game.iter().any(|line| line == " 1 │ "));
+        assert!(frame.reward.show_plus_one);
+        assert_eq!(
+            frame.reward.anchor,
+            Some(EditorAnchor { row: 0, column: 12 })
+        );
         assert!(
-            snapshot
+            !snapshot
                 .bottom_chrome
                 .iter()
-                .any(|line| line.starts_with("reps 1") && line.contains("+1"))
+                .any(|line| line.contains("+1"))
+        );
+        assert!(
+            !snapshot
+                .bottom_chrome
+                .iter()
+                .any(|line| line.contains("reps"))
         );
         assert!(!snapshot.game.iter().any(|line| line == "PASS"));
     }
@@ -2010,7 +2103,7 @@ mod tests {
         let snapshot = render_snapshot(&app.frame());
 
         assert!(snapshot.game.iter().any(|line| line == " 1 │ a"));
-        assert!(snapshot.game.iter().any(|line| line == " 2 │ b|"));
+        assert!(snapshot.game.iter().any(|line| line == " 2 │ b"));
     }
 
     #[test]
@@ -2025,10 +2118,12 @@ mod tests {
         }
         app.handle_action(ClientAction::MoveCursorLeft);
 
-        let snapshot = render_snapshot(&app.frame());
+        let frame = app.frame();
+        let snapshot = render_snapshot(&frame);
 
         assert!(snapshot.game.iter().any(|line| line == " 1 │ let"));
-        assert!(snapshot.game.iter().any(|line| line == " 2 │ scor|e"));
+        assert!(snapshot.game.iter().any(|line| line == " 2 │ score"));
+        assert_eq!(frame.game_window.workbox.cursor.column, 4);
     }
 
     #[test]
@@ -2043,7 +2138,7 @@ mod tests {
 
         assert!(snapshot.game.iter().any(|line| line == " 1 │ a"));
         assert!(snapshot.game.iter().any(|line| line == " 2 │ "));
-        assert!(snapshot.game.iter().any(|line| line == " 3 │ b|"));
+        assert!(snapshot.game.iter().any(|line| line == " 3 │ b"));
     }
 
     #[test]
@@ -2051,13 +2146,14 @@ mod tests {
         let app = TuiApp::new();
         let snapshot = render_snapshot(&app.frame());
 
-        assert!(snapshot.game.iter().any(|line| line == " 1 │ |"));
-        assert!(snapshot.game.iter().any(|line| line == " 2 │ "));
+        assert!(snapshot.game.iter().any(|line| line == " 1 │ "));
+        assert!(!snapshot.game.iter().any(|line| line == " 2 │ "));
     }
 
     #[test]
     fn viewport_snapshot_keeps_cursor_line_visible_when_editor_is_taller_than_workbox() {
         let mut app = TuiApp::new();
+        app.set_editor_viewport_height(visible_editor_rows(3));
         for ch in "a\nb\nc\nd\ne".chars() {
             if ch == '\n' {
                 app.handle_action(ClientAction::InsertNewline);
@@ -2065,12 +2161,11 @@ mod tests {
                 app.handle_action(ClientAction::TypeChar(ch));
             }
         }
-        app.set_editor_viewport_height(visible_editor_rows(3));
 
         let snapshot = render_snapshot_with_workbox_height(&app.frame(), 3);
 
         assert!(!snapshot.game.iter().any(|line| line == " 1 │ a"));
         assert!(snapshot.game.iter().any(|line| line == " 4 │ d"));
-        assert!(snapshot.game.iter().any(|line| line == " 5 │ e|"));
+        assert!(snapshot.game.iter().any(|line| line == " 5 │ e"));
     }
 }

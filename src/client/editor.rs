@@ -161,7 +161,7 @@ impl EditorBuffer {
 
     pub fn set_viewport_height(&mut self, visible_lines: usize) {
         self.viewport.visible_lines = visible_lines;
-        self.ensure_cursor_visible();
+        self.clamp_viewport();
     }
 
     pub fn scroll_viewport_up(&mut self) {

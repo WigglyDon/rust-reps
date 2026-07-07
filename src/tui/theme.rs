@@ -24,7 +24,6 @@ pub(crate) struct RustRepsDark {
     pub(crate) warning_unknown: Color,
     pub(crate) caret: Color,
     pub(crate) counter_faded: Color,
-    pub(crate) counter_normal: Color,
     pub(crate) reward_plus_one: Color,
 }
 
@@ -50,7 +49,6 @@ pub(crate) const RUST_REPS_DARK: RustRepsDark = RustRepsDark {
     warning_unknown: Color::Rgb(235, 178, 86),
     caret: Color::Rgb(116, 241, 157),
     counter_faded: Color::Rgb(45, 92, 62),
-    counter_normal: Color::Rgb(116, 238, 158),
     reward_plus_one: Color::Rgb(158, 255, 187),
 };
 
@@ -171,13 +169,6 @@ pub(crate) fn status_tone_style(tone: StatusTone) -> Style {
             .bg(RUST_REPS_DARK.background),
         StatusTone::Plain => muted_style(),
     }
-}
-
-pub(crate) fn counter_style() -> Style {
-    Style::default()
-        .fg(RUST_REPS_DARK.counter_normal)
-        .bg(RUST_REPS_DARK.background)
-        .add_modifier(Modifier::BOLD)
 }
 
 pub(crate) fn plus_one_style(reward: RewardFrame) -> Style {
@@ -301,7 +292,7 @@ fn blend_channel(from: u8, to: u8, intensity: u16) -> u8 {
 #[cfg(test)]
 mod tests {
     use super::{
-        RUST_REPS_DARK, border_style, caret_feedback_style, code_token_style, counter_style,
+        RUST_REPS_DARK, border_style, caret_feedback_style, code_token_style,
         editor_active_line_style, editor_canvas_style, editor_gutter_feedback_style,
         editor_gutter_style, editor_line_style, plus_one_style, status_tone_style,
     };
@@ -372,13 +363,13 @@ mod tests {
 
     #[test]
     fn plus_one_reward_and_border_reward_differ_from_normal_states() {
-        let stable_counter = counter_style();
         let low_plus_one = plus_one_style(RewardFrame {
             active: false,
             plus_one_intensity: 0,
             game_glow_intensity: 0,
             sweep_progress: 0,
             show_plus_one: false,
+            anchor: None,
         });
         let reward_plus_one = plus_one_style(RewardFrame {
             active: true,
@@ -386,6 +377,7 @@ mod tests {
             game_glow_intensity: 58,
             sweep_progress: 100,
             show_plus_one: true,
+            anchor: None,
         });
         let normal_border = border_style(RewardFrame {
             active: false,
@@ -393,6 +385,7 @@ mod tests {
             game_glow_intensity: 0,
             sweep_progress: 0,
             show_plus_one: false,
+            anchor: None,
         });
         let reward_border = border_style(RewardFrame {
             active: true,
@@ -400,9 +393,9 @@ mod tests {
             game_glow_intensity: 58,
             sweep_progress: 100,
             show_plus_one: true,
+            anchor: None,
         });
 
-        assert_eq!(stable_counter.fg, Some(RUST_REPS_DARK.counter_normal));
         assert_ne!(low_plus_one.fg, reward_plus_one.fg);
         assert_ne!(normal_border.fg, reward_border.fg);
     }
@@ -430,10 +423,12 @@ mod tests {
         let idle = FailureFrame {
             active: false,
             intensity: 0,
+            anchor: None,
         };
         let failure = FailureFrame {
             active: true,
             intensity: 100,
+            anchor: None,
         };
 
         assert_eq!(

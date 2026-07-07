@@ -93,7 +93,7 @@ impl TuiApp {
         match action {
             ClientAction::Quit => self.quit(),
             ClientAction::Submit => self.submit_current_input(now),
-            ClientAction::Skip => self.skip_current_exercise(),
+            ClientAction::Skip => self.skip_current_exercise(now),
             ClientAction::Ignore => {}
             ClientAction::TypeChar(_)
             | ClientAction::Backspace
@@ -121,6 +121,7 @@ impl TuiApp {
     pub fn settle_animations(&mut self, now: Instant) {
         self.ui_state.settle_reward_event(now);
         self.ui_state.settle_failure_pulse(now);
+        self.ui_state.settle_skip_toast(now);
     }
 
     pub fn reward_active_at(&self, now: Instant) -> bool {
@@ -128,7 +129,9 @@ impl TuiApp {
     }
 
     pub fn visual_feedback_active_at(&self, now: Instant) -> bool {
-        self.reward_active_at(now) || self.ui_state.failure_active_at(now)
+        self.reward_active_at(now)
+            || self.ui_state.failure_active_at(now)
+            || self.ui_state.skip_active_at(now)
     }
 
     fn submit_current_input(&mut self, now: Instant) {
@@ -141,6 +144,7 @@ impl TuiApp {
         self.ui_state.clear_reward_event();
         let status_lines = if command == ":q" || command == ":quit" {
             self.ui_state.clear_failure_pulse();
+            self.ui_state.clear_skip_toast();
             self.ui_state.clear_draft_input();
             {
                 self.should_quit = true;
@@ -148,6 +152,7 @@ impl TuiApp {
             }
         } else if command == ":help" {
             self.ui_state.clear_failure_pulse();
+            self.ui_state.clear_skip_toast();
             self.ui_state.clear_draft_input();
             vec![
                 ":help    show commands".to_string(),
@@ -159,6 +164,7 @@ impl TuiApp {
             ]
         } else if command == ":status" {
             self.ui_state.clear_failure_pulse();
+            self.ui_state.clear_skip_toast();
             self.ui_state.clear_draft_input();
             vec![
                 "STATUS".to_string(),
@@ -177,6 +183,7 @@ impl TuiApp {
             ]
         } else if command == ":list" {
             self.ui_state.clear_failure_pulse();
+            self.ui_state.clear_skip_toast();
             self.ui_state.clear_draft_input();
             engine::exercise_packets()
                 .iter()
@@ -184,6 +191,7 @@ impl TuiApp {
                 .collect()
         } else if command == ":skip" {
             self.ui_state.clear_failure_pulse();
+            self.ui_state.start_skip_toast(now);
             self.ui_state.clear_draft_input();
             let _ = self.session.skip();
             self.ui_state.reset_problem_scroll();
@@ -191,10 +199,11 @@ impl TuiApp {
                 self.completed = true;
                 collect_complete_lines(&self.session)
             } else {
-                vec!["SKIP".to_string()]
+                vec!["skipped".to_string()]
             }
         } else if command.starts_with(':') {
             self.ui_state.clear_failure_pulse();
+            self.ui_state.clear_skip_toast();
             self.ui_state.clear_draft_input();
             vec![
                 "UNKNOWN COMMAND".to_string(),
@@ -204,8 +213,9 @@ impl TuiApp {
             match self.session.submit_answer(&submitted) {
                 engine::SubmitResult::Correct => {
                     self.ui_state.clear_failure_pulse();
-                    self.ui_state.clear_draft_input();
+                    self.ui_state.clear_skip_toast();
                     self.ui_state.start_reward_event(now);
+                    self.ui_state.clear_draft_input();
                     self.ui_state.reset_problem_scroll();
                     if self.session.is_complete() {
                         self.completed = true;
@@ -217,6 +227,7 @@ impl TuiApp {
                     }
                 }
                 engine::SubmitResult::TryAgain => {
+                    self.ui_state.clear_skip_toast();
                     self.ui_state.start_failure_pulse(now);
                     let expected = self.active_exercise().expected_answer;
                     vec![
@@ -227,6 +238,7 @@ impl TuiApp {
                 }
                 engine::SubmitResult::NoActiveDrill => {
                     self.ui_state.clear_failure_pulse();
+                    self.ui_state.clear_skip_toast();
                     self.ui_state.clear_draft_input();
                     self.should_quit = true;
                     collect_summary_lines("QUIT", &self.session)
@@ -236,13 +248,14 @@ impl TuiApp {
         self.ui_state.set_status_lines(status_lines);
     }
 
-    fn skip_current_exercise(&mut self) {
+    fn skip_current_exercise(&mut self, now: Instant) {
         if self.completed {
             return;
         }
 
         self.ui_state.clear_reward_event();
         self.ui_state.clear_failure_pulse();
+        self.ui_state.start_skip_toast(now);
         self.ui_state.clear_draft_input();
         self.ui_state.reset_problem_scroll();
         let _ = self.session.skip();
@@ -250,7 +263,7 @@ impl TuiApp {
             self.completed = true;
             collect_complete_lines(&self.session)
         } else {
-            vec!["SKIP".to_string()]
+            vec!["skipped".to_string()]
         };
         self.ui_state.set_status_lines(status_lines);
     }
@@ -259,6 +272,7 @@ impl TuiApp {
         self.should_quit = true;
         self.ui_state.clear_reward_event();
         self.ui_state.clear_failure_pulse();
+        self.ui_state.clear_skip_toast();
         self.ui_state
             .set_status_lines(collect_summary_lines("QUIT", &self.session));
     }
@@ -509,6 +523,7 @@ mod tests {
         assert!(!app.frame_at(now).reward.show_plus_one);
         assert_eq!(app.frame_at(now).reward.game_glow_intensity, 0);
         assert!(!app.frame_at(now).failure_active);
+        assert!(app.frame_at(now).skip_active);
         assert_eq!(
             app.session()
                 .current_exercise()
@@ -545,6 +560,7 @@ mod tests {
         assert_eq!(app.frame_at(now).completed_reps_this_run, 0);
         assert!(!app.frame_at(now).reward_active);
         assert!(!app.frame_at(now).reward.show_plus_one);
+        assert!(app.frame_at(now).skip_active);
         assert_eq!(
             app.session()
                 .current_exercise()
@@ -674,15 +690,18 @@ mod tests {
         let before_input = app.input();
         let before_cursor = app.frame().game_window.workbox.cursor;
 
-        app.handle_action(ClientAction::ScrollEditorUp);
+        app.handle_action(ClientAction::ScrollEditorDown);
         let frame = app.frame();
 
-        assert_eq!(frame.game_window.workbox.viewport.first_line, 1);
+        assert_eq!(frame.game_window.workbox.viewport.first_line, 2);
         assert_eq!(app.input(), before_input);
         assert_eq!(frame.game_window.workbox.cursor, before_cursor);
         assert_eq!(app.session().passed(), 0);
         assert_eq!(app.session().skipped(), 0);
         assert_eq!(app.session().attempts(), 0);
+
+        app.handle_action(ClientAction::ScrollEditorUp);
+        assert_eq!(app.frame().game_window.workbox.viewport.first_line, 1);
     }
 
     #[test]

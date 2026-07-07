@@ -67,6 +67,7 @@ pub const REWARD_SWEEP_DURATION: Duration = Duration::from_millis(850);
 pub const REWARD_GAME_GLOW_DELAY: Duration = Duration::from_millis(80);
 pub const REWARD_GAME_GLOW_MAX_INTENSITY: u8 = 58;
 pub const FAILURE_PULSE_DURATION: Duration = Duration::from_millis(520);
+pub const SKIP_TOAST_DURATION: Duration = Duration::from_millis(900);
 pub const PROBLEM_WHEEL_SCROLL_LINES: usize = 1;
 pub const PROBLEM_SCROLL_LINES: usize = 4;
 pub const DEFAULT_PROBLEM_WRAP_WIDTH: usize = 80;
@@ -236,12 +237,19 @@ fn max_scroll_offset(total_lines: usize) -> usize {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct EditorAnchor {
+    pub row: usize,
+    pub column: usize,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct RewardFrame {
     pub active: bool,
     pub plus_one_intensity: u8,
     pub game_glow_intensity: u8,
     pub sweep_progress: u8,
     pub show_plus_one: bool,
+    pub anchor: Option<EditorAnchor>,
 }
 
 impl RewardFrame {
@@ -252,6 +260,7 @@ impl RewardFrame {
             game_glow_intensity: 0,
             sweep_progress: 0,
             show_plus_one: false,
+            anchor: None,
         }
     }
 }
@@ -260,6 +269,7 @@ impl RewardFrame {
 pub struct FailureFrame {
     pub active: bool,
     pub intensity: u8,
+    pub anchor: Option<EditorAnchor>,
 }
 
 impl FailureFrame {
@@ -267,6 +277,24 @@ impl FailureFrame {
         Self {
             active: false,
             intensity: 0,
+            anchor: None,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct SkipFrame {
+    pub active: bool,
+    pub intensity: u8,
+    pub anchor: Option<EditorAnchor>,
+}
+
+impl SkipFrame {
+    fn idle() -> Self {
+        Self {
+            active: false,
+            intensity: 0,
+            anchor: None,
         }
     }
 }
@@ -275,6 +303,7 @@ impl FailureFrame {
 struct FailurePulse {
     started_at: Option<Instant>,
     duration: Duration,
+    anchor: Option<EditorAnchor>,
 }
 
 impl FailurePulse {
@@ -282,15 +311,18 @@ impl FailurePulse {
         Self {
             started_at: None,
             duration: FAILURE_PULSE_DURATION,
+            anchor: None,
         }
     }
 
-    fn start(&mut self, now: Instant) {
+    fn start(&mut self, now: Instant, anchor: EditorAnchor) {
         self.started_at = Some(now);
+        self.anchor = Some(anchor);
     }
 
     fn clear(&mut self) {
         self.started_at = None;
+        self.anchor = None;
     }
 
     fn settle(&mut self, now: Instant) {
@@ -313,6 +345,7 @@ impl FailurePulse {
         FailureFrame {
             active: true,
             intensity: failure_pulse_intensity_at(elapsed),
+            anchor: self.anchor,
         }
     }
 }
@@ -321,6 +354,7 @@ impl FailurePulse {
 struct RewardAnimation {
     started_at: Option<Instant>,
     duration: Duration,
+    anchor: Option<EditorAnchor>,
 }
 
 impl RewardAnimation {
@@ -328,15 +362,18 @@ impl RewardAnimation {
         Self {
             started_at: None,
             duration: REWARD_DURATION,
+            anchor: None,
         }
     }
 
-    fn start(&mut self, now: Instant) {
+    fn start(&mut self, now: Instant, anchor: EditorAnchor) {
         self.started_at = Some(now);
+        self.anchor = Some(anchor);
     }
 
     fn clear(&mut self) {
         self.started_at = None;
+        self.anchor = None;
     }
 
     fn settle(&mut self, now: Instant) {
@@ -360,6 +397,56 @@ impl RewardAnimation {
             game_glow_intensity: game_glow_intensity_at(elapsed),
             sweep_progress: reward_sweep_progress_at(elapsed),
             show_plus_one: true,
+            anchor: self.anchor,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct SkipToast {
+    started_at: Option<Instant>,
+    duration: Duration,
+    anchor: Option<EditorAnchor>,
+}
+
+impl SkipToast {
+    fn new() -> Self {
+        Self {
+            started_at: None,
+            duration: SKIP_TOAST_DURATION,
+            anchor: None,
+        }
+    }
+
+    fn start(&mut self, now: Instant, anchor: EditorAnchor) {
+        self.started_at = Some(now);
+        self.anchor = Some(anchor);
+    }
+
+    fn clear(&mut self) {
+        self.started_at = None;
+        self.anchor = None;
+    }
+
+    fn settle(&mut self, now: Instant) {
+        if !self.frame_at(now).active {
+            self.clear();
+        }
+    }
+
+    fn frame_at(self, now: Instant) -> SkipFrame {
+        let Some(started_at) = self.started_at else {
+            return SkipFrame::idle();
+        };
+        let elapsed = now.saturating_duration_since(started_at);
+        if elapsed >= self.duration {
+            return SkipFrame::idle();
+        }
+
+        SkipFrame {
+            active: true,
+            intensity: skip_toast_intensity_at(elapsed),
+            anchor: self.anchor,
         }
     }
 }
@@ -421,6 +508,23 @@ fn failure_pulse_intensity_at(elapsed: Duration) -> u8 {
     (intensity * 100.0).round().clamp(0.0, 100.0) as u8
 }
 
+fn skip_toast_intensity_at(elapsed: Duration) -> u8 {
+    if elapsed >= SKIP_TOAST_DURATION {
+        return 0;
+    }
+
+    let hold = Duration::from_millis(220);
+    let intensity = if elapsed < hold {
+        1.0
+    } else {
+        let release_elapsed = elapsed.saturating_sub(hold);
+        let release_duration = SKIP_TOAST_DURATION.saturating_sub(hold);
+        1.0 - smoothstep(duration_progress(release_elapsed, release_duration))
+    };
+
+    (intensity * 100.0).round().clamp(0.0, 100.0) as u8
+}
+
 fn duration_progress(elapsed: Duration, duration: Duration) -> f32 {
     if duration.is_zero() {
         return 1.0;
@@ -446,6 +550,7 @@ pub struct ClientUiState {
     status_lines: Vec<String>,
     reward_animation: RewardAnimation,
     failure_pulse: FailurePulse,
+    skip_toast: SkipToast,
 }
 
 impl ClientUiState {
@@ -458,6 +563,7 @@ impl ClientUiState {
             status_lines: Vec::new(),
             reward_animation: RewardAnimation::new(),
             failure_pulse: FailurePulse::new(),
+            skip_toast: SkipToast::new(),
         }
     }
 
@@ -499,6 +605,14 @@ impl ClientUiState {
 
     pub fn failure_active_at(&self, now: Instant) -> bool {
         self.failure_frame_at(now).active
+    }
+
+    pub fn skip_frame_at(&self, now: Instant) -> SkipFrame {
+        self.skip_toast.frame_at(now)
+    }
+
+    pub fn skip_active_at(&self, now: Instant) -> bool {
+        self.skip_frame_at(now).active
     }
 
     pub fn apply_action(&mut self, action: ClientAction) {
@@ -595,7 +709,8 @@ impl ClientUiState {
     }
 
     pub fn start_reward_event(&mut self, now: Instant) {
-        self.reward_animation.start(now);
+        self.reward_animation
+            .start(now, editor_anchor_from_view(&self.editor.view()));
     }
 
     pub fn clear_reward_event(&mut self) {
@@ -607,7 +722,8 @@ impl ClientUiState {
     }
 
     pub fn start_failure_pulse(&mut self, now: Instant) {
-        self.failure_pulse.start(now);
+        self.failure_pulse
+            .start(now, editor_anchor_from_view(&self.editor.view()));
     }
 
     pub fn clear_failure_pulse(&mut self) {
@@ -616,6 +732,41 @@ impl ClientUiState {
 
     pub fn settle_failure_pulse(&mut self, now: Instant) {
         self.failure_pulse.settle(now);
+    }
+
+    pub fn start_skip_toast(&mut self, now: Instant) {
+        self.skip_toast
+            .start(now, editor_anchor_from_view(&self.editor.view()));
+    }
+
+    pub fn clear_skip_toast(&mut self) {
+        self.skip_toast.clear();
+    }
+
+    pub fn settle_skip_toast(&mut self, now: Instant) {
+        self.skip_toast.settle(now);
+    }
+}
+
+fn editor_anchor_from_view(view: &EditorView) -> EditorAnchor {
+    let total_lines = view.lines.len().max(1);
+    let visible_lines = view.viewport.visible_lines.max(1).min(total_lines);
+    let max_first_line = total_lines.saturating_sub(visible_lines);
+    let first_line = view.viewport.first_line.min(max_first_line);
+    let last_visible_line = first_line + visible_lines - 1;
+    let line = view.cursor.line.clamp(first_line, last_visible_line);
+    let column = if line == view.cursor.line {
+        view.cursor.column
+    } else {
+        view.lines
+            .get(line)
+            .map(|line| line.chars().count())
+            .unwrap_or(0)
+    };
+
+    EditorAnchor {
+        row: line.saturating_sub(first_line),
+        column,
     }
 }
 
@@ -628,6 +779,8 @@ pub struct ClientFrame {
     pub reward_active: bool,
     pub failure: FailureFrame,
     pub failure_active: bool,
+    pub skip: SkipFrame,
+    pub skip_active: bool,
     pub help_chrome: HelpChromeFrame,
 }
 
@@ -744,6 +897,7 @@ pub fn project_client_frame_for_layout(
         .collect();
     let reward = ui_state.reward_frame_at(now);
     let failure = ui_state.failure_frame_at(now);
+    let skip = ui_state.skip_frame_at(now);
     let problem_lines =
         problem_display_lines("do this:", exercise.prompt.as_ref(), problem_wrap_width);
     let problem_viewport = ui_state.problem_viewport().clamped(problem_lines.len());
@@ -775,6 +929,8 @@ pub fn project_client_frame_for_layout(
         reward_active: reward.active,
         failure,
         failure_active: failure.active,
+        skip,
+        skip_active: skip.active,
         help_chrome: HelpChromeFrame {
             open: ui_state.help_open(),
             lines: help_lines(ui_state.help_open()),
@@ -1053,7 +1209,7 @@ fn status_tone(line: &str) -> StatusTone {
         "TRY AGAIN" | "not quite" => StatusTone::TryAgain,
         "Expected:" | "expected:" => StatusTone::ExpectedLabel,
         "UNKNOWN COMMAND" => StatusTone::UnknownCommand,
-        "SKIP" | "QUIT" | "STATUS" => StatusTone::Warning,
+        "SKIP" | "skipped" | "QUIT" | "STATUS" => StatusTone::Warning,
         _ => StatusTone::Plain,
     }
 }
@@ -1108,8 +1264,9 @@ mod tests {
         PROBLEM_SCROLL_LINES, PROBLEM_WHEEL_SCROLL_LINES, ProblemDisplayLine, ProblemLineKind,
         ProblemView, ProblemViewport, REWARD_ATTACK_DURATION, REWARD_DURATION,
         REWARD_GAME_GLOW_DELAY, REWARD_GAME_GLOW_MAX_INTENSITY, REWARD_PLUS_ONE_BODY_DURATION,
-        REWARD_RELEASE_DURATION, REWARD_SWEEP_DURATION, StatusTone, project_client_frame,
-        project_client_frame_at, project_client_frame_for_layout, tokenize_rust_line,
+        REWARD_RELEASE_DURATION, REWARD_SWEEP_DURATION, SKIP_TOAST_DURATION, StatusTone,
+        project_client_frame, project_client_frame_at, project_client_frame_for_layout,
+        tokenize_rust_line,
     };
     use crate::engine;
 
@@ -1517,6 +1674,92 @@ mod tests {
         assert_eq!(returned.viewport.first_line, 2);
         assert_eq!(returned.text, before.text);
         assert_eq!(returned.cursor, before.cursor);
+    }
+
+    #[test]
+    fn editor_scroll_overscroll_clamps_and_recovers() {
+        let mut ui_state = ClientUiState::new();
+        ui_state.set_editor_viewport_height(2);
+        ui_state.editor.set_text("one\ntwo\nthree\nfour");
+        ui_state
+            .editor
+            .set_cursor(CursorPosition { line: 1, column: 0 });
+
+        for _ in 0..10 {
+            ui_state.apply_action(ClientAction::ScrollEditorDown);
+        }
+        assert_eq!(ui_state.editor_view().viewport.first_line, 2);
+        assert_eq!(
+            ui_state.editor_view().cursor,
+            CursorPosition { line: 1, column: 0 }
+        );
+
+        ui_state.apply_action(ClientAction::ScrollEditorUp);
+        assert_eq!(ui_state.editor_view().viewport.first_line, 1);
+        ui_state.apply_action(ClientAction::ScrollEditorUp);
+        ui_state.apply_action(ClientAction::ScrollEditorUp);
+        assert_eq!(ui_state.editor_view().viewport.first_line, 0);
+        assert_eq!(ui_state.editor_view().text, "one\ntwo\nthree\nfour");
+    }
+
+    #[test]
+    fn typing_after_editor_viewport_scrolls_away_from_cursor_brings_cursor_back() {
+        let mut ui_state = ClientUiState::new();
+        ui_state.set_editor_viewport_height(2);
+        ui_state.editor.set_text("one\ntwo\nthree\nfour");
+        ui_state
+            .editor
+            .set_cursor(CursorPosition { line: 0, column: 3 });
+        ui_state.apply_action(ClientAction::ScrollEditorDown);
+        ui_state.apply_action(ClientAction::ScrollEditorDown);
+        assert_eq!(ui_state.editor_view().viewport.first_line, 2);
+
+        ui_state.apply_action(ClientAction::TypeChar('!'));
+
+        assert_eq!(ui_state.editor_view().text, "one!\ntwo\nthree\nfour");
+        assert_eq!(
+            ui_state.editor_view().cursor,
+            CursorPosition { line: 0, column: 4 }
+        );
+        assert_eq!(ui_state.editor_view().viewport.first_line, 0);
+    }
+
+    #[test]
+    fn reward_anchor_is_captured_before_editor_clear() {
+        let mut ui_state = ClientUiState::new();
+        let now = test_now();
+        for ch in "fn main() {}".chars() {
+            ui_state.apply_action(ClientAction::TypeChar(ch));
+        }
+
+        ui_state.start_reward_event(now);
+        ui_state.clear_draft_input();
+
+        let frame = ui_state.reward_frame_at(now + REWARD_ATTACK_DURATION);
+        assert_eq!(ui_state.editor_view().text, "");
+        assert_eq!(
+            frame.anchor,
+            Some(super::EditorAnchor { row: 0, column: 12 })
+        );
+        assert!(frame.show_plus_one);
+    }
+
+    #[test]
+    fn skip_toast_uses_warning_timing_and_editor_anchor() {
+        let mut ui_state = ClientUiState::new();
+        let now = test_now();
+        ui_state.apply_action(ClientAction::TypeChar('x'));
+
+        ui_state.start_skip_toast(now);
+
+        let frame = ui_state.skip_frame_at(now);
+        assert!(frame.active);
+        assert_eq!(frame.intensity, 100);
+        assert_eq!(
+            frame.anchor,
+            Some(super::EditorAnchor { row: 0, column: 1 })
+        );
+        assert!(!ui_state.skip_active_at(now + SKIP_TOAST_DURATION));
     }
 
     #[test]
