@@ -19,6 +19,8 @@ pub enum ClientAction {
     MoveLineEnd,
     ScrollProblemUp,
     ScrollProblemDown,
+    ScrollEditorUp,
+    ScrollEditorDown,
     Submit,
     Skip,
     Quit,
@@ -524,6 +526,14 @@ impl ClientUiState {
             }
             ClientAction::ScrollProblemDown => {
                 self.problem_viewport.scroll_down();
+                self.show_cursor();
+            }
+            ClientAction::ScrollEditorUp => {
+                self.editor.apply_action(EditorAction::ScrollViewportUp);
+                self.show_cursor();
+            }
+            ClientAction::ScrollEditorDown => {
+                self.editor.apply_action(EditorAction::ScrollViewportDown);
                 self.show_cursor();
             }
             ClientAction::CursorTick => {
@@ -1337,6 +1347,31 @@ mod tests {
             }
         );
         assert_eq!(workbox.lines.join("\n"), "one\ntwo\nthree\nfour\nfive");
+    }
+
+    #[test]
+    fn editor_scroll_actions_move_viewport_without_changing_buffer_or_cursor() {
+        let mut ui_state = ClientUiState::new();
+        ui_state.set_editor_viewport_height(3);
+        ui_state.editor.set_text("one\ntwo\nthree\nfour\nfive");
+        ui_state
+            .editor
+            .set_cursor(CursorPosition { line: 2, column: 0 });
+        let before = ui_state.editor_view();
+
+        ui_state.apply_action(ClientAction::ScrollEditorUp);
+        let scrolled = ui_state.editor_view();
+
+        assert_eq!(scrolled.viewport.first_line, 1);
+        assert_eq!(scrolled.text, before.text);
+        assert_eq!(scrolled.cursor, before.cursor);
+        assert_eq!(scrolled.visible_lines(), &["two", "three", "four"]);
+
+        ui_state.apply_action(ClientAction::ScrollEditorDown);
+        let returned = ui_state.editor_view();
+        assert_eq!(returned.viewport.first_line, 2);
+        assert_eq!(returned.text, before.text);
+        assert_eq!(returned.cursor, before.cursor);
     }
 
     #[test]

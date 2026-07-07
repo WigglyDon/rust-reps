@@ -15,6 +15,7 @@ use frame_scheduler::FrameScheduler;
 
 pub use app::TuiApp;
 pub use input::classify_key_event;
+use input::classify_mouse_event;
 
 const CURSOR_BLINK_INTERVAL: Duration = Duration::from_millis(500);
 const TARGET_FRAME_RATE: u16 = 60;
@@ -91,6 +92,12 @@ fn run_tui_loop(terminal: &mut terminal::TuiTerminal, app: &mut TuiApp) -> io::R
 
             let intent = match event {
                 Event::Key(key) => classify_key_event(key),
+                Event::Mouse(mouse) => {
+                    let size = terminal.terminal.size()?;
+                    let area = ratatui::layout::Rect::new(0, 0, size.width, size.height);
+                    let layout = render::input_layout(area, app, action_at);
+                    classify_mouse_event(mouse, layout.mouse_pane_at(mouse.column, mouse.row))
+                }
                 _ => ClientAction::Ignore,
             };
             app.handle_action_at(intent, action_at);

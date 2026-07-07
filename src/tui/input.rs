@@ -1,6 +1,13 @@
 use crate::client::ClientAction;
 
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKind};
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum MousePane {
+    Problem,
+    Editor,
+    Outside,
+}
 
 pub fn classify_key_event(key: KeyEvent) -> ClientAction {
     match key.code {
@@ -34,10 +41,20 @@ pub fn classify_key_event(key: KeyEvent) -> ClientAction {
     }
 }
 
+pub(crate) fn classify_mouse_event(mouse: MouseEvent, pane: MousePane) -> ClientAction {
+    match (mouse.kind, pane) {
+        (MouseEventKind::ScrollUp, MousePane::Problem) => ClientAction::ScrollProblemUp,
+        (MouseEventKind::ScrollDown, MousePane::Problem) => ClientAction::ScrollProblemDown,
+        (MouseEventKind::ScrollUp, MousePane::Editor) => ClientAction::ScrollEditorUp,
+        (MouseEventKind::ScrollDown, MousePane::Editor) => ClientAction::ScrollEditorDown,
+        _ => ClientAction::Ignore,
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{ClientAction, classify_key_event};
-    use crossterm::event::{KeyCode, KeyEvent};
+    use super::{ClientAction, MousePane, classify_key_event, classify_mouse_event};
+    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKind};
 
     #[test]
     fn character_key_classifies_as_append() {
@@ -156,5 +173,57 @@ mod tests {
     fn f6_classifies_as_skip() {
         let intent = classify_key_event(KeyEvent::from(KeyCode::F(6)));
         assert_eq!(intent, ClientAction::Skip);
+    }
+
+    #[test]
+    fn mouse_wheel_classifies_by_target_pane() {
+        let scroll_down = MouseEvent {
+            kind: MouseEventKind::ScrollDown,
+            column: 4,
+            row: 2,
+            modifiers: KeyModifiers::empty(),
+        };
+        let scroll_up = MouseEvent {
+            kind: MouseEventKind::ScrollUp,
+            column: 4,
+            row: 2,
+            modifiers: KeyModifiers::empty(),
+        };
+
+        assert_eq!(
+            classify_mouse_event(scroll_down, MousePane::Problem),
+            ClientAction::ScrollProblemDown
+        );
+        assert_eq!(
+            classify_mouse_event(scroll_up, MousePane::Problem),
+            ClientAction::ScrollProblemUp
+        );
+        assert_eq!(
+            classify_mouse_event(scroll_down, MousePane::Editor),
+            ClientAction::ScrollEditorDown
+        );
+        assert_eq!(
+            classify_mouse_event(scroll_up, MousePane::Editor),
+            ClientAction::ScrollEditorUp
+        );
+        assert_eq!(
+            classify_mouse_event(scroll_down, MousePane::Outside),
+            ClientAction::Ignore
+        );
+    }
+
+    #[test]
+    fn non_wheel_mouse_events_are_ignored() {
+        let event = MouseEvent {
+            kind: MouseEventKind::Moved,
+            column: 4,
+            row: 2,
+            modifiers: KeyModifiers::empty(),
+        };
+
+        assert_eq!(
+            classify_mouse_event(event, MousePane::Problem),
+            ClientAction::Ignore
+        );
     }
 }

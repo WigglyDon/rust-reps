@@ -68,6 +68,8 @@ pub enum EditorAction {
     MoveDown,
     MoveLineStart,
     MoveLineEnd,
+    ScrollViewportUp,
+    ScrollViewportDown,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -152,12 +154,24 @@ impl EditorBuffer {
             EditorAction::MoveDown => self.move_down(),
             EditorAction::MoveLineStart => self.move_line_start(),
             EditorAction::MoveLineEnd => self.move_line_end(),
+            EditorAction::ScrollViewportUp => self.scroll_viewport_up(),
+            EditorAction::ScrollViewportDown => self.scroll_viewport_down(),
         }
     }
 
     pub fn set_viewport_height(&mut self, visible_lines: usize) {
         self.viewport.visible_lines = visible_lines;
         self.ensure_cursor_visible();
+    }
+
+    pub fn scroll_viewport_up(&mut self) {
+        self.viewport.first_line = self.viewport.first_line.saturating_sub(1);
+        self.clamp_viewport();
+    }
+
+    pub fn scroll_viewport_down(&mut self) {
+        self.viewport.first_line = self.viewport.first_line.saturating_add(1);
+        self.clamp_viewport();
     }
 
     pub fn insert_char(&mut self, ch: char) {
@@ -325,6 +339,11 @@ impl EditorBuffer {
             self.viewport.first_line = self.cursor.line + 1 - self.viewport.visible_lines;
         }
 
+        self.viewport.first_line = self.viewport.first_line.min(max_first_line);
+    }
+
+    fn clamp_viewport(&mut self) {
+        let max_first_line = self.lines.len().saturating_sub(self.viewport.visible_lines);
         self.viewport.first_line = self.viewport.first_line.min(max_first_line);
     }
 }

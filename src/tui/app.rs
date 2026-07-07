@@ -106,6 +106,8 @@ impl TuiApp {
             | ClientAction::MoveLineEnd
             | ClientAction::ScrollProblemUp
             | ClientAction::ScrollProblemDown
+            | ClientAction::ScrollEditorUp
+            | ClientAction::ScrollEditorDown
             | ClientAction::CursorTick => self.ui_state.apply_action(action),
         }
     }
@@ -649,6 +651,28 @@ mod tests {
 
         assert_eq!(app.input(), before_input);
         assert_eq!(app.frame().game_window.workbox.cursor, before_cursor);
+        assert_eq!(app.session().passed(), 0);
+        assert_eq!(app.session().skipped(), 0);
+        assert_eq!(app.session().attempts(), 0);
+    }
+
+    #[test]
+    fn editor_scroll_does_not_affect_buffer_or_session_state() {
+        let mut app = TuiApp::new();
+        type_text(&mut app, "one\ntwo\nthree\nfour\nfive");
+        app.set_editor_viewport_height(3);
+        while app.frame().game_window.workbox.cursor.line > 2 {
+            app.handle_action(ClientAction::MoveCursorUp);
+        }
+        let before_input = app.input();
+        let before_cursor = app.frame().game_window.workbox.cursor;
+
+        app.handle_action(ClientAction::ScrollEditorUp);
+        let frame = app.frame();
+
+        assert_eq!(frame.game_window.workbox.viewport.first_line, 1);
+        assert_eq!(app.input(), before_input);
+        assert_eq!(frame.game_window.workbox.cursor, before_cursor);
         assert_eq!(app.session().passed(), 0);
         assert_eq!(app.session().skipped(), 0);
         assert_eq!(app.session().attempts(), 0);

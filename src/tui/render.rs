@@ -5,6 +5,7 @@ use crate::{
     },
     tui::{
         app::TuiApp,
+        input::MousePane,
         theme::{
             base_style, border_sweep_style, caret_feedback_style, code_token_style,
             control_hint_style, counter_style, editor_canvas_style, editor_gutter_feedback_style,
@@ -16,37 +17,38 @@ use crate::{
 use ratatui::{
     Frame,
     buffer::Buffer,
-    layout::{Alignment, Constraint, Direction, Layout, Margin, Rect},
+    layout::{Constraint, Direction, Layout, Margin, Rect},
     text::{Line, Span, Text},
     widgets::{Block, Paragraph},
 };
 
 const FEEDBACK_CHROME_HEIGHT: u16 = 4;
-const PROBLEM_ZONE_HEIGHT: u16 = 8;
-const MIN_EDITOR_ZONE_HEIGHT: u16 = 7;
+const PROBLEM_PANEL_PERCENT: u16 = 47;
 const COMMAND_RAIL_HEIGHT: u16 = 3;
 const MIN_GUTTER_WIDTH: usize = 2;
 const REPS_SLOT_WIDTH: usize = 7;
 const PLUS_ONE_SLOT_WIDTH: usize = 6;
 const PRIMARY_ACTION_HINT: &str = "F5 submit";
-const SECONDARY_CONTROL_HINTS: &str = "F6 skip · Esc quit";
+const SECONDARY_CONTROL_HINTS: &str = "F6 skip · Esc quit · wheel/Pg scroll";
+#[cfg(test)]
+const SNAPSHOT_PROBLEM_HEIGHT: u16 = 8;
 #[cfg(test)]
 const SNAPSHOT_WORKBOX_HEIGHT: u16 = 8;
 
 pub(crate) fn render_ui(frame: &mut Frame<'_>, app: &mut TuiApp, now: std::time::Instant) {
     let preliminary_frame = app.frame_at(now);
     let feedback_lines = feedback_chrome_lines(&preliminary_frame);
-    let chunks = layout_chunks(frame.area(), feedback_height(&feedback_lines));
-    app.set_editor_viewport_height(visible_editor_rows(chunks[1].height));
+    let layout = shell_layout(frame.area(), feedback_height(&feedback_lines));
+    app.set_editor_viewport_height(visible_editor_rows(layout.editor.height));
 
-    let client_frame = app.frame_at_for_layout(now, problem_wrap_width(chunks[0]));
+    let client_frame = app.frame_at_for_layout(now, problem_wrap_width(layout.problem));
     render_client_frame(frame, &client_frame);
 }
 
 fn render_client_frame(frame: &mut Frame<'_>, client_frame: &ClientFrame) {
     let feedback_lines = feedback_chrome_lines(client_frame);
     let shell_area = frame.area();
-    let chunks = layout_chunks(shell_area, feedback_height(&feedback_lines));
+    let layout = shell_layout(shell_area, feedback_height(&feedback_lines));
 
     frame.render_widget(Block::default().style(base_style()), shell_area);
 
@@ -57,90 +59,125 @@ fn render_client_frame(frame: &mut Frame<'_>, client_frame: &ClientFrame) {
     frame.render_widget(
         Paragraph::new(Text::from(problem_lines_for_height(
             client_frame,
-            chunks[0].height,
+            layout.problem.height,
         )))
         .style(base_style()),
-        chunks[0],
+        layout.problem,
     );
     render_viewport_indicator(
         frame,
-        chunks[0],
+        layout.problem,
         client_frame
             .game_window
             .problem
-            .overflow(usize::from(chunks[0].height)),
+            .overflow(usize::from(layout.problem.height)),
     );
 
     frame.render_widget(
-        Paragraph::new(Text::from(workbox_lines(client_frame, chunks[1].height)))
-            .style(editor_canvas_style()),
-        chunks[1],
+        Paragraph::new(Text::from(workbox_lines(
+            client_frame,
+            layout.editor.height,
+        )))
+        .style(editor_canvas_style()),
+        layout.editor,
     );
     render_viewport_indicator(
         frame,
-        chunks[1],
+        layout.editor,
         client_frame
             .game_window
             .workbox
-            .overflow(visible_editor_rows(chunks[1].height)),
+            .overflow(visible_editor_rows(layout.editor.height)),
     );
 
     if !feedback_lines.is_empty() {
         frame.render_widget(
             Paragraph::new(Text::from(feedback_lines)).style(base_style()),
-            chunks[2],
+            layout.feedback,
         );
     }
 
-    render_command_rail(frame, chunks[3], client_frame);
+    render_command_rail(frame, layout.rail, client_frame);
 }
 
+pub(crate) fn input_layout(area: Rect, app: &TuiApp, now: std::time::Instant) -> ShellLayout {
+    let frame = app.frame_at(now);
+    shell_layout(area, feedback_height(&feedback_chrome_lines(&frame)))
+}
+
+#[cfg(test)]
 fn layout_chunks(area: Rect, feedback_height: u16) -> std::rc::Rc<[Rect]> {
+    let layout = shell_layout(area, feedback_height);
+    vec![layout.problem, layout.editor, layout.feedback, layout.rail].into()
+}
+
+fn shell_layout(area: Rect, feedback_height: u16) -> ShellLayout {
     let body = shell_body(area);
     let reserved_panes = body.height.min(2);
     let rail_height = COMMAND_RAIL_HEIGHT.min(body.height.saturating_sub(reserved_panes));
     let feedback_height =
         feedback_height.min(body.height.saturating_sub(rail_height + reserved_panes));
-    let pane_height = body.height.saturating_sub(rail_height + feedback_height);
-    let (problem_height, editor_height) = pane_heights(pane_height);
+    let panel_height = body.height.saturating_sub(rail_height + feedback_height);
 
-    Layout::default()
+    let vertical = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(problem_height),
-            Constraint::Length(editor_height),
+            Constraint::Length(panel_height),
             Constraint::Length(feedback_height),
             Constraint::Length(rail_height),
         ])
-        .split(body)
+        .split(body);
+    let panels = panel_layout(vertical[0]);
+    ShellLayout {
+        problem: panels[0],
+        editor: panels[1],
+        feedback: vertical[1],
+        rail: vertical[2],
+    }
 }
 
-fn pane_heights(available_height: u16) -> (u16, u16) {
-    if available_height == 0 {
-        return (0, 0);
+fn panel_layout(area: Rect) -> [Rect; 2] {
+    if area.width == 0 {
+        return [area, area];
     }
 
-    if available_height == 1 {
-        return (1, 0);
-    }
+    let gap_width = if area.width >= 42 { 1 } else { 0 };
+    let content_width = area.width.saturating_sub(gap_width);
+    let problem_width = ((u32::from(content_width) * u32::from(PROBLEM_PANEL_PERCENT)) / 100)
+        .clamp(1, u32::from(content_width.saturating_sub(1).max(1))) as u16;
+    let editor_width = content_width.saturating_sub(problem_width);
+    let problem = Rect::new(area.x, area.y, problem_width, area.height);
+    let editor = Rect::new(
+        area.x + problem_width + gap_width,
+        area.y,
+        editor_width,
+        area.height,
+    );
+    [problem, editor]
+}
 
-    let minimum_total = PROBLEM_ZONE_HEIGHT + MIN_EDITOR_ZONE_HEIGHT;
-    if available_height < minimum_total {
-        let problem_height = (available_height / 2).max(1);
-        return (
-            problem_height,
-            available_height.saturating_sub(problem_height),
-        );
-    }
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct ShellLayout {
+    pub problem: Rect,
+    pub editor: Rect,
+    pub feedback: Rect,
+    pub rail: Rect,
+}
 
-    let mut problem_height = (available_height / 2).max(PROBLEM_ZONE_HEIGHT);
-    if available_height.saturating_sub(problem_height) < MIN_EDITOR_ZONE_HEIGHT {
-        problem_height = available_height.saturating_sub(MIN_EDITOR_ZONE_HEIGHT);
+impl ShellLayout {
+    pub(crate) fn mouse_pane_at(self, column: u16, row: u16) -> MousePane {
+        if rect_contains(self.problem, column, row) {
+            MousePane::Problem
+        } else if rect_contains(self.editor, column, row) {
+            MousePane::Editor
+        } else {
+            MousePane::Outside
+        }
     }
-    (
-        problem_height,
-        available_height.saturating_sub(problem_height),
-    )
+}
+
+fn rect_contains(rect: Rect, column: u16, row: u16) -> bool {
+    column >= rect.left() && column < rect.right() && row >= rect.top() && row < rect.bottom()
 }
 
 fn shell_body(area: Rect) -> Rect {
@@ -314,7 +351,7 @@ fn smoothstep(progress: f32) -> f32 {
 
 #[cfg(test)]
 fn problem_lines(client_frame: &ClientFrame) -> Vec<Line<'static>> {
-    problem_lines_for_height(client_frame, PROBLEM_ZONE_HEIGHT)
+    problem_lines_for_height(client_frame, SNAPSHOT_PROBLEM_HEIGHT)
 }
 
 fn problem_lines_for_height(client_frame: &ClientFrame, problem_height: u16) -> Vec<Line<'static>> {
@@ -432,20 +469,9 @@ fn render_command_rail(frame: &mut Frame<'_>, area: Rect, client_frame: &ClientF
             Constraint::Min(0),
         ])
         .split(rail);
-    let groups = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([Constraint::Percentage(55), Constraint::Percentage(45)])
-        .split(rows[1]);
-
     frame.render_widget(
-        Paragraph::new(Line::from(primary_rail_spans(client_frame))).style(base_style()),
-        groups[0],
-    );
-    frame.render_widget(
-        Paragraph::new(Line::from(secondary_rail_spans()))
-            .alignment(Alignment::Right)
-            .style(base_style()),
-        groups[1],
+        Paragraph::new(Line::from(command_rail_spans(client_frame))).style(base_style()),
+        rows[1],
     );
 }
 
@@ -528,10 +554,18 @@ fn feedback_line(status_line: StatusLine) -> Option<Line<'static>> {
 
 #[cfg(test)]
 fn bottom_chrome_lines(client_frame: &ClientFrame) -> Vec<Line<'static>> {
+    vec![
+        Line::from(""),
+        Line::from(command_rail_spans(client_frame)),
+        Line::from(""),
+    ]
+}
+
+fn command_rail_spans(client_frame: &ClientFrame) -> Vec<Span<'static>> {
     let mut rail_spans = primary_rail_spans(client_frame);
     rail_spans.push(Span::raw("    "));
     rail_spans.extend(secondary_rail_spans());
-    vec![Line::from(""), Line::from(rail_spans), Line::from("")]
+    rail_spans
 }
 
 fn primary_rail_spans(client_frame: &ClientFrame) -> Vec<Span<'static>> {
@@ -622,8 +656,8 @@ fn split_at_char_column(text: &str, column: usize) -> (String, String) {
 }
 
 #[cfg(test)]
-fn bottom_chrome_alignment() -> Alignment {
-    Alignment::Left
+fn bottom_chrome_alignment() -> ratatui::layout::Alignment {
+    ratatui::layout::Alignment::Left
 }
 
 #[cfg(test)]
@@ -676,12 +710,12 @@ mod tests {
     use std::time::{Duration, Instant};
 
     use super::{
-        COMMAND_RAIL_HEIGHT, FEEDBACK_CHROME_HEIGHT, MIN_EDITOR_ZONE_HEIGHT, PRIMARY_ACTION_HINT,
-        PROBLEM_ZONE_HEIGHT, SECONDARY_CONTROL_HINTS, SNAPSHOT_WORKBOX_HEIGHT,
-        border_sweep_cell_progress, bottom_chrome_alignment, bottom_chrome_lines,
-        feedback_chrome_lines, feedback_height, gutter_width, layout_chunks, line_text,
-        problem_lines, render_snapshot, render_snapshot_with_workbox_height,
-        reward_sweep_intensity_at, viewport_indicator_cells, visible_editor_rows, workbox_lines,
+        COMMAND_RAIL_HEIGHT, FEEDBACK_CHROME_HEIGHT, PRIMARY_ACTION_HINT, SECONDARY_CONTROL_HINTS,
+        SNAPSHOT_PROBLEM_HEIGHT, SNAPSHOT_WORKBOX_HEIGHT, border_sweep_cell_progress,
+        bottom_chrome_alignment, bottom_chrome_lines, feedback_chrome_lines, feedback_height,
+        gutter_width, layout_chunks, line_text, problem_lines, render_snapshot,
+        render_snapshot_with_workbox_height, reward_sweep_intensity_at, shell_layout,
+        viewport_indicator_cells, visible_editor_rows, workbox_lines,
     };
     use crate::{
         client::{
@@ -802,6 +836,48 @@ mod tests {
                 .iter()
                 .any(|line| line.contains(SECONDARY_CONTROL_HINTS))
         );
+    }
+
+    #[test]
+    fn normal_terminal_layout_uses_side_by_side_problem_and_editor_panels() {
+        let layout = shell_layout(Rect::new(0, 0, 100, 32), FEEDBACK_CHROME_HEIGHT);
+
+        assert_eq!(layout.problem.y, layout.editor.y);
+        assert_eq!(layout.problem.height, layout.editor.height);
+        assert!(layout.problem.width > 30);
+        assert!(layout.editor.width > layout.problem.width);
+        assert!(layout.problem.right() < layout.editor.left());
+        assert!(layout.feedback.top() >= layout.problem.bottom());
+        assert!(layout.rail.top() >= layout.feedback.bottom());
+    }
+
+    #[test]
+    fn side_by_side_panel_hitboxes_route_mouse_points() {
+        let layout = shell_layout(Rect::new(0, 0, 100, 32), FEEDBACK_CHROME_HEIGHT);
+
+        assert_eq!(
+            layout.mouse_pane_at(layout.problem.left(), layout.problem.top()),
+            crate::tui::input::MousePane::Problem
+        );
+        assert_eq!(
+            layout.mouse_pane_at(layout.editor.left(), layout.editor.top()),
+            crate::tui::input::MousePane::Editor
+        );
+        assert_eq!(
+            layout.mouse_pane_at(layout.rail.left(), layout.rail.top()),
+            crate::tui::input::MousePane::Outside
+        );
+    }
+
+    #[test]
+    fn small_terminal_layout_keeps_rail_reserved_and_panels_non_overlapping() {
+        let layout = shell_layout(Rect::new(0, 0, 34, 12), FEEDBACK_CHROME_HEIGHT);
+
+        assert_eq!(layout.rail.height, COMMAND_RAIL_HEIGHT);
+        assert!(layout.problem.width > 0);
+        assert!(layout.editor.width > 0);
+        assert!(layout.problem.right() <= layout.editor.left());
+        assert!(layout.rail.bottom() <= 12);
     }
 
     #[test]
@@ -1088,7 +1164,7 @@ mod tests {
             .map(line_text)
             .collect::<Vec<_>>();
 
-        assert_eq!(lines.len(), usize::from(PROBLEM_ZONE_HEIGHT));
+        assert_eq!(lines.len(), usize::from(SNAPSHOT_PROBLEM_HEIGHT));
         assert!(
             lines
                 .iter()
@@ -1214,14 +1290,16 @@ mod tests {
         let snapshot = render_snapshot(&app.frame());
         let rail = snapshot.bottom_chrome.join("\n");
 
-        for expected in ["F5 submit", "F6 skip", "Esc quit"] {
+        for expected in ["F5 submit", "F6 skip", "Esc quit", "wheel/Pg scroll"] {
             assert!(rail.contains(expected), "missing {expected}");
         }
         let f5 = rail.find("F5 submit").expect("missing F5 submit");
         let skip = rail.find("F6 skip").expect("missing F6 skip");
         let esc = rail.find("Esc quit").expect("missing Esc quit");
+        let scroll = rail.find("wheel/Pg scroll").expect("missing scroll hint");
         assert!(f5 < skip);
         assert!(skip < esc);
+        assert!(esc < scroll);
         assert!(!rail.contains("Enter newline"));
         assert!(!rail.contains("? help"));
 
@@ -1515,7 +1593,7 @@ mod tests {
     }
 
     #[test]
-    fn feedback_height_and_layout_stay_stable_across_default_states() {
+    fn feedback_height_and_side_by_side_layout_stay_stable_across_default_states() {
         let mut wrong_app = TuiApp::new();
         for ch in "wrong".chars() {
             wrong_app.handle_action(ClientAction::TypeChar(ch));
@@ -1537,16 +1615,26 @@ mod tests {
         assert_eq!(success_height, FEEDBACK_CHROME_HEIGHT);
 
         let area = Rect::new(0, 0, 80, 24);
-        let idle_chunks = layout_chunks(area, idle_height);
-        let wrong_chunks = layout_chunks(area, wrong_height);
-        let success_chunks = layout_chunks(area, success_height);
-        assert_eq!(idle_chunks, wrong_chunks);
-        assert_eq!(wrong_chunks, success_chunks);
-        assert_eq!(idle_chunks.len(), 4);
-        assert_eq!(idle_chunks[0].height, PROBLEM_ZONE_HEIGHT);
-        assert_eq!(idle_chunks[1].height, MIN_EDITOR_ZONE_HEIGHT);
-        assert_eq!(idle_chunks[2].height, FEEDBACK_CHROME_HEIGHT);
-        assert_eq!(idle_chunks[3].height, COMMAND_RAIL_HEIGHT);
+        let idle_layout = shell_layout(area, idle_height);
+        let wrong_layout = shell_layout(area, wrong_height);
+        let success_layout = shell_layout(area, success_height);
+        assert_eq!(idle_layout, wrong_layout);
+        assert_eq!(wrong_layout, success_layout);
+        assert_eq!(idle_layout.problem.y, idle_layout.editor.y);
+        assert_eq!(idle_layout.problem.height, idle_layout.editor.height);
+        assert!(idle_layout.problem.right() < idle_layout.editor.left());
+        assert!(idle_layout.problem.height > SNAPSHOT_PROBLEM_HEIGHT);
+        assert!(idle_layout.editor.height > SNAPSHOT_WORKBOX_HEIGHT);
+        assert_eq!(idle_layout.feedback.height, FEEDBACK_CHROME_HEIGHT);
+        assert_eq!(idle_layout.rail.height, COMMAND_RAIL_HEIGHT);
+        assert!(idle_layout.feedback.top() >= idle_layout.problem.bottom());
+        assert!(idle_layout.rail.top() >= idle_layout.feedback.bottom());
+
+        let chunks = layout_chunks(area, idle_height);
+        assert_eq!(chunks[0], idle_layout.problem);
+        assert_eq!(chunks[1], idle_layout.editor);
+        assert_eq!(chunks[2], idle_layout.feedback);
+        assert_eq!(chunks[3], idle_layout.rail);
     }
 
     #[test]
