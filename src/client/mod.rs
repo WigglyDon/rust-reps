@@ -10,6 +10,7 @@ pub use editor::{CursorPosition, EditorAction, EditorBuffer, EditorView, EditorV
 pub enum ClientAction {
     TypeChar(char),
     Backspace,
+    InsertNewline,
     MoveCursorLeft,
     MoveCursorRight,
     MoveCursorUp,
@@ -207,6 +208,10 @@ impl ClientUiState {
                 self.editor.apply_action(EditorAction::Backspace);
                 self.show_cursor();
             }
+            ClientAction::InsertNewline => {
+                self.editor.apply_action(EditorAction::InsertNewline);
+                self.show_cursor();
+            }
             ClientAction::MoveCursorLeft => {
                 self.editor.apply_action(EditorAction::MoveLeft);
                 self.show_cursor();
@@ -300,6 +305,7 @@ pub struct WorkboxView {
     pub cursor: CursorPosition,
     pub viewport: EditorViewport,
     pub input_tokens: Vec<CodeToken>,
+    pub line_tokens: Vec<Vec<CodeToken>>,
     pub cursor_visible: bool,
 }
 
@@ -348,6 +354,11 @@ pub fn project_client_frame_at(
         .unwrap_or_else(engine::first_exercise_packet);
     let editor_view = ui_state.editor_view();
     let input = editor_view.text.clone();
+    let line_tokens = editor_view
+        .lines
+        .iter()
+        .map(|line| tokenize_rust_line(line))
+        .collect();
     let counter_reward = ui_state.counter_reward_frame_at(now);
 
     ClientFrame {
@@ -363,6 +374,7 @@ pub fn project_client_frame_at(
                 lines: editor_view.lines,
                 cursor: editor_view.cursor,
                 viewport: editor_view.viewport,
+                line_tokens,
                 cursor_visible: ui_state.cursor_visible(),
             },
         },
@@ -556,10 +568,10 @@ fn help_lines(open: bool) -> Vec<String> {
     if open {
         vec![
             "Commands:".to_string(),
-            "Backspace: delete char".to_string(),
-            "Enter: submit input".to_string(),
-            "Esc / Ctrl+C: quit".to_string(),
-            "F1 or ?: toggle this panel".to_string(),
+            "Enter newline".to_string(),
+            "Ctrl+Enter submit".to_string(),
+            "Esc quit".to_string(),
+            "? help".to_string(),
         ]
     } else {
         Vec::new()
@@ -949,12 +961,24 @@ mod tests {
         let session = engine::Session::new();
         let mut ui_state = ClientUiState::new();
         ui_state.apply_action(ClientAction::TypeChar('x'));
+        ui_state.apply_action(ClientAction::InsertNewline);
+        ui_state.apply_action(ClientAction::TypeChar('y'));
         ui_state.apply_action(ClientAction::CursorTick);
 
         let frame = project_client_frame(&session, &ui_state);
 
-        assert_eq!(frame.game_window.workbox.input, "x");
-        assert_eq!(token_text(&frame.game_window.workbox.input_tokens), "x");
+        assert_eq!(frame.game_window.workbox.input, "x\ny");
+        assert_eq!(frame.game_window.workbox.lines, vec!["x", "y"]);
+        assert_eq!(
+            frame
+                .game_window
+                .workbox
+                .line_tokens
+                .iter()
+                .map(|tokens| token_text(tokens))
+                .collect::<Vec<_>>(),
+            vec!["x".to_string(), "y".to_string()]
+        );
         assert!(!frame.game_window.workbox.cursor_visible);
     }
 
@@ -1000,14 +1024,28 @@ mod tests {
         let mut ui_state = ClientUiState::new();
 
         ui_state.apply_action(ClientAction::TypeChar('a'));
+        ui_state.apply_action(ClientAction::InsertNewline);
         ui_state.apply_action(ClientAction::TypeChar('b'));
         ui_state.apply_action(ClientAction::Backspace);
         ui_state.apply_action(ClientAction::ToggleHelp);
         ui_state.apply_action(ClientAction::CursorTick);
 
-        assert_eq!(ui_state.editor_view().text, "a");
+        assert_eq!(ui_state.editor_view().text, "a\n");
         assert!(ui_state.help_open());
         assert!(!ui_state.cursor_visible());
+    }
+
+    #[test]
+    fn client_action_insert_newline_updates_editor_buffer() {
+        let mut ui_state = ClientUiState::new();
+        ui_state.apply_action(ClientAction::TypeChar('a'));
+        ui_state.apply_action(ClientAction::InsertNewline);
+        ui_state.apply_action(ClientAction::TypeChar('b'));
+
+        let view = ui_state.editor_view();
+        assert_eq!(view.text, "a\nb");
+        assert_eq!(view.lines, vec!["a".to_string(), "b".to_string()]);
+        assert_eq!(view.cursor, CursorPosition { line: 1, column: 1 });
     }
 
     #[test]

@@ -79,6 +79,7 @@ impl TuiApp {
             ClientAction::Ignore => {}
             ClientAction::TypeChar(_)
             | ClientAction::Backspace
+            | ClientAction::InsertNewline
             | ClientAction::MoveCursorLeft
             | ClientAction::MoveCursorRight
             | ClientAction::MoveCursorUp
@@ -400,7 +401,69 @@ mod tests {
     }
 
     #[test]
-    fn correct_submit_clears_editor_and_resets_cursor() {
+    fn newline_action_inserts_line_in_editor_buffer() {
+        let mut app = TuiApp::new();
+
+        app.handle_action(ClientAction::TypeChar('a'));
+        app.handle_action(ClientAction::InsertNewline);
+        app.handle_action(ClientAction::TypeChar('b'));
+
+        let workbox = app.frame().game_window.workbox;
+        assert_eq!(workbox.input, "a\nb");
+        assert_eq!(workbox.lines, vec!["a".to_string(), "b".to_string()]);
+        assert_eq!(workbox.cursor.line, 1);
+        assert_eq!(workbox.cursor.column, 1);
+    }
+
+    #[test]
+    fn up_and_down_move_across_lines_through_app_path() {
+        let mut app = TuiApp::new();
+
+        app.handle_action(ClientAction::TypeChar('a'));
+        app.handle_action(ClientAction::InsertNewline);
+        app.handle_action(ClientAction::TypeChar('b'));
+        app.handle_action(ClientAction::MoveCursorUp);
+        assert_eq!(app.frame().game_window.workbox.cursor.line, 0);
+
+        app.handle_action(ClientAction::MoveCursorDown);
+        assert_eq!(app.frame().game_window.workbox.cursor.line, 1);
+    }
+
+    #[test]
+    fn backspace_at_start_of_second_line_joins_lines_through_app_path() {
+        let mut app = TuiApp::new();
+
+        app.handle_action(ClientAction::TypeChar('a'));
+        app.handle_action(ClientAction::InsertNewline);
+        app.handle_action(ClientAction::TypeChar('b'));
+        app.handle_action(ClientAction::MoveLineStart);
+        app.handle_action(ClientAction::Backspace);
+
+        let workbox = app.frame().game_window.workbox;
+        assert_eq!(workbox.input, "ab");
+        assert_eq!(workbox.cursor.line, 0);
+        assert_eq!(workbox.cursor.column, 1);
+    }
+
+    #[test]
+    fn enter_alone_inserts_newline_and_does_not_submit() {
+        let mut app = TuiApp::new();
+        for ch in "fn main() {}".chars() {
+            app.handle_action(ClientAction::TypeChar(ch));
+        }
+
+        app.handle_action(ClientAction::InsertNewline);
+
+        assert_eq!(app.session().passed(), 0);
+        assert_eq!(app.session().attempts(), 0);
+        assert_eq!(
+            app.frame().game_window.workbox.lines,
+            vec!["fn main() {}".to_string(), "".to_string()]
+        );
+    }
+
+    #[test]
+    fn ctrl_enter_submit_clears_editor_and_resets_cursor_after_correct_answer() {
         let mut app = TuiApp::new();
         for ch in "fn main() {}".chars() {
             app.handle_action(ClientAction::TypeChar(ch));
@@ -412,6 +475,49 @@ mod tests {
         assert_eq!(workbox.input, "");
         assert_eq!(workbox.cursor.line, 0);
         assert_eq!(workbox.cursor.column, 0);
+    }
+
+    #[test]
+    fn ctrl_enter_submits_multiline_buffer_with_existing_exact_answer_rules() {
+        let mut app = TuiApp::new();
+        for ch in "fn main() {}".chars() {
+            app.handle_action(ClientAction::TypeChar(ch));
+        }
+        app.handle_action(ClientAction::InsertNewline);
+
+        app.handle_action(ClientAction::Submit);
+
+        assert_eq!(app.session().passed(), 1);
+        assert_eq!(app.session().attempts(), 1);
+        assert_eq!(app.frame().game_window.workbox.lines, vec!["".to_string()]);
+    }
+
+    #[test]
+    fn ctrl_enter_wrong_answer_stays_on_same_drill_and_reports_feedback() {
+        let mut app = TuiApp::new();
+        app.handle_action(ClientAction::TypeChar('x'));
+        app.handle_action(ClientAction::InsertNewline);
+        app.handle_action(ClientAction::TypeChar('y'));
+
+        app.handle_action(ClientAction::Submit);
+
+        assert_eq!(app.session().passed(), 0);
+        assert_eq!(app.session().attempts(), 1);
+        assert_eq!(
+            app.session()
+                .current_exercise()
+                .expect("expected active exercise")
+                .id,
+            "001"
+        );
+        assert_eq!(
+            app.status_lines(),
+            &[
+                "not quite".to_string(),
+                "expected:".to_string(),
+                "fn main() {}".to_string(),
+            ]
+        );
     }
 
     #[test]

@@ -6,17 +6,24 @@ pub fn classify_key_event(key: KeyEvent) -> ClientAction {
     match key.code {
         KeyCode::Esc => ClientAction::Quit,
         KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => ClientAction::Quit,
+        KeyCode::Enter if key.modifiers.contains(KeyModifiers::CONTROL) => ClientAction::Submit,
+        KeyCode::Enter if key.modifiers.contains(KeyModifiers::SHIFT) => ClientAction::Ignore,
+        KeyCode::Enter if key.modifiers.is_empty() => ClientAction::InsertNewline,
         KeyCode::Char('?') => ClientAction::ToggleHelp,
         KeyCode::F(1) => ClientAction::ToggleHelp,
         KeyCode::Backspace => ClientAction::Backspace,
-        KeyCode::Enter => ClientAction::Submit,
         KeyCode::Left => ClientAction::MoveCursorLeft,
         KeyCode::Right => ClientAction::MoveCursorRight,
         KeyCode::Up => ClientAction::MoveCursorUp,
         KeyCode::Down => ClientAction::MoveCursorDown,
         KeyCode::Home => ClientAction::MoveLineStart,
         KeyCode::End => ClientAction::MoveLineEnd,
-        KeyCode::Char(ch) => ClientAction::TypeChar(ch),
+        KeyCode::Char(ch)
+            if !key.modifiers.contains(KeyModifiers::CONTROL)
+                && !key.modifiers.contains(KeyModifiers::ALT) =>
+        {
+            ClientAction::TypeChar(ch)
+        }
         KeyCode::Tab => ClientAction::Ignore,
         _ => ClientAction::Ignore,
     }
@@ -40,9 +47,27 @@ mod tests {
     }
 
     #[test]
-    fn enter_classifies_as_submit() {
+    fn enter_classifies_as_insert_newline() {
         let intent = classify_key_event(KeyEvent::from(KeyCode::Enter));
+        assert_eq!(intent, ClientAction::InsertNewline);
+    }
+
+    #[test]
+    fn ctrl_enter_classifies_as_submit() {
+        let intent = classify_key_event(KeyEvent::new(
+            KeyCode::Enter,
+            crossterm::event::KeyModifiers::CONTROL,
+        ));
         assert_eq!(intent, ClientAction::Submit);
+    }
+
+    #[test]
+    fn shift_enter_is_deferred_until_terminal_support_is_proven() {
+        let intent = classify_key_event(KeyEvent::new(
+            KeyCode::Enter,
+            crossterm::event::KeyModifiers::SHIFT,
+        ));
+        assert_eq!(intent, ClientAction::Ignore);
     }
 
     #[test]

@@ -1,5 +1,5 @@
 use crate::{
-    client::{ClientFrame, CodeToken, CounterRewardFrame, StatusLine, StatusTone},
+    client::{ClientFrame, CodeToken, CounterRewardFrame, EditorViewport, StatusLine, StatusTone},
     tui::{
         app::TuiApp,
         theme::{
@@ -18,6 +18,8 @@ use ratatui::{
 
 const FEEDBACK_CHROME_HEIGHT: u16 = 3;
 const BOTTOM_CHROME_HEIGHT: u16 = 1;
+#[cfg(test)]
+const SNAPSHOT_WORKBOX_HEIGHT: u16 = 6;
 
 pub(crate) fn render_ui(frame: &mut Frame<'_>, app: &TuiApp, now: std::time::Instant) {
     let client_frame = app.frame_at(now);
@@ -52,7 +54,11 @@ fn render_client_frame(frame: &mut Frame<'_>, client_frame: &ClientFrame) {
     );
 
     frame.render_widget(
-        Paragraph::new(Text::from(workbox_lines(client_frame))).style(base_style()),
+        Paragraph::new(Text::from(workbox_lines(
+            client_frame,
+            game_chunks[1].height,
+        )))
+        .style(base_style()),
         game_chunks[1],
     );
 
@@ -98,14 +104,42 @@ fn problem_lines(client_frame: &ClientFrame) -> Vec<Line<'static>> {
     ]
 }
 
-fn workbox_lines(client_frame: &ClientFrame) -> Vec<Line<'static>> {
-    vec![
-        Line::from(""),
-        Line::from(input_spans(client_frame)),
-        Line::from(""),
-        Line::from(""),
-        Line::from(""),
-    ]
+fn workbox_lines(client_frame: &ClientFrame, workbox_height: u16) -> Vec<Line<'static>> {
+    let visible_editor_rows = visible_editor_rows(workbox_height);
+    let viewport = EditorViewport::around_cursor(
+        client_frame.game_window.workbox.lines.len(),
+        client_frame.game_window.workbox.cursor.line,
+        visible_editor_rows,
+    );
+    let gutter_width = gutter_width(client_frame.game_window.workbox.lines.len());
+    let mut lines = vec![Line::from("")];
+    let visible_end = (viewport.first_line + viewport.visible_lines)
+        .min(client_frame.game_window.workbox.lines.len());
+
+    for line_index in viewport.first_line..visible_end {
+        let tokens = client_frame
+            .game_window
+            .workbox
+            .line_tokens
+            .get(line_index)
+            .map(Vec::as_slice)
+            .unwrap_or(&[]);
+        let cursor_column = (line_index == client_frame.game_window.workbox.cursor.line)
+            .then_some(client_frame.game_window.workbox.cursor.column);
+        lines.push(Line::from(editor_line_spans(
+            line_index,
+            gutter_width,
+            tokens,
+            cursor_column,
+            client_frame.game_window.workbox.cursor_visible,
+        )));
+    }
+
+    while lines.len() < usize::from(workbox_height) {
+        lines.push(Line::from(""));
+    }
+
+    lines
 }
 
 fn feedback_chrome_lines(client_frame: &ClientFrame) -> Vec<Line<'static>> {
@@ -129,18 +163,36 @@ fn feedback_height(lines: &[Line<'static>]) -> u16 {
     FEEDBACK_CHROME_HEIGHT
 }
 
-fn input_spans(client_frame: &ClientFrame) -> Vec<Span<'static>> {
-    let cursor = if client_frame.game_window.workbox.cursor_visible {
-        "|"
+fn visible_editor_rows(workbox_height: u16) -> usize {
+    usize::from(workbox_height.saturating_sub(1).max(1))
+}
+
+fn gutter_width(total_lines: usize) -> usize {
+    total_lines.max(1).to_string().len()
+}
+
+fn editor_line_spans(
+    line_index: usize,
+    gutter_width: usize,
+    tokens: &[CodeToken],
+    cursor_column: Option<usize>,
+    cursor_visible: bool,
+) -> Vec<Span<'static>> {
+    let mut spans = vec![Span::styled(
+        format!(
+            "{line_number:>gutter_width$} │ ",
+            line_number = line_index + 1
+        ),
+        editor_gutter_style(),
+    )];
+
+    if let Some(cursor_column) = cursor_column {
+        let cursor = if cursor_visible { "|" } else { " " };
+        spans.extend(code_spans_with_cursor(tokens, cursor_column, cursor));
     } else {
-        " "
-    };
-    let mut spans = vec![Span::styled("1 │ ", editor_gutter_style())];
-    spans.extend(code_spans_with_cursor(
-        &client_frame.game_window.workbox.input_tokens,
-        client_frame.game_window.workbox.cursor.column,
-        cursor,
-    ));
+        spans.extend(code_spans(tokens));
+    }
+
     spans
 }
 
@@ -244,12 +296,23 @@ struct RenderSnapshot {
 
 #[cfg(test)]
 fn render_snapshot(client_frame: &ClientFrame) -> RenderSnapshot {
+    render_snapshot_with_workbox_height(client_frame, SNAPSHOT_WORKBOX_HEIGHT)
+}
+
+#[cfg(test)]
+fn render_snapshot_with_workbox_height(
+    client_frame: &ClientFrame,
+    workbox_height: u16,
+) -> RenderSnapshot {
     RenderSnapshot {
-        game: [problem_lines(client_frame), workbox_lines(client_frame)]
-            .concat()
-            .iter()
-            .map(line_text)
-            .collect(),
+        game: [
+            problem_lines(client_frame),
+            workbox_lines(client_frame, workbox_height),
+        ]
+        .concat()
+        .iter()
+        .map(line_text)
+        .collect(),
         feedback: feedback_chrome_lines(client_frame)
             .iter()
             .map(line_text)
@@ -276,7 +339,7 @@ mod tests {
     use super::{
         FEEDBACK_CHROME_HEIGHT, bottom_chrome_alignment, bottom_chrome_lines,
         feedback_chrome_lines, feedback_height, layout_chunks, line_text, problem_lines,
-        render_snapshot,
+        render_snapshot, render_snapshot_with_workbox_height,
     };
     use crate::{
         client::{
@@ -362,7 +425,8 @@ mod tests {
             "Skipped",
             "Attempts",
             "READY",
-            "Enter submit",
+            "Enter newline",
+            "Ctrl+Enter submit",
             "Esc quit",
             "? help",
         ] {
@@ -708,8 +772,16 @@ mod tests {
             help_snapshot
                 .feedback
                 .iter()
-                .any(|line| line == "Enter: submit input")
+                .any(|line| line == "Enter newline")
         );
+        assert!(
+            help_snapshot
+                .feedback
+                .iter()
+                .any(|line| line == "Ctrl+Enter submit")
+        );
+        assert!(help_snapshot.feedback.iter().any(|line| line == "Esc quit"));
+        assert!(help_snapshot.feedback.iter().any(|line| line == "? help"));
         assert!(!help_snapshot.game.iter().any(|line| line == "Commands:"));
     }
 
@@ -782,5 +854,78 @@ mod tests {
         assert!(snapshot.game.iter().any(|line| line == "1 │ |"));
         assert!(snapshot.bottom_chrome.iter().any(|line| line == "✓ 1"));
         assert!(!snapshot.game.iter().any(|line| line == "PASS"));
+    }
+
+    #[test]
+    fn render_snapshot_shows_two_editor_lines() {
+        let mut app = TuiApp::new();
+        app.handle_action(ClientAction::TypeChar('a'));
+        app.handle_action(ClientAction::InsertNewline);
+        app.handle_action(ClientAction::TypeChar('b'));
+
+        let snapshot = render_snapshot(&app.frame());
+
+        assert!(snapshot.game.iter().any(|line| line == "1 │ a"));
+        assert!(snapshot.game.iter().any(|line| line == "2 │ b|"));
+    }
+
+    #[test]
+    fn render_snapshot_shows_caret_on_second_line() {
+        let mut app = TuiApp::new();
+        for ch in "let".chars() {
+            app.handle_action(ClientAction::TypeChar(ch));
+        }
+        app.handle_action(ClientAction::InsertNewline);
+        for ch in "score".chars() {
+            app.handle_action(ClientAction::TypeChar(ch));
+        }
+        app.handle_action(ClientAction::MoveCursorLeft);
+
+        let snapshot = render_snapshot(&app.frame());
+
+        assert!(snapshot.game.iter().any(|line| line == "1 │ let"));
+        assert!(snapshot.game.iter().any(|line| line == "2 │ scor|e"));
+    }
+
+    #[test]
+    fn render_snapshot_shows_empty_middle_line() {
+        let mut app = TuiApp::new();
+        app.handle_action(ClientAction::TypeChar('a'));
+        app.handle_action(ClientAction::InsertNewline);
+        app.handle_action(ClientAction::InsertNewline);
+        app.handle_action(ClientAction::TypeChar('b'));
+
+        let snapshot = render_snapshot(&app.frame());
+
+        assert!(snapshot.game.iter().any(|line| line == "1 │ a"));
+        assert!(snapshot.game.iter().any(|line| line == "2 │ "));
+        assert!(snapshot.game.iter().any(|line| line == "3 │ b|"));
+    }
+
+    #[test]
+    fn render_snapshot_keeps_one_line_case_clean() {
+        let app = TuiApp::new();
+        let snapshot = render_snapshot(&app.frame());
+
+        assert!(snapshot.game.iter().any(|line| line == "1 │ |"));
+        assert!(!snapshot.game.iter().any(|line| line == "2 │ "));
+    }
+
+    #[test]
+    fn viewport_snapshot_keeps_cursor_line_visible_when_editor_is_taller_than_workbox() {
+        let mut app = TuiApp::new();
+        for ch in "a\nb\nc\nd\ne".chars() {
+            if ch == '\n' {
+                app.handle_action(ClientAction::InsertNewline);
+            } else {
+                app.handle_action(ClientAction::TypeChar(ch));
+            }
+        }
+
+        let snapshot = render_snapshot_with_workbox_height(&app.frame(), 3);
+
+        assert!(!snapshot.game.iter().any(|line| line == "1 │ a"));
+        assert!(snapshot.game.iter().any(|line| line == "4 │ d"));
+        assert!(snapshot.game.iter().any(|line| line == "5 │ e|"));
     }
 }

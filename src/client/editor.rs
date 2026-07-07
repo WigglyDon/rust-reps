@@ -23,6 +23,33 @@ impl EditorViewport {
             visible_lines: 0,
         }
     }
+
+    pub fn around_cursor(total_lines: usize, cursor_line: usize, visible_lines: usize) -> Self {
+        if visible_lines == 0 {
+            return Self {
+                first_line: 0,
+                visible_lines: 0,
+            };
+        }
+
+        let total_lines = total_lines.max(1);
+        if total_lines <= visible_lines {
+            return Self {
+                first_line: 0,
+                visible_lines,
+            };
+        }
+
+        let cursor_line = cursor_line.min(total_lines - 1);
+        let half_window = visible_lines / 2;
+        let max_first_line = total_lines - visible_lines;
+        let first_line = cursor_line.saturating_sub(half_window).min(max_first_line);
+
+        Self {
+            first_line,
+            visible_lines,
+        }
+    }
 }
 
 #[allow(dead_code)]
@@ -282,6 +309,15 @@ mod tests {
         assert_eq!(editor.lines(), &["".to_string()]);
         assert_eq!(editor.cursor(), CursorPosition { line: 0, column: 0 });
         assert_eq!(editor.viewport().first_line, 0);
+    }
+
+    #[test]
+    fn viewport_around_cursor_keeps_cursor_line_visible() {
+        let viewport = super::EditorViewport::around_cursor(8, 6, 3);
+
+        assert_eq!(viewport.visible_lines, 3);
+        assert!(viewport.first_line <= 6);
+        assert!(6 < viewport.first_line + viewport.visible_lines);
     }
 
     #[test]

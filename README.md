@@ -45,7 +45,8 @@ It uses the same drill and answer truth as plain mode, but renders a simple game
 Keys:
 - type normal characters to build input
 - `Backspace` deletes
-- `Enter` submits
+- `Enter` inserts a newline
+- `Ctrl-Enter` submits
 - `Esc` or `Ctrl-C` quits
 - `F1` or `?` toggles help panel
 - `Tab` is currently ignored
