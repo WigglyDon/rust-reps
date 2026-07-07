@@ -64,6 +64,8 @@ pub const REWARD_GAME_GLOW_DELAY: Duration = Duration::from_millis(80);
 pub const REWARD_GAME_GLOW_MAX_INTENSITY: u8 = 58;
 pub const FAILURE_PULSE_DURATION: Duration = Duration::from_millis(520);
 pub const PROBLEM_SCROLL_LINES: usize = 4;
+pub const DEFAULT_PROBLEM_WRAP_WIDTH: usize = 80;
+pub const MIN_PROBLEM_WRAP_WIDTH: usize = 12;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ProblemLineKind {
@@ -411,6 +413,10 @@ impl ClientUiState {
         self.editor.view()
     }
 
+    pub fn set_editor_viewport_height(&mut self, visible_lines: usize) {
+        self.editor.set_viewport_height(visible_lines);
+    }
+
     pub fn cursor_visible(&self) -> bool {
         self.cursor_visible
     }
@@ -646,6 +652,15 @@ pub fn project_client_frame_at(
     ui_state: &ClientUiState,
     now: Instant,
 ) -> ClientFrame {
+    project_client_frame_for_layout(session, ui_state, now, DEFAULT_PROBLEM_WRAP_WIDTH)
+}
+
+pub fn project_client_frame_for_layout(
+    session: &engine::Session,
+    ui_state: &ClientUiState,
+    now: Instant,
+    problem_wrap_width: usize,
+) -> ClientFrame {
     let snapshot = session.snapshot();
     let exercise = snapshot
         .exercise
@@ -659,7 +674,8 @@ pub fn project_client_frame_at(
         .collect();
     let reward = ui_state.reward_frame_at(now);
     let failure = ui_state.failure_frame_at(now);
-    let problem_lines = problem_display_lines("do this:", exercise.prompt);
+    let problem_lines =
+        problem_display_lines("do this:", exercise.prompt.as_ref(), problem_wrap_width);
     let problem_viewport = ui_state.problem_viewport().clamped(problem_lines.len());
 
     ClientFrame {
@@ -667,7 +683,7 @@ pub fn project_client_frame_at(
             problem: ProblemView {
                 instruction: "do this:".to_string(),
                 prompt: exercise.prompt.to_string(),
-                prompt_tokens: tokenize_rust_line(exercise.prompt),
+                prompt_tokens: tokenize_rust_line(exercise.prompt.as_ref()),
                 lines: problem_lines,
                 viewport: problem_viewport,
             },
@@ -696,20 +712,42 @@ pub fn project_client_frame_at(
     }
 }
 
-fn problem_display_lines(instruction: &str, prompt: &str) -> Vec<ProblemDisplayLine> {
+fn problem_display_lines(
+    instruction: &str,
+    prompt: &str,
+    wrap_width: usize,
+) -> Vec<ProblemDisplayLine> {
     let mut lines = vec![
         ProblemDisplayLine::blank(),
         ProblemDisplayLine::header(instruction),
         ProblemDisplayLine::blank(),
     ];
-    lines.extend(prompt.lines().map(|line| {
+    for line in prompt.lines() {
         if line.is_empty() {
-            ProblemDisplayLine::blank()
+            lines.push(ProblemDisplayLine::blank());
         } else {
-            ProblemDisplayLine::code(line)
+            lines.extend(
+                split_display_line(line, wrap_width)
+                    .into_iter()
+                    .map(|chunk| ProblemDisplayLine::code(&chunk)),
+            );
         }
-    }));
+    }
     lines
+}
+
+fn split_display_line(line: &str, wrap_width: usize) -> Vec<String> {
+    let wrap_width = wrap_width.max(MIN_PROBLEM_WRAP_WIDTH);
+    let chars = line.chars().collect::<Vec<_>>();
+
+    if chars.is_empty() {
+        return vec![String::new()];
+    }
+
+    chars
+        .chunks(wrap_width)
+        .map(|chunk| chunk.iter().collect::<String>())
+        .collect()
 }
 
 pub fn tokenize_rust_line(line: &str) -> Vec<CodeToken> {
@@ -900,7 +938,7 @@ mod tests {
         REWARD_ATTACK_DURATION, REWARD_DURATION, REWARD_GAME_GLOW_DELAY,
         REWARD_GAME_GLOW_MAX_INTENSITY, REWARD_PLUS_ONE_BODY_DURATION, REWARD_RELEASE_DURATION,
         REWARD_SWEEP_DURATION, StatusTone, project_client_frame, project_client_frame_at,
-        tokenize_rust_line,
+        project_client_frame_for_layout, tokenize_rust_line,
     };
     use crate::engine;
 
@@ -1205,28 +1243,21 @@ mod tests {
 
     #[test]
     fn lab_long_problem_overflows_and_exposes_scroll_hint() {
-        let session = engine::Session::from_exercise_packets(crate::lab::exercise_packets());
+        let session = engine::Session::lab();
         let ui_state = ClientUiState::new();
-        let frame = project_client_frame(&session, &ui_state);
+        let frame = project_client_frame_for_layout(&session, &ui_state, test_now(), 48);
         let problem = &frame.game_window.problem;
 
-        assert_eq!(problem.prompt, crate::lab::LONG_PROBLEM_PROMPT);
-        assert!(problem.lines.len() > 10);
+        assert!(problem.prompt.contains("lab case 1"));
+        assert!(problem.lines.len() > 20);
         assert_eq!(problem.viewport.scroll_offset, 0);
-        assert_eq!(
-            problem
-                .visible_lines(5)
-                .iter()
-                .map(|line| line.text.as_str())
-                .collect::<Vec<_>>(),
-            vec![
-                "",
-                "do this:",
-                "",
-                "task:",
-                "Build the smallest Rust entry point that still satisfies the lab."
-            ]
-        );
+        let visible = problem
+            .visible_lines(5)
+            .iter()
+            .map(|line| line.text.as_str())
+            .collect::<Vec<_>>();
+        assert_eq!(&visible[..4], &["", "do this:", "", "task:"]);
+        assert!(visible[4].starts_with("Build the smallest Rust entry point"));
         assert_eq!(
             problem.scroll_hint(5),
             Some(super::ProblemScrollHint {
@@ -1239,31 +1270,76 @@ mod tests {
 
     #[test]
     fn page_down_and_page_up_scroll_lab_problem_without_editor_changes() {
-        let session = engine::Session::from_exercise_packets(crate::lab::exercise_packets());
+        let session = engine::Session::lab();
         let mut ui_state = ClientUiState::new();
         ui_state.apply_action(ClientAction::TypeChar('x'));
         let before_editor = ui_state.editor_view();
 
         ui_state.apply_action(ClientAction::ScrollProblemDown);
-        let scrolled = project_client_frame(&session, &ui_state);
+        let scrolled = project_client_frame_for_layout(&session, &ui_state, test_now(), 48);
         assert_eq!(
             scrolled.game_window.problem.viewport.scroll_offset,
             PROBLEM_SCROLL_LINES
         );
-        assert!(
-            scrolled
+        let top_visible =
+            project_client_frame_for_layout(&session, &ClientUiState::new(), test_now(), 48)
                 .game_window
                 .problem
                 .visible_lines(5)
                 .iter()
-                .any(|line| line.text == "requirements:")
-        );
+                .map(|line| line.text.clone())
+                .collect::<Vec<_>>();
+        let scrolled_visible = scrolled
+            .game_window
+            .problem
+            .visible_lines(5)
+            .iter()
+            .map(|line| line.text.clone())
+            .collect::<Vec<_>>();
+        assert_ne!(scrolled_visible, top_visible);
         assert_eq!(ui_state.editor_view(), before_editor);
 
         ui_state.apply_action(ClientAction::ScrollProblemUp);
-        let returned = project_client_frame(&session, &ui_state);
+        let returned = project_client_frame_for_layout(&session, &ui_state, test_now(), 48);
         assert_eq!(returned.game_window.problem.viewport.scroll_offset, 0);
         assert_eq!(ui_state.editor_view(), before_editor);
+    }
+
+    #[test]
+    fn long_problem_text_wraps_before_viewport_slicing() {
+        let session = engine::Session::lab();
+        let ui_state = ClientUiState::new();
+
+        let wide = project_client_frame_for_layout(&session, &ui_state, test_now(), 90);
+        let narrow = project_client_frame_for_layout(&session, &ui_state, test_now(), 24);
+
+        assert!(narrow.game_window.problem.lines.len() > wide.game_window.problem.lines.len());
+        assert!(
+            narrow
+                .game_window
+                .problem
+                .lines
+                .iter()
+                .filter(|line| !line.text.is_empty())
+                .all(|line| line.text.chars().count() <= 24)
+        );
+    }
+
+    #[test]
+    fn problem_viewport_offset_is_capped_to_valid_bounds_after_wrapping() {
+        let session = engine::Session::lab();
+        let mut ui_state = ClientUiState::new();
+        for _ in 0..200 {
+            ui_state.apply_action(ClientAction::ScrollProblemDown);
+        }
+
+        let frame = project_client_frame_for_layout(&session, &ui_state, test_now(), 36);
+        let problem = &frame.game_window.problem;
+        let range = problem.visible_range(5);
+
+        assert!(range.end <= problem.lines.len());
+        assert_eq!(range.end.saturating_sub(range.start), 5);
+        assert_eq!(range.end, problem.lines.len());
     }
 
     #[test]

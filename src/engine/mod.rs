@@ -1,4 +1,6 @@
-use crate::{answer, catalog, curriculum};
+use std::borrow::Cow;
+
+use crate::{answer, catalog, curriculum, lab};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ExerciseKind {
@@ -26,14 +28,14 @@ impl ExerciseValidator {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ExercisePacket {
-    pub id: &'static str,
+    pub id: Cow<'static, str>,
     pub position: usize,
     pub total: usize,
-    pub prompt: &'static str,
-    pub expected_answer: &'static str,
-    pub instruction: &'static str,
+    pub prompt: Cow<'static, str>,
+    pub expected_answer: Cow<'static, str>,
+    pub instruction: Cow<'static, str>,
     pub kind: ExerciseKind,
     pub validator: ExerciseValidator,
 }
@@ -59,7 +61,7 @@ pub struct SessionStats {
     pub total_drills: usize,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SessionSnapshot {
     pub exercise: Option<ExercisePacket>,
     pub stats: SessionStats,
@@ -69,22 +71,26 @@ pub struct SessionSnapshot {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum ExerciseSource {
     Catalog,
-    Packets(&'static [ExercisePacket]),
+    Lab,
 }
 
 impl ExerciseSource {
     fn len(self) -> usize {
         match self {
             Self::Catalog => catalog::drills().len(),
-            Self::Packets(packets) => packets.len(),
+            Self::Lab => usize::MAX,
         }
     }
 
     fn get(self, index: usize) -> Option<ExercisePacket> {
         match self {
             Self::Catalog => catalog_exercise_packet_at(index),
-            Self::Packets(packets) => packets.get(index).copied(),
+            Self::Lab => Some(lab::exercise_packet_at(index)),
         }
+    }
+
+    fn is_endless(self) -> bool {
+        matches!(self, Self::Lab)
     }
 }
 
@@ -107,10 +113,21 @@ impl Session {
         }
     }
 
-    pub fn from_exercise_packets(packets: &'static [ExercisePacket]) -> Self {
+    pub fn lab() -> Self {
         Self {
-            source: ExerciseSource::Packets(packets),
+            source: ExerciseSource::Lab,
             index: 0,
+            passed: 0,
+            skipped: 0,
+            attempts: 0,
+        }
+    }
+
+    #[cfg(test)]
+    pub fn lab_at(index: usize) -> Self {
+        Self {
+            source: ExerciseSource::Lab,
+            index,
             passed: 0,
             skipped: 0,
             attempts: 0,
@@ -134,7 +151,7 @@ impl Session {
     }
 
     pub fn is_complete(&self) -> bool {
-        self.index >= self.total_drills()
+        !self.source.is_endless() && self.index >= self.total_drills()
     }
 
     pub fn current_exercise(&self) -> Option<ExercisePacket> {
@@ -168,9 +185,9 @@ impl Session {
         };
 
         self.attempts += 1;
-        if answer::check_answer(input, exercise.expected_answer) {
+        if answer::check_answer(input, exercise.expected_answer.as_ref()) {
             self.passed += 1;
-            self.index += 1;
+            self.index = self.index.saturating_add(1);
             return SubmitResult::Correct;
         }
 
@@ -183,7 +200,7 @@ impl Session {
         }
 
         self.skipped += 1;
-        self.index += 1;
+        self.index = self.index.saturating_add(1);
         SkipResult::Skipped
     }
 }
@@ -201,12 +218,12 @@ pub fn first_exercise_packet() -> ExercisePacket {
 fn catalog_exercise_packet_at(index: usize) -> Option<ExercisePacket> {
     let drill = catalog::drills().get(index)?;
     Some(ExercisePacket {
-        id: drill.id,
+        id: Cow::Borrowed(drill.id),
         position: index + 1,
         total: catalog::drills().len(),
-        prompt: drill.prompt,
-        expected_answer: drill.expected,
-        instruction: "Copy this line exactly:",
+        prompt: Cow::Borrowed(drill.prompt),
+        expected_answer: Cow::Borrowed(drill.expected),
+        instruction: Cow::Borrowed("Copy this line exactly:"),
         kind: ExerciseKind::from_task_type(drill.task_type),
         validator: ExerciseValidator::from_validator(drill.validator),
     })
@@ -235,25 +252,27 @@ mod tests {
     }
 
     #[test]
-    fn lab_session_can_be_built_from_static_packets() {
-        let session = Session::from_exercise_packets(lab::exercise_packets());
+    fn lab_session_starts_from_generated_packet() {
+        let session = Session::lab();
 
         assert_eq!(
             session
                 .current_exercise()
                 .expect("expected first lab exercise")
                 .id,
-            "LAB-001"
+            "LAB-000001"
         );
-        assert_eq!(session.total_drills(), lab::exercise_packets().len());
-        assert_eq!(session.stats().total_drills, lab::exercise_packets().len());
+        assert_eq!(session.total_drills(), usize::MAX);
+        assert_eq!(session.stats().total_drills, usize::MAX);
         assert!(!session.is_complete());
     }
 
     #[test]
     fn lab_multiline_answer_uses_exact_answer_rules() {
-        let mut session = Session::from_exercise_packets(lab::exercise_packets());
-        assert_eq!(session.skip(), SkipResult::Skipped);
+        let mut session = Session::lab();
+        for _ in 0..lab::MULTILINE_SOLUTION_FAMILY_INDEX {
+            assert_eq!(session.skip(), SkipResult::Skipped);
+        }
 
         assert_eq!(
             session.submit_answer(lab::MULTILINE_SOLUTION_EXPECTED),
@@ -265,15 +284,19 @@ mod tests {
 
     #[test]
     fn lab_multiline_answer_allows_one_final_line_ending_only() {
-        let mut one_final_lf = Session::from_exercise_packets(lab::exercise_packets());
-        assert_eq!(one_final_lf.skip(), SkipResult::Skipped);
+        let mut one_final_lf = Session::lab();
+        for _ in 0..lab::MULTILINE_SOLUTION_FAMILY_INDEX {
+            assert_eq!(one_final_lf.skip(), SkipResult::Skipped);
+        }
         assert_eq!(
             one_final_lf.submit_answer(&format!("{}\n", lab::MULTILINE_SOLUTION_EXPECTED)),
             SubmitResult::Correct
         );
 
-        let mut extra_blank_line = Session::from_exercise_packets(lab::exercise_packets());
-        assert_eq!(extra_blank_line.skip(), SkipResult::Skipped);
+        let mut extra_blank_line = Session::lab();
+        for _ in 0..lab::MULTILINE_SOLUTION_FAMILY_INDEX {
+            assert_eq!(extra_blank_line.skip(), SkipResult::Skipped);
+        }
         assert_eq!(
             extra_blank_line.submit_answer(&format!("{}\n\n", lab::MULTILINE_SOLUTION_EXPECTED)),
             SubmitResult::TryAgain
@@ -283,8 +306,71 @@ mod tests {
                 .current_exercise()
                 .expect("expected lab multiline exercise")
                 .id,
-            lab::MULTILINE_SOLUTION_ID
+            "LAB-000005"
         );
+    }
+
+    #[test]
+    fn lab_correct_answer_advances_without_completing() {
+        let mut session = Session::lab();
+        let first = session
+            .current_exercise()
+            .expect("expected first lab exercise");
+
+        assert_eq!(
+            session.submit_answer(first.expected_answer.as_ref()),
+            SubmitResult::Correct
+        );
+
+        assert_eq!(session.passed(), 1);
+        assert_eq!(
+            session
+                .current_exercise()
+                .expect("expected second lab exercise")
+                .id,
+            "LAB-000002"
+        );
+        assert!(!session.is_complete());
+    }
+
+    #[test]
+    fn lab_skip_advances_without_completing() {
+        let mut session = Session::lab();
+
+        assert_eq!(session.skip(), SkipResult::Skipped);
+
+        assert_eq!(session.skipped(), 1);
+        assert_eq!(
+            session
+                .current_exercise()
+                .expect("expected second lab exercise")
+                .id,
+            "LAB-000002"
+        );
+        assert!(!session.is_complete());
+    }
+
+    #[test]
+    fn lab_advances_past_static_fixture_count_without_ending() {
+        let mut session = Session::lab();
+
+        for _ in 0..20 {
+            let exercise = session.current_exercise().expect("expected lab exercise");
+            assert_eq!(
+                session.submit_answer(exercise.expected_answer.as_ref()),
+                SubmitResult::Correct
+            );
+        }
+
+        assert_eq!(session.passed(), 20);
+        assert_eq!(
+            session
+                .current_exercise()
+                .expect("expected twenty first lab exercise")
+                .id,
+            "LAB-000021"
+        );
+        assert!(!session.is_complete());
     }
 
     #[test]
@@ -364,7 +450,7 @@ mod tests {
 
         while let Some(exercise) = session.current_exercise() {
             assert_eq!(
-                session.submit_answer(exercise.expected_answer),
+                session.submit_answer(exercise.expected_answer.as_ref()),
                 SubmitResult::Correct
             );
         }
@@ -488,7 +574,7 @@ mod tests {
 
         while let Some(exercise) = session.current_exercise() {
             assert_eq!(
-                session.submit_answer(exercise.expected_answer),
+                session.submit_answer(exercise.expected_answer.as_ref()),
                 SubmitResult::Correct
             );
         }

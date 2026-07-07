@@ -83,9 +83,7 @@ fn run_lab_or_exit() {
         process::exit(1);
     }
 
-    if let Err(err) = tui::run_tui_with_session(engine::Session::from_exercise_packets(
-        lab::exercise_packets(),
-    )) {
+    if let Err(err) = tui::run_tui_with_session(engine::Session::lab()) {
         eprintln!("error: {}", err);
         process::exit(1);
     }

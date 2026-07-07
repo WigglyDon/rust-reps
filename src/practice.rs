@@ -152,7 +152,7 @@ pub fn run_practice_session() {
                 println!();
             }
             PracticeEvent::TryAgain => {
-                presentation::print_answer_try_again(exercise.expected_answer);
+                presentation::print_answer_try_again(exercise.expected_answer.as_ref());
                 println!();
             }
         }
@@ -176,7 +176,7 @@ mod tests {
         let mut session = engine::Session::new();
 
         let exercise = session.current_exercise().expect("expected first exercise");
-        let event = submit_practice_input(&mut session, exercise.expected_answer);
+        let event = submit_practice_input(&mut session, exercise.expected_answer.as_ref());
 
         assert!(matches!(event, PracticeEvent::Correct));
         assert_eq!(session.passed(), 1);

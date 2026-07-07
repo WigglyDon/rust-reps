@@ -1,7 +1,7 @@
 use crate::{
     client::{
-        ClientFrame, CodeToken, EditorViewport, FailureFrame, ProblemDisplayLine, ProblemLineKind,
-        RewardFrame, StatusLine, StatusTone,
+        ClientFrame, CodeToken, FailureFrame, ProblemDisplayLine, ProblemLineKind, RewardFrame,
+        StatusLine, StatusTone,
     },
     tui::{
         app::TuiApp,
@@ -32,8 +32,13 @@ const SECONDARY_CONTROL_HINTS: &str = "F6 skip · Esc quit";
 #[cfg(test)]
 const SNAPSHOT_WORKBOX_HEIGHT: u16 = 6;
 
-pub(crate) fn render_ui(frame: &mut Frame<'_>, app: &TuiApp, now: std::time::Instant) {
-    let client_frame = app.frame_at(now);
+pub(crate) fn render_ui(frame: &mut Frame<'_>, app: &mut TuiApp, now: std::time::Instant) {
+    let preliminary_frame = app.frame_at(now);
+    let feedback_lines = feedback_chrome_lines(&preliminary_frame);
+    let chunks = layout_chunks(frame.area(), feedback_height(&feedback_lines));
+    app.set_editor_viewport_height(visible_editor_rows(chunks[1].height));
+
+    let client_frame = app.frame_at_for_layout(now, problem_wrap_width(chunks[0]));
     render_client_frame(frame, &client_frame);
 }
 
@@ -91,6 +96,10 @@ fn shell_body(area: Rect) -> Rect {
         vertical: 1,
         horizontal: 2,
     })
+}
+
+fn problem_wrap_width(area: Rect) -> usize {
+    usize::from(area.width).saturating_sub(1)
 }
 
 fn render_game_border(frame: &mut Frame<'_>, area: Rect, reward: RewardFrame) {
@@ -257,16 +266,19 @@ fn problem_display_line(line: &ProblemDisplayLine) -> Line<'static> {
 
 fn workbox_lines(client_frame: &ClientFrame, workbox_height: u16) -> Vec<Line<'static>> {
     let visible_editor_rows = visible_editor_rows(workbox_height);
-    let viewport = EditorViewport::around_cursor(
-        client_frame.game_window.workbox.lines.len(),
-        client_frame.game_window.workbox.cursor.line,
-        visible_editor_rows,
-    );
-    let visible_end = viewport.first_line + viewport.visible_lines;
-    let gutter_width = gutter_width(visible_end);
+    let source_viewport = client_frame.game_window.workbox.viewport;
+    let total_lines = client_frame.game_window.workbox.lines.len().max(1);
+    let visible_lines = source_viewport
+        .visible_lines
+        .min(visible_editor_rows)
+        .max(1);
+    let max_first_line = total_lines.saturating_sub(visible_lines);
+    let first_line = source_viewport.first_line.min(max_first_line);
+    let visible_end = first_line + visible_lines;
+    let gutter_width = gutter_width(total_lines.max(visible_end));
     let mut lines = vec![Line::from("").style(editor_canvas_style())];
 
-    for line_index in viewport.first_line..visible_end {
+    for line_index in first_line..visible_end {
         let tokens = client_frame
             .game_window
             .workbox
@@ -592,7 +604,8 @@ mod tests {
         SECONDARY_CONTROL_HINTS, SNAPSHOT_WORKBOX_HEIGHT, border_sweep_cell_progress,
         bottom_chrome_alignment, bottom_chrome_lines, feedback_chrome_lines, feedback_height,
         gutter_width, layout_chunks, line_text, problem_lines, render_snapshot,
-        render_snapshot_with_workbox_height, reward_sweep_intensity_at, workbox_lines,
+        render_snapshot_with_workbox_height, reward_sweep_intensity_at, visible_editor_rows,
+        workbox_lines,
     };
     use crate::{
         client::{
@@ -613,9 +626,7 @@ mod tests {
     }
 
     fn lab_app() -> TuiApp {
-        TuiApp::with_session(engine::Session::from_exercise_packets(
-            lab::exercise_packets(),
-        ))
+        TuiApp::with_session(engine::Session::lab())
     }
 
     fn type_text(app: &mut TuiApp, text: &str) {
@@ -894,9 +905,12 @@ mod tests {
         let scrolled_snapshot = render_snapshot(&app.frame());
 
         assert!(top_snapshot.game.iter().any(|line| line == "task:"));
-        assert!(top_snapshot.game.iter().any(
-            |line| line == "Build the smallest Rust entry point that still satisfies the lab."
-        ));
+        assert!(
+            top_snapshot
+                .game
+                .iter()
+                .any(|line| line.starts_with("Build the smallest Rust entry point"))
+        );
         assert!(
             top_snapshot
                 .game
@@ -923,8 +937,8 @@ mod tests {
 
     #[test]
     fn lab_multiline_editor_render_snapshot_shows_multiple_lines_and_gutter() {
-        let mut app = TuiApp::with_session(engine::Session::from_exercise_packets(
-            &lab::exercise_packets()[1..],
+        let mut app = TuiApp::with_session(engine::Session::lab_at(
+            lab::MULTILINE_SOLUTION_FAMILY_INDEX,
         ));
         type_text(&mut app, lab::MULTILINE_SOLUTION_EXPECTED);
 
@@ -1720,6 +1734,7 @@ mod tests {
                 app.handle_action(ClientAction::TypeChar(ch));
             }
         }
+        app.set_editor_viewport_height(visible_editor_rows(3));
 
         let snapshot = render_snapshot_with_workbox_height(&app.frame(), 3);
 

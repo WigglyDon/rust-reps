@@ -71,6 +71,19 @@ impl TuiApp {
         project_client_frame_at(&self.session, &self.ui_state, now)
     }
 
+    pub fn frame_at_for_layout(&self, now: Instant, problem_wrap_width: usize) -> ClientFrame {
+        crate::client::project_client_frame_for_layout(
+            &self.session,
+            &self.ui_state,
+            now,
+            problem_wrap_width,
+        )
+    }
+
+    pub fn set_editor_viewport_height(&mut self, visible_lines: usize) {
+        self.ui_state.set_editor_viewport_height(visible_lines);
+    }
+
     #[cfg(test)]
     pub fn handle_action(&mut self, action: ClientAction) {
         self.handle_action_at(action, Instant::now());
@@ -272,9 +285,13 @@ mod tests {
     }
 
     fn lab_app() -> TuiApp {
-        TuiApp::with_session(crate::engine::Session::from_exercise_packets(
-            crate::lab::exercise_packets(),
-        ))
+        TuiApp::with_session(crate::engine::Session::lab())
+    }
+
+    fn advance_lab_to_family(app: &mut TuiApp, family_index: usize) {
+        for _ in 0..family_index {
+            app.handle_action(ClientAction::Skip);
+        }
     }
 
     fn type_text(app: &mut TuiApp, text: &str) {
@@ -506,12 +523,9 @@ mod tests {
                 .current_exercise()
                 .expect("expected first lab exercise")
                 .id,
-            crate::lab::LONG_PROBLEM_ID
+            "LAB-000001"
         );
-        assert_eq!(
-            app.session().total_drills(),
-            crate::lab::exercise_packets().len()
-        );
+        assert_eq!(app.session().total_drills(), usize::MAX);
         assert_eq!(app.frame().completed_reps_this_run, 0);
     }
 
@@ -532,7 +546,7 @@ mod tests {
                 .current_exercise()
                 .expect("expected second lab exercise")
                 .id,
-            crate::lab::MULTILINE_SOLUTION_ID
+            "LAB-000002"
         );
     }
 
@@ -540,7 +554,7 @@ mod tests {
     fn lab_correct_multiline_answer_passes() {
         let mut app = lab_app();
         let now = test_now();
-        app.handle_action(ClientAction::Skip);
+        advance_lab_to_family(&mut app, crate::lab::MULTILINE_SOLUTION_FAMILY_INDEX);
         type_text(&mut app, crate::lab::MULTILINE_SOLUTION_EXPECTED);
 
         app.handle_action_at(ClientAction::Submit, now);
@@ -555,14 +569,14 @@ mod tests {
                 .current_exercise()
                 .expect("expected syntax sampler lab exercise")
                 .id,
-            crate::lab::SYNTAX_SAMPLER_ID
+            "LAB-000006"
         );
     }
 
     #[test]
     fn lab_correct_multiline_answer_with_one_final_newline_passes() {
         let mut app = lab_app();
-        app.handle_action(ClientAction::Skip);
+        advance_lab_to_family(&mut app, crate::lab::MULTILINE_SOLUTION_FAMILY_INDEX);
         type_text(&mut app, crate::lab::MULTILINE_SOLUTION_EXPECTED);
         app.handle_action(ClientAction::InsertNewline);
 
@@ -576,7 +590,7 @@ mod tests {
     #[test]
     fn lab_extra_blank_line_is_wrong_and_preserves_buffer() {
         let mut app = lab_app();
-        app.handle_action(ClientAction::Skip);
+        advance_lab_to_family(&mut app, crate::lab::MULTILINE_SOLUTION_FAMILY_INDEX);
         type_text(&mut app, crate::lab::MULTILINE_SOLUTION_EXPECTED);
         app.handle_action(ClientAction::InsertNewline);
         app.handle_action(ClientAction::InsertNewline);
@@ -590,7 +604,7 @@ mod tests {
                 .current_exercise()
                 .expect("expected multiline lab exercise")
                 .id,
-            crate::lab::MULTILINE_SOLUTION_ID
+            "LAB-000005"
         );
         assert_eq!(
             app.input(),
@@ -609,7 +623,7 @@ mod tests {
     #[test]
     fn lab_wrong_multiline_answer_preserves_editor_buffer() {
         let mut app = lab_app();
-        app.handle_action(ClientAction::Skip);
+        advance_lab_to_family(&mut app, crate::lab::MULTILINE_SOLUTION_FAMILY_INDEX);
         type_text(&mut app, "fn add_one(x: i32) -> i32 {\n    x\n}");
         let before_cursor = app.frame().game_window.workbox.cursor;
 

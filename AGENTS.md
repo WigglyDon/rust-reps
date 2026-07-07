@@ -50,7 +50,7 @@
 - `answer`: answer normalization/comparison helpers.
 - `cli`: launch command selection, usage/help/list/version, CLI/tool errors.
 - `engine`: pure game/session simulation, state transitions, and exercise-shaped packets.
-- `lab`: client/engine stress fixtures for visible lab mode; not normal curriculum.
+- `lab`: endless deterministic client/engine stress matrix for visible lab mode; not normal curriculum.
 - `practice`: plain terminal adapter, stdin/stdout, and in-session command handling.
 - `client`: platform-neutral editor model, problem viewport, visual projection from engine packets, semantic code tokens, client frame structs, and visual-only UI state.
 - `tui`: terminal adapter/projection, theme/color mapping, fullscreen rendering, key input loop, and terminal lifecycle only.

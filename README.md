@@ -29,8 +29,8 @@ When stdin/stdout are piped, `rust-reps` uses deterministic plain practice mode.
 `rust-reps 001` runs just drill 001 in one-shot mode.
 
 `rust-reps lab` starts the fullscreen client stress lab in an interactive terminal.
-It is not curriculum and does not appear in `--list`.
-Use it to test long problem scrolling, multiline editor behavior, syntax highlighting, and stable layout.
+It is an endless deterministic stress matrix, not curriculum, and it does not appear in `--list`.
+Use it to test wrapped problem scrolling, multiline editor viewport behavior, syntax highlighting, exact multiline answers, and stable layout.
 
 `rust-reps --list` prints the current catalog.
 
