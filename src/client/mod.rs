@@ -17,6 +17,8 @@ pub enum ClientAction {
     MoveCursorDown,
     MoveLineStart,
     MoveLineEnd,
+    ScrollProblemUp,
+    ScrollProblemDown,
     Submit,
     Skip,
     Quit,
@@ -60,6 +62,123 @@ pub const REWARD_DURATION: Duration = Duration::from_millis(2_250);
 pub const REWARD_SWEEP_DURATION: Duration = Duration::from_millis(850);
 pub const REWARD_GAME_GLOW_DELAY: Duration = Duration::from_millis(80);
 pub const REWARD_GAME_GLOW_MAX_INTENSITY: u8 = 58;
+pub const PROBLEM_SCROLL_LINES: usize = 4;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ProblemLineKind {
+    Blank,
+    Header,
+    Code,
+    #[allow(dead_code)]
+    Plain,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ProblemDisplayLine {
+    pub kind: ProblemLineKind,
+    pub text: String,
+    pub tokens: Vec<CodeToken>,
+}
+
+impl ProblemDisplayLine {
+    pub fn blank() -> Self {
+        Self {
+            kind: ProblemLineKind::Blank,
+            text: String::new(),
+            tokens: Vec::new(),
+        }
+    }
+
+    pub fn header(text: impl Into<String>) -> Self {
+        Self {
+            kind: ProblemLineKind::Header,
+            text: text.into(),
+            tokens: Vec::new(),
+        }
+    }
+
+    pub fn code(text: &str) -> Self {
+        Self {
+            kind: ProblemLineKind::Code,
+            text: text.to_string(),
+            tokens: tokenize_rust_line(text),
+        }
+    }
+
+    #[allow(dead_code)]
+    pub fn plain(text: impl Into<String>) -> Self {
+        Self {
+            kind: ProblemLineKind::Plain,
+            text: text.into(),
+            tokens: Vec::new(),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ProblemViewport {
+    pub scroll_offset: usize,
+}
+
+impl ProblemViewport {
+    pub fn new() -> Self {
+        Self { scroll_offset: 0 }
+    }
+
+    #[cfg(test)]
+    pub fn with_offset(scroll_offset: usize) -> Self {
+        Self { scroll_offset }
+    }
+
+    pub fn scroll_up(&mut self) {
+        self.scroll_offset = self.scroll_offset.saturating_sub(PROBLEM_SCROLL_LINES);
+    }
+
+    pub fn scroll_down(&mut self) {
+        self.scroll_offset = self.scroll_offset.saturating_add(PROBLEM_SCROLL_LINES);
+    }
+
+    pub fn clamped(self, total_lines: usize) -> Self {
+        Self {
+            scroll_offset: self.scroll_offset.min(max_scroll_offset(total_lines)),
+        }
+    }
+
+    pub fn visible_range(self, total_lines: usize, visible_lines: usize) -> ProblemVisibleRange {
+        if total_lines == 0 || visible_lines == 0 {
+            return ProblemVisibleRange { start: 0, end: 0 };
+        }
+
+        let visible_lines = visible_lines.min(total_lines);
+        let max_offset = total_lines.saturating_sub(visible_lines);
+        let start = self.scroll_offset.min(max_offset);
+        let end = (start + visible_lines).min(total_lines);
+        ProblemVisibleRange { start, end }
+    }
+}
+
+impl Default for ProblemViewport {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ProblemVisibleRange {
+    pub start: usize,
+    pub end: usize,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ProblemScrollHint {
+    pub first_visible: usize,
+    pub last_visible: usize,
+    pub total: usize,
+}
+
+fn max_scroll_offset(total_lines: usize) -> usize {
+    total_lines.saturating_sub(1)
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct RewardFrame {
@@ -188,6 +307,7 @@ fn smoothstep(progress: f32) -> f32 {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ClientUiState {
     editor: EditorBuffer,
+    problem_viewport: ProblemViewport,
     cursor_visible: bool,
     help_open: bool,
     status_lines: Vec<String>,
@@ -198,6 +318,7 @@ impl ClientUiState {
     pub fn new() -> Self {
         Self {
             editor: EditorBuffer::new(),
+            problem_viewport: ProblemViewport::new(),
             cursor_visible: true,
             help_open: false,
             status_lines: Vec::new(),
@@ -215,6 +336,10 @@ impl ClientUiState {
 
     pub fn help_open(&self) -> bool {
         self.help_open
+    }
+
+    pub fn problem_viewport(&self) -> ProblemViewport {
+        self.problem_viewport
     }
 
     pub fn status_lines(&self) -> &[String] {
@@ -267,6 +392,14 @@ impl ClientUiState {
                 self.editor.apply_action(EditorAction::MoveLineEnd);
                 self.show_cursor();
             }
+            ClientAction::ScrollProblemUp => {
+                self.problem_viewport.scroll_up();
+                self.show_cursor();
+            }
+            ClientAction::ScrollProblemDown => {
+                self.problem_viewport.scroll_down();
+                self.show_cursor();
+            }
             ClientAction::CursorTick => {
                 self.cursor_visible = !self.cursor_visible;
             }
@@ -295,6 +428,10 @@ impl ClientUiState {
 
     pub fn show_cursor(&mut self) {
         self.cursor_visible = true;
+    }
+
+    pub fn reset_problem_scroll(&mut self) {
+        self.problem_viewport = ProblemViewport::new();
     }
 
     pub fn start_reward_event(&mut self, now: Instant) {
@@ -331,6 +468,32 @@ pub struct ProblemView {
     pub instruction: String,
     pub prompt: String,
     pub prompt_tokens: Vec<CodeToken>,
+    pub lines: Vec<ProblemDisplayLine>,
+    pub viewport: ProblemViewport,
+}
+
+impl ProblemView {
+    pub fn visible_lines(&self, visible_lines: usize) -> &[ProblemDisplayLine] {
+        let range = self.visible_range(visible_lines);
+        &self.lines[range.start..range.end]
+    }
+
+    pub fn visible_range(&self, visible_lines: usize) -> ProblemVisibleRange {
+        self.viewport.visible_range(self.lines.len(), visible_lines)
+    }
+
+    pub fn scroll_hint(&self, visible_lines: usize) -> Option<ProblemScrollHint> {
+        if self.lines.len() <= visible_lines || visible_lines == 0 {
+            return None;
+        }
+
+        let range = self.visible_range(visible_lines);
+        Some(ProblemScrollHint {
+            first_visible: range.start + 1,
+            last_visible: range.end,
+            total: self.lines.len(),
+        })
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -395,6 +558,8 @@ pub fn project_client_frame_at(
         .map(|line| tokenize_rust_line(line))
         .collect();
     let reward = ui_state.reward_frame_at(now);
+    let problem_lines = problem_display_lines("do this:", exercise.prompt);
+    let problem_viewport = ui_state.problem_viewport().clamped(problem_lines.len());
 
     ClientFrame {
         game_window: GameWindowFrame {
@@ -402,6 +567,8 @@ pub fn project_client_frame_at(
                 instruction: "do this:".to_string(),
                 prompt: exercise.prompt.to_string(),
                 prompt_tokens: tokenize_rust_line(exercise.prompt),
+                lines: problem_lines,
+                viewport: problem_viewport,
             },
             workbox: WorkboxView {
                 input_tokens: tokenize_rust_line(&input),
@@ -424,6 +591,15 @@ pub fn project_client_frame_at(
             lines: help_lines(ui_state.help_open()),
         },
     }
+}
+
+fn problem_display_lines(instruction: &str, prompt: &str) -> Vec<ProblemDisplayLine> {
+    vec![
+        ProblemDisplayLine::blank(),
+        ProblemDisplayLine::header(instruction),
+        ProblemDisplayLine::blank(),
+        ProblemDisplayLine::code(prompt),
+    ]
 }
 
 pub fn tokenize_rust_line(line: &str) -> Vec<CodeToken> {
@@ -609,7 +785,8 @@ mod tests {
     use std::time::{Duration, Instant};
 
     use super::{
-        ClientAction, ClientUiState, CodeTokenKind, CursorPosition, REWARD_ATTACK_DURATION,
+        ClientAction, ClientUiState, CodeTokenKind, CursorPosition, PROBLEM_SCROLL_LINES,
+        ProblemDisplayLine, ProblemLineKind, ProblemView, ProblemViewport, REWARD_ATTACK_DURATION,
         REWARD_DURATION, REWARD_GAME_GLOW_DELAY, REWARD_GAME_GLOW_MAX_INTENSITY,
         REWARD_PLUS_ONE_BODY_DURATION, REWARD_RELEASE_DURATION, REWARD_SWEEP_DURATION, StatusTone,
         project_client_frame, project_client_frame_at, tokenize_rust_line,
@@ -820,6 +997,97 @@ mod tests {
             token_text(&frame.game_window.problem.prompt_tokens),
             "fn main() {}"
         );
+        assert_eq!(frame.game_window.problem.viewport.scroll_offset, 0);
+        assert_eq!(
+            frame
+                .game_window
+                .problem
+                .lines
+                .iter()
+                .map(|line| (&line.kind, line.text.as_str()))
+                .collect::<Vec<_>>(),
+            vec![
+                (&ProblemLineKind::Blank, ""),
+                (&ProblemLineKind::Header, "do this:"),
+                (&ProblemLineKind::Blank, ""),
+                (&ProblemLineKind::Code, "fn main() {}"),
+            ]
+        );
+    }
+
+    #[test]
+    fn problem_viewport_starts_at_offset_zero() {
+        let ui_state = ClientUiState::new();
+
+        assert_eq!(ui_state.problem_viewport().scroll_offset, 0);
+    }
+
+    #[test]
+    fn problem_viewport_scrolls_and_clamps_safely() {
+        let mut viewport = ProblemViewport::new();
+
+        viewport.scroll_up();
+        assert_eq!(viewport.scroll_offset, 0);
+
+        viewport.scroll_down();
+        assert_eq!(viewport.scroll_offset, PROBLEM_SCROLL_LINES);
+
+        assert_eq!(ProblemViewport::with_offset(99).clamped(4).scroll_offset, 3);
+        assert_eq!(
+            ProblemViewport::with_offset(99).visible_range(6, 2),
+            super::ProblemVisibleRange { start: 4, end: 6 }
+        );
+    }
+
+    #[test]
+    fn visible_problem_lines_and_scroll_hint_are_derived_from_viewport() {
+        let problem = ProblemView {
+            instruction: "do this:".to_string(),
+            prompt: "line 1".to_string(),
+            prompt_tokens: Vec::new(),
+            lines: (1..=8)
+                .map(|index| ProblemDisplayLine::plain(format!("line {index}")))
+                .collect(),
+            viewport: ProblemViewport::with_offset(4),
+        };
+
+        let visible = problem
+            .visible_lines(3)
+            .iter()
+            .map(|line| line.text.as_str())
+            .collect::<Vec<_>>();
+
+        assert_eq!(visible, vec!["line 5", "line 6", "line 7"]);
+        assert_eq!(
+            problem.scroll_hint(3),
+            Some(super::ProblemScrollHint {
+                first_visible: 5,
+                last_visible: 7,
+                total: 8,
+            })
+        );
+
+        let fitting_problem = ProblemView {
+            viewport: ProblemViewport::new(),
+            lines: vec![
+                ProblemDisplayLine::plain("line 1"),
+                ProblemDisplayLine::plain("line 2"),
+            ],
+            ..problem
+        };
+        assert_eq!(fitting_problem.scroll_hint(3), None);
+    }
+
+    #[test]
+    fn problem_scroll_actions_do_not_affect_editor_buffer_or_cursor() {
+        let mut ui_state = ClientUiState::new();
+        ui_state.apply_action(ClientAction::TypeChar('x'));
+        let before = ui_state.editor_view();
+
+        ui_state.apply_action(ClientAction::ScrollProblemDown);
+        ui_state.apply_action(ClientAction::ScrollProblemUp);
+
+        assert_eq!(ui_state.editor_view(), before);
     }
 
     #[test]

@@ -1,5 +1,8 @@
 use crate::{
-    client::{ClientFrame, CodeToken, EditorViewport, RewardFrame, StatusLine, StatusTone},
+    client::{
+        ClientFrame, CodeToken, EditorViewport, ProblemDisplayLine, ProblemLineKind, RewardFrame,
+        StatusLine, StatusTone,
+    },
     tui::{
         app::TuiApp,
         theme::{
@@ -46,7 +49,11 @@ fn render_client_frame(frame: &mut Frame<'_>, client_frame: &ClientFrame) {
     render_game_border(frame, shell_area, client_frame.reward);
 
     frame.render_widget(
-        Paragraph::new(Text::from(problem_lines(client_frame))).style(base_style()),
+        Paragraph::new(Text::from(problem_lines_for_height(
+            client_frame,
+            chunks[0].height,
+        )))
+        .style(base_style()),
         chunks[0],
     );
 
@@ -198,16 +205,54 @@ fn smoothstep(progress: f32) -> f32 {
     progress * progress * (3.0 - (2.0 * progress))
 }
 
+#[cfg(test)]
 fn problem_lines(client_frame: &ClientFrame) -> Vec<Line<'static>> {
-    vec![
-        Line::from(""),
-        Line::from(Span::styled(
-            client_frame.game_window.problem.instruction.clone(),
-            problem_header_style(),
-        )),
-        Line::from(""),
-        Line::from(code_spans(&client_frame.game_window.problem.prompt_tokens)),
-    ]
+    problem_lines_for_height(client_frame, PROBLEM_ZONE_HEIGHT)
+}
+
+fn problem_lines_for_height(client_frame: &ClientFrame, problem_height: u16) -> Vec<Line<'static>> {
+    if problem_height == 0 {
+        return Vec::new();
+    }
+
+    let problem = &client_frame.game_window.problem;
+    let available_rows = usize::from(problem_height);
+    let scrollable = problem.lines.len() > available_rows;
+    let content_rows = if scrollable && available_rows > 1 {
+        available_rows - 1
+    } else {
+        available_rows
+    };
+    let mut lines = problem
+        .visible_lines(content_rows)
+        .iter()
+        .map(problem_display_line)
+        .collect::<Vec<_>>();
+
+    if scrollable {
+        if let Some(hint) = problem.scroll_hint(content_rows) {
+            lines.push(Line::from(Span::styled(
+                format!(
+                    "Problem {}-{}/{} · PgUp/PgDn",
+                    hint.first_visible, hint.last_visible, hint.total
+                ),
+                problem_header_style(),
+            )));
+        }
+    }
+
+    lines
+}
+
+fn problem_display_line(line: &ProblemDisplayLine) -> Line<'static> {
+    match line.kind {
+        ProblemLineKind::Blank => Line::from(""),
+        ProblemLineKind::Header => {
+            Line::from(Span::styled(line.text.clone(), problem_header_style()))
+        }
+        ProblemLineKind::Code => Line::from(code_spans(&line.tokens)),
+        ProblemLineKind::Plain => Line::from(line.text.clone()),
+    }
 }
 
 fn workbox_lines(client_frame: &ClientFrame, workbox_height: u16) -> Vec<Line<'static>> {
@@ -534,8 +579,8 @@ mod tests {
     };
     use crate::{
         client::{
-            ClientAction, REWARD_ATTACK_DURATION, REWARD_DURATION, REWARD_PLUS_ONE_BODY_DURATION,
-            RewardFrame, StatusTone,
+            ClientAction, ProblemDisplayLine, ProblemViewport, REWARD_ATTACK_DURATION,
+            REWARD_DURATION, REWARD_PLUS_ONE_BODY_DURATION, RewardFrame, StatusTone,
         },
         tui::{
             TuiApp,
@@ -561,6 +606,15 @@ mod tests {
             sweep_progress,
             show_plus_one: plus_one_intensity > 0,
         }
+    }
+
+    fn frame_with_long_problem(scroll_offset: usize) -> crate::client::ClientFrame {
+        let mut frame = TuiApp::new().frame();
+        frame.game_window.problem.lines = (1..=10)
+            .map(|index| ProblemDisplayLine::plain(format!("problem line {index}")))
+            .collect();
+        frame.game_window.problem.viewport = ProblemViewport::with_offset(scroll_offset);
+        frame
     }
 
     #[test]
@@ -724,6 +778,73 @@ mod tests {
         assert!(descriptor_position < prompt_position);
         assert_eq!(snapshot.game[descriptor_position - 1], "");
         assert_eq!(snapshot.game[descriptor_position + 1], "");
+    }
+
+    #[test]
+    fn scroll_hint_appears_only_when_problem_content_overflows() {
+        let short_snapshot = render_snapshot(&TuiApp::new().frame());
+        assert!(
+            !short_snapshot
+                .game
+                .iter()
+                .any(|line| line.contains("PgUp/PgDn"))
+        );
+
+        let long_snapshot = render_snapshot(&frame_with_long_problem(0));
+        assert!(
+            long_snapshot
+                .game
+                .iter()
+                .any(|line| line == "Problem 1-5/10 · PgUp/PgDn")
+        );
+    }
+
+    #[test]
+    fn render_snapshot_shows_long_problem_visible_subset() {
+        let snapshot = render_snapshot(&frame_with_long_problem(4));
+
+        assert!(snapshot.game.iter().any(|line| line == "problem line 5"));
+        assert!(snapshot.game.iter().any(|line| line == "problem line 9"));
+        assert!(
+            snapshot
+                .game
+                .iter()
+                .any(|line| line == "Problem 5-9/10 · PgUp/PgDn")
+        );
+        assert!(!snapshot.game.iter().any(|line| line == "problem line 1"));
+        assert!(!snapshot.game.iter().any(|line| line == "problem line 10"));
+    }
+
+    #[test]
+    fn problem_scroll_keeps_editor_and_rail_layout_stable() {
+        let top_frame = frame_with_long_problem(0);
+        let scrolled_frame = frame_with_long_problem(4);
+
+        assert_eq!(
+            workbox_lines(&top_frame, SNAPSHOT_WORKBOX_HEIGHT)
+                .iter()
+                .map(line_text)
+                .collect::<Vec<_>>(),
+            workbox_lines(&scrolled_frame, SNAPSHOT_WORKBOX_HEIGHT)
+                .iter()
+                .map(line_text)
+                .collect::<Vec<_>>()
+        );
+        assert_eq!(
+            bottom_chrome_lines(&top_frame)
+                .iter()
+                .map(line_text)
+                .collect::<Vec<_>>(),
+            bottom_chrome_lines(&scrolled_frame)
+                .iter()
+                .map(line_text)
+                .collect::<Vec<_>>()
+        );
+
+        let top_snapshot = render_snapshot(&top_frame);
+        let scrolled_snapshot = render_snapshot(&scrolled_frame);
+        assert_eq!(top_snapshot.game.len(), scrolled_snapshot.game.len());
+        assert_eq!(top_snapshot.bottom_chrome, scrolled_snapshot.bottom_chrome);
     }
 
     #[test]

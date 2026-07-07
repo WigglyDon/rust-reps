@@ -19,6 +19,8 @@ pub fn classify_key_event(key: KeyEvent) -> ClientAction {
         KeyCode::Right => ClientAction::MoveCursorRight,
         KeyCode::Up => ClientAction::MoveCursorUp,
         KeyCode::Down => ClientAction::MoveCursorDown,
+        KeyCode::PageUp => ClientAction::ScrollProblemUp,
+        KeyCode::PageDown => ClientAction::ScrollProblemDown,
         KeyCode::Home => ClientAction::MoveLineStart,
         KeyCode::End => ClientAction::MoveLineEnd,
         KeyCode::Char(ch)
@@ -108,6 +110,18 @@ mod tests {
         assert_eq!(
             classify_key_event(KeyEvent::from(KeyCode::End)),
             ClientAction::MoveLineEnd
+        );
+    }
+
+    #[test]
+    fn page_up_and_page_down_classify_as_problem_scroll() {
+        assert_eq!(
+            classify_key_event(KeyEvent::from(KeyCode::PageUp)),
+            ClientAction::ScrollProblemUp
+        );
+        assert_eq!(
+            classify_key_event(KeyEvent::from(KeyCode::PageDown)),
+            ClientAction::ScrollProblemDown
         );
     }
 

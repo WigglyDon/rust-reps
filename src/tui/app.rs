@@ -87,6 +87,8 @@ impl TuiApp {
             | ClientAction::MoveCursorDown
             | ClientAction::MoveLineStart
             | ClientAction::MoveLineEnd
+            | ClientAction::ScrollProblemUp
+            | ClientAction::ScrollProblemDown
             | ClientAction::CursorTick => self.ui_state.apply_action(action),
         }
     }
@@ -148,6 +150,7 @@ impl TuiApp {
                 .collect()
         } else if command == ":skip" {
             let _ = self.session.skip();
+            self.ui_state.reset_problem_scroll();
             if self.session.is_complete() {
                 self.completed = true;
                 collect_complete_lines(&self.session)
@@ -163,6 +166,7 @@ impl TuiApp {
             match self.session.submit_answer(&submitted) {
                 engine::SubmitResult::Correct => {
                     self.ui_state.start_reward_event(now);
+                    self.ui_state.reset_problem_scroll();
                     if self.session.is_complete() {
                         self.completed = true;
                         let mut lines = Vec::from(["PASS".to_string()]);
@@ -196,6 +200,7 @@ impl TuiApp {
 
         self.ui_state.clear_reward_event();
         self.ui_state.clear_draft_input();
+        self.ui_state.reset_problem_scroll();
         let _ = self.session.skip();
         let status_lines = if self.session.is_complete() {
             self.completed = true;
@@ -412,6 +417,23 @@ mod tests {
                 .id,
             "002"
         );
+    }
+
+    #[test]
+    fn problem_scroll_does_not_affect_editor_or_session_state() {
+        let mut app = TuiApp::new();
+        app.handle_action(ClientAction::TypeChar('x'));
+        let before_input = app.input();
+        let before_cursor = app.frame().game_window.workbox.cursor;
+
+        app.handle_action(ClientAction::ScrollProblemDown);
+        app.handle_action(ClientAction::ScrollProblemUp);
+
+        assert_eq!(app.input(), before_input);
+        assert_eq!(app.frame().game_window.workbox.cursor, before_cursor);
+        assert_eq!(app.session().passed(), 0);
+        assert_eq!(app.session().skipped(), 0);
+        assert_eq!(app.session().attempts(), 0);
     }
 
     #[test]
