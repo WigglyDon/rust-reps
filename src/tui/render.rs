@@ -384,10 +384,11 @@ fn problem_lines_for_height(client_frame: &ClientFrame, problem_height: u16) -> 
 fn problem_display_line(line: &ProblemDisplayLine) -> Line<'static> {
     match line.kind {
         ProblemLineKind::Blank => Line::from(""),
-        ProblemLineKind::Header => {
+        ProblemLineKind::Header | ProblemLineKind::AnswerShape => {
             Line::from(Span::styled(line.text.clone(), problem_header_style()))
         }
         ProblemLineKind::Code => Line::from(code_spans(&line.tokens)),
+        ProblemLineKind::Bullet => Line::from(line.text.clone()),
         ProblemLineKind::Plain => Line::from(line.text.clone()),
     }
 }
@@ -478,7 +479,7 @@ fn render_editor_toasts(frame: &mut Frame<'_>, area: Rect, client_frame: &Client
             frame,
             area,
             client_frame,
-            client_frame.reward.anchor,
+            client_frame.reward.anchor.map(reward_toast_anchor),
             "+1",
             plus_one_style(client_frame.reward),
         );
@@ -532,6 +533,13 @@ fn render_editor_toast(
     }
 }
 
+fn reward_toast_anchor(anchor: EditorAnchor) -> EditorAnchor {
+    EditorAnchor {
+        row: anchor.row.saturating_add(1),
+        column: anchor.column,
+    }
+}
+
 fn editor_anchor_position(
     area: Rect,
     client_frame: &ClientFrame,
@@ -542,7 +550,8 @@ fn editor_anchor_position(
         return None;
     }
 
-    let row = usize_to_u16(anchor.row);
+    let max_row = usize::from(area.height.saturating_sub(2));
+    let row = usize_to_u16(anchor.row.min(max_row));
     let y = area.top().saturating_add(1).saturating_add(row);
     if y >= area.bottom() {
         return None;
@@ -766,16 +775,16 @@ mod tests {
         COMMAND_RAIL_HEIGHT, FEEDBACK_CHROME_HEIGHT, PRIMARY_ACTION_HINT, QUIT_ACTION_HINT,
         SKIP_ACTION_HINT, SNAPSHOT_PROBLEM_HEIGHT, SNAPSHOT_WORKBOX_HEIGHT,
         border_sweep_cell_progress, bottom_chrome_alignment, bottom_chrome_lines,
-        feedback_chrome_lines, feedback_height, gutter_width, layout_chunks, line_text,
-        problem_lines, render_snapshot, render_snapshot_with_workbox_height,
-        reward_sweep_intensity_at, shell_layout, viewport_indicator_cells, visible_editor_rows,
-        workbox_lines,
+        editor_anchor_position, feedback_chrome_lines, feedback_height, gutter_width,
+        layout_chunks, line_text, problem_lines, render_snapshot,
+        render_snapshot_with_workbox_height, reward_sweep_intensity_at, reward_toast_anchor,
+        shell_layout, viewport_indicator_cells, visible_editor_rows, workbox_lines,
     };
     use crate::{
         client::{
             ClientAction, EditorAnchor, ProblemDisplayLine, ProblemViewport,
-            REWARD_ATTACK_DURATION, REWARD_DURATION, REWARD_PLUS_ONE_BODY_DURATION, RewardFrame,
-            StatusTone, ViewportOverflow,
+            REWARD_ATTACK_DURATION, REWARD_DURATION, REWARD_PLUS_ONE_BODY_DURATION,
+            REWARD_PLUS_ONE_DURATION, RewardFrame, StatusTone, ViewportOverflow,
         },
         engine, lab,
         tui::{
@@ -1429,6 +1438,49 @@ mod tests {
     }
 
     #[test]
+    fn reward_plus_one_renders_one_row_below_captured_cursor_anchor() {
+        let mut app = TuiApp::new();
+        let now = test_now();
+        for ch in "fn main() {}".chars() {
+            app.handle_action(ClientAction::TypeChar(ch));
+        }
+        app.handle_action_at(ClientAction::Submit, now);
+        let frame = app.frame_at(now + REWARD_ATTACK_DURATION);
+        let area = Rect::new(10, 4, 36, 8);
+        let anchor = frame.reward.anchor.expect("expected reward anchor");
+
+        assert_eq!(anchor, EditorAnchor { row: 0, column: 12 });
+        assert_eq!(
+            reward_toast_anchor(anchor),
+            EditorAnchor { row: 1, column: 12 }
+        );
+        assert_eq!(
+            editor_anchor_position(area, &frame, reward_toast_anchor(anchor), 2),
+            Some((
+                editor_anchor_position(area, &frame, anchor, 2)
+                    .expect("expected cursor position")
+                    .0,
+                editor_anchor_position(area, &frame, anchor, 2)
+                    .expect("expected cursor position")
+                    .1
+                    + 1
+            ))
+        );
+    }
+
+    #[test]
+    fn reward_plus_one_anchor_clamps_inside_editor_area() {
+        let frame = TuiApp::new().frame();
+        let area = Rect::new(0, 0, 20, 3);
+        let anchor = EditorAnchor { row: 99, column: 0 };
+
+        assert_eq!(
+            editor_anchor_position(area, &frame, reward_toast_anchor(anchor), 2),
+            Some((5, 2))
+        );
+    }
+
+    #[test]
     fn reward_plus_one_sequence_hits_fast_holds_then_releases_slowly() {
         let mut app = TuiApp::new();
         let now = test_now();
@@ -1455,9 +1507,14 @@ mod tests {
         assert_eq!(frame.reward.plus_one_intensity, 100);
         assert!(frame.reward.show_plus_one);
 
-        let frame = app.frame_at(now + REWARD_DURATION - Duration::from_millis(500));
+        let frame = app.frame_at(now + REWARD_PLUS_ONE_DURATION - Duration::from_millis(250));
         assert!(frame.reward.plus_one_intensity < 50);
         assert!(frame.reward.show_plus_one);
+
+        let frame = app.frame_at(now + REWARD_PLUS_ONE_DURATION);
+        assert!(frame.reward.active);
+        assert_eq!(frame.reward.plus_one_intensity, 0);
+        assert!(!frame.reward.show_plus_one);
 
         let frame = app.frame_at(now + REWARD_DURATION);
         let lines = bottom_chrome_lines(&frame);
@@ -1475,10 +1532,12 @@ mod tests {
             app.handle_action(ClientAction::TypeChar(ch));
         }
         app.handle_action_at(ClientAction::Submit, now);
-        let frame = app.frame_at(now + REWARD_DURATION);
+        let frame = app.frame_at(now + REWARD_PLUS_ONE_DURATION);
         let lines = bottom_chrome_lines(&frame);
         let line = lines.get(1).expect("expected bottom rail reward line");
 
+        assert!(frame.reward.active);
+        assert!(!frame.reward.show_plus_one);
         assert!(!line_text(line).contains("+1"));
         assert!(line_text(line).contains(PRIMARY_ACTION_HINT));
         assert!(!line_text(line).contains("reps"));
@@ -2062,7 +2121,7 @@ mod tests {
             app.handle_action(ClientAction::TypeChar(ch));
         }
         app.handle_action_at(ClientAction::Submit, now);
-        let frame = app.frame_at(now + REWARD_DURATION / 2);
+        let frame = app.frame_at(now + REWARD_PLUS_ONE_DURATION / 2);
         let snapshot = render_snapshot(&frame);
 
         assert!(!snapshot.feedback.iter().any(|line| line == "PASS"));

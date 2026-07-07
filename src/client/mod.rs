@@ -59,10 +59,14 @@ impl CodeToken {
     }
 }
 
-pub const REWARD_ATTACK_DURATION: Duration = Duration::from_millis(150);
-pub const REWARD_PLUS_ONE_BODY_DURATION: Duration = Duration::from_millis(1_050);
-pub const REWARD_RELEASE_DURATION: Duration = Duration::from_millis(1_050);
+pub const REWARD_ATTACK_DURATION: Duration = Duration::from_millis(100);
+pub const REWARD_PLUS_ONE_BODY_DURATION: Duration = Duration::from_millis(450);
+pub const REWARD_RELEASE_DURATION: Duration = Duration::from_millis(550);
+pub const REWARD_PLUS_ONE_DURATION: Duration = Duration::from_millis(1_100);
 pub const REWARD_DURATION: Duration = Duration::from_millis(2_250);
+pub const REWARD_GAME_ATTACK_DURATION: Duration = Duration::from_millis(150);
+pub const REWARD_GAME_BODY_DURATION: Duration = Duration::from_millis(1_050);
+pub const REWARD_GAME_RELEASE_DURATION: Duration = Duration::from_millis(1_050);
 pub const REWARD_SWEEP_DURATION: Duration = Duration::from_millis(850);
 pub const REWARD_GAME_GLOW_DELAY: Duration = Duration::from_millis(80);
 pub const REWARD_GAME_GLOW_MAX_INTENSITY: u8 = 58;
@@ -77,6 +81,8 @@ pub const MIN_PROBLEM_WRAP_WIDTH: usize = 12;
 pub enum ProblemLineKind {
     Blank,
     Header,
+    AnswerShape,
+    Bullet,
     Code,
     #[allow(dead_code)]
     Plain,
@@ -106,11 +112,40 @@ impl ProblemDisplayLine {
         }
     }
 
+    pub fn answer_shape(text: impl Into<String>) -> Self {
+        Self {
+            kind: ProblemLineKind::AnswerShape,
+            text: text.into(),
+            tokens: Vec::new(),
+        }
+    }
+
+    pub fn bullet(text: impl Into<String>) -> Self {
+        Self {
+            kind: ProblemLineKind::Bullet,
+            text: text.into(),
+            tokens: Vec::new(),
+        }
+    }
+
+    #[allow(dead_code)]
     pub fn code(text: &str) -> Self {
         Self {
             kind: ProblemLineKind::Code,
             text: text.to_string(),
             tokens: tokenize_rust_line(text),
+        }
+    }
+
+    fn code_with_tokens(tokens: Vec<CodeToken>) -> Self {
+        let text = tokens
+            .iter()
+            .map(|token| token.text.as_str())
+            .collect::<String>();
+        Self {
+            kind: ProblemLineKind::Code,
+            text,
+            tokens,
         }
     }
 
@@ -396,7 +431,7 @@ impl RewardAnimation {
             plus_one_intensity: plus_one_intensity_at(elapsed),
             game_glow_intensity: game_glow_intensity_at(elapsed),
             sweep_progress: reward_sweep_progress_at(elapsed),
-            show_plus_one: true,
+            show_plus_one: elapsed < REWARD_PLUS_ONE_DURATION,
             anchor: self.anchor,
         }
     }
@@ -452,21 +487,17 @@ impl SkipToast {
 }
 
 fn plus_one_intensity_at(elapsed: Duration) -> u8 {
-    if elapsed >= REWARD_DURATION {
+    if elapsed >= REWARD_PLUS_ONE_DURATION {
         return 0;
     }
 
-    let release_starts_at = REWARD_ATTACK_DURATION + REWARD_PLUS_ONE_BODY_DURATION;
-    let intensity = if elapsed < REWARD_ATTACK_DURATION {
-        ease_out_cubic(duration_progress(elapsed, REWARD_ATTACK_DURATION))
-    } else if elapsed < release_starts_at {
-        1.0
-    } else {
-        let release_elapsed = elapsed.saturating_sub(release_starts_at);
-        1.0 - smoothstep(duration_progress(release_elapsed, REWARD_RELEASE_DURATION))
-    };
-
-    (intensity * 100.0).round().clamp(0.0, 100.0) as u8
+    pulse_intensity_at(
+        elapsed,
+        REWARD_ATTACK_DURATION,
+        REWARD_PLUS_ONE_BODY_DURATION,
+        REWARD_RELEASE_DURATION,
+        REWARD_PLUS_ONE_DURATION,
+    )
 }
 
 fn game_glow_intensity_at(elapsed: Duration) -> u8 {
@@ -475,10 +506,40 @@ fn game_glow_intensity_at(elapsed: Duration) -> u8 {
     }
 
     let delayed_elapsed = elapsed.saturating_sub(REWARD_GAME_GLOW_DELAY);
-    let plus_one_intensity = plus_one_intensity_at(delayed_elapsed);
-    ((f32::from(plus_one_intensity) * f32::from(REWARD_GAME_GLOW_MAX_INTENSITY)) / 100.0)
+    let glow_intensity = pulse_intensity_at(
+        delayed_elapsed,
+        REWARD_GAME_ATTACK_DURATION,
+        REWARD_GAME_BODY_DURATION,
+        REWARD_GAME_RELEASE_DURATION,
+        REWARD_DURATION,
+    );
+    ((f32::from(glow_intensity) * f32::from(REWARD_GAME_GLOW_MAX_INTENSITY)) / 100.0)
         .round()
         .clamp(0.0, f32::from(REWARD_GAME_GLOW_MAX_INTENSITY)) as u8
+}
+
+fn pulse_intensity_at(
+    elapsed: Duration,
+    attack: Duration,
+    body: Duration,
+    release: Duration,
+    total: Duration,
+) -> u8 {
+    if elapsed >= total {
+        return 0;
+    }
+
+    let release_starts_at = attack + body;
+    let intensity = if elapsed < attack {
+        ease_out_cubic(duration_progress(elapsed, attack))
+    } else if elapsed < release_starts_at {
+        1.0
+    } else {
+        let release_elapsed = elapsed.saturating_sub(release_starts_at);
+        1.0 - smoothstep(duration_progress(release_elapsed, release))
+    };
+
+    (intensity * 100.0).round().clamp(0.0, 100.0) as u8
 }
 
 fn reward_sweep_progress_at(elapsed: Duration) -> u8 {
@@ -952,20 +1013,34 @@ fn problem_display_lines(
         if line.is_empty() {
             lines.push(ProblemDisplayLine::blank());
         } else {
-            let kind = problem_line_kind(line);
-            lines.extend(
-                split_display_line_for_kind(line, wrap_width, kind)
-                    .into_iter()
-                    .map(|chunk| match kind {
-                        ProblemLineKind::Header => ProblemDisplayLine::header(chunk),
-                        ProblemLineKind::Code => ProblemDisplayLine::code(&chunk),
-                        ProblemLineKind::Plain => ProblemDisplayLine::plain(chunk),
-                        ProblemLineKind::Blank => ProblemDisplayLine::blank(),
-                    }),
-            );
+            lines.extend(problem_display_lines_for_source_line(line, wrap_width));
         }
     }
     lines
+}
+
+fn problem_display_lines_for_source_line(line: &str, wrap_width: usize) -> Vec<ProblemDisplayLine> {
+    let kind = problem_line_kind(line);
+    match kind {
+        ProblemLineKind::Blank => vec![ProblemDisplayLine::blank()],
+        ProblemLineKind::Header => split_display_line_for_kind(line, wrap_width, kind)
+            .into_iter()
+            .map(ProblemDisplayLine::header)
+            .collect(),
+        ProblemLineKind::AnswerShape => split_display_line_for_kind(line, wrap_width, kind)
+            .into_iter()
+            .map(ProblemDisplayLine::answer_shape)
+            .collect(),
+        ProblemLineKind::Bullet => split_display_line_for_kind(line, wrap_width, kind)
+            .into_iter()
+            .map(ProblemDisplayLine::bullet)
+            .collect(),
+        ProblemLineKind::Code => split_code_display_line(line, wrap_width),
+        ProblemLineKind::Plain => split_display_line_for_kind(line, wrap_width, kind)
+            .into_iter()
+            .map(ProblemDisplayLine::plain)
+            .collect(),
+    }
 }
 
 fn split_display_line_for_kind(
@@ -974,7 +1049,11 @@ fn split_display_line_for_kind(
     kind: ProblemLineKind,
 ) -> Vec<String> {
     match kind {
-        ProblemLineKind::Code => split_long_segment(line, wrap_width),
+        ProblemLineKind::Code => split_code_display_line(line, wrap_width)
+            .into_iter()
+            .map(|line| line.text)
+            .collect(),
+        ProblemLineKind::Bullet => wrap_problem_bullet(line, wrap_width),
         _ => split_display_line(line, wrap_width),
     }
 }
@@ -994,17 +1073,36 @@ fn split_display_line(line: &str, wrap_width: usize) -> Vec<String> {
 
 fn problem_line_kind(line: &str) -> ProblemLineKind {
     let trimmed = line.trim();
-    if trimmed.ends_with(':')
-        && trimmed
-            .chars()
-            .all(|ch| ch.is_ascii_alphanumeric() || ch.is_whitespace() || ch == ':' || ch == '-')
-    {
+    if trimmed.is_empty() {
+        ProblemLineKind::Blank
+    } else if is_answer_shape_header(trimmed) {
+        ProblemLineKind::AnswerShape
+    } else if is_problem_header(trimmed) {
         ProblemLineKind::Header
+    } else if is_bullet_line(line) {
+        ProblemLineKind::Bullet
     } else if preserves_problem_spacing(line) || looks_like_rust_code(trimmed) {
         ProblemLineKind::Code
     } else {
         ProblemLineKind::Plain
     }
+}
+
+fn is_problem_header(trimmed: &str) -> bool {
+    trimmed.ends_with(':')
+        && trimmed
+            .chars()
+            .all(|ch| ch.is_ascii_alphanumeric() || ch.is_whitespace() || ch == ':' || ch == '-')
+}
+
+fn is_answer_shape_header(trimmed: &str) -> bool {
+    let lowercase = trimmed.to_ascii_lowercase();
+    is_problem_header(trimmed)
+        && (lowercase == "answer:"
+            || lowercase == "answer shape:"
+            || lowercase == "expected:"
+            || lowercase == "expected answer:"
+            || lowercase == "expected shape:")
 }
 
 fn preserves_problem_spacing(line: &str) -> bool {
@@ -1023,6 +1121,11 @@ fn looks_like_rust_code(line: &str) -> bool {
         || line.contains("=>")
         || line.contains('{')
         || line.contains('}')
+}
+
+fn is_bullet_line(line: &str) -> bool {
+    let trimmed = line.trim_start();
+    trimmed.starts_with("- ") || trimmed.starts_with("* ")
 }
 
 fn wrap_problem_prose(line: &str, wrap_width: usize) -> Vec<String> {
@@ -1068,6 +1171,41 @@ fn wrap_problem_prose(line: &str, wrap_width: usize) -> Vec<String> {
     }
 }
 
+fn wrap_problem_bullet(line: &str, wrap_width: usize) -> Vec<String> {
+    let wrap_width = wrap_width.max(MIN_PROBLEM_WRAP_WIDTH);
+    let leading = line
+        .chars()
+        .take_while(|ch| ch.is_whitespace())
+        .collect::<String>();
+    let trimmed = line.trim_start();
+    let Some(rest) = trimmed
+        .strip_prefix("- ")
+        .or_else(|| trimmed.strip_prefix("* "))
+    else {
+        return split_display_line(line, wrap_width);
+    };
+    let marker = &trimmed[..2];
+    let first_prefix = format!("{leading}{marker}");
+    let continuation_prefix = format!("{leading}  ");
+    let prefix_width = first_prefix.chars().count();
+    if prefix_width >= wrap_width {
+        return split_long_segment(line, wrap_width);
+    }
+
+    let wrapped = wrap_problem_prose(rest, wrap_width.saturating_sub(prefix_width));
+    wrapped
+        .into_iter()
+        .enumerate()
+        .map(|(index, chunk)| {
+            if index == 0 {
+                format!("{first_prefix}{chunk}")
+            } else {
+                format!("{continuation_prefix}{chunk}")
+            }
+        })
+        .collect()
+}
+
 fn split_long_segment(text: &str, wrap_width: usize) -> Vec<String> {
     let wrap_width = wrap_width.max(MIN_PROBLEM_WRAP_WIDTH);
     let chars = text.chars().collect::<Vec<_>>();
@@ -1075,6 +1213,49 @@ fn split_long_segment(text: &str, wrap_width: usize) -> Vec<String> {
         .chunks(wrap_width)
         .map(|chunk| chunk.iter().collect::<String>())
         .collect()
+}
+
+fn split_code_display_line(line: &str, wrap_width: usize) -> Vec<ProblemDisplayLine> {
+    split_code_tokens_for_display(&tokenize_rust_line(line), wrap_width)
+        .into_iter()
+        .map(ProblemDisplayLine::code_with_tokens)
+        .collect()
+}
+
+fn split_code_tokens_for_display(tokens: &[CodeToken], wrap_width: usize) -> Vec<Vec<CodeToken>> {
+    let wrap_width = wrap_width.max(MIN_PROBLEM_WRAP_WIDTH);
+    let mut lines = Vec::new();
+    let mut current = Vec::new();
+    let mut current_width = 0usize;
+
+    for token in tokens {
+        let chars = token.text.chars().collect::<Vec<_>>();
+        let mut start = 0usize;
+        while start < chars.len() {
+            if current_width == wrap_width {
+                lines.push(current);
+                current = Vec::new();
+                current_width = 0;
+            }
+
+            let available = wrap_width.saturating_sub(current_width).max(1);
+            let take = available.min(chars.len().saturating_sub(start));
+            let segment = chars[start..start + take].iter().collect::<String>();
+            current.push(CodeToken::new(token.kind.clone(), segment));
+            current_width += take;
+            start += take;
+        }
+    }
+
+    if !current.is_empty() {
+        lines.push(current);
+    }
+
+    if lines.is_empty() {
+        vec![Vec::new()]
+    } else {
+        lines
+    }
 }
 
 pub fn tokenize_rust_line(line: &str) -> Vec<CodeToken> {
@@ -1263,10 +1444,11 @@ mod tests {
         ClientAction, ClientUiState, CodeTokenKind, CursorPosition, FAILURE_PULSE_DURATION,
         PROBLEM_SCROLL_LINES, PROBLEM_WHEEL_SCROLL_LINES, ProblemDisplayLine, ProblemLineKind,
         ProblemView, ProblemViewport, REWARD_ATTACK_DURATION, REWARD_DURATION,
-        REWARD_GAME_GLOW_DELAY, REWARD_GAME_GLOW_MAX_INTENSITY, REWARD_PLUS_ONE_BODY_DURATION,
-        REWARD_RELEASE_DURATION, REWARD_SWEEP_DURATION, SKIP_TOAST_DURATION, StatusTone,
-        project_client_frame, project_client_frame_at, project_client_frame_for_layout,
-        tokenize_rust_line,
+        REWARD_GAME_ATTACK_DURATION, REWARD_GAME_BODY_DURATION, REWARD_GAME_GLOW_DELAY,
+        REWARD_GAME_GLOW_MAX_INTENSITY, REWARD_GAME_RELEASE_DURATION,
+        REWARD_PLUS_ONE_BODY_DURATION, REWARD_PLUS_ONE_DURATION, REWARD_RELEASE_DURATION,
+        REWARD_SWEEP_DURATION, SKIP_TOAST_DURATION, StatusTone, project_client_frame,
+        project_client_frame_at, project_client_frame_for_layout, tokenize_rust_line,
     };
     use crate::engine;
 
@@ -1893,6 +2075,80 @@ mod tests {
     }
 
     #[test]
+    fn problem_bullet_continuations_align_deterministically() {
+        let line = "- keep this bullet readable when the problem pane is narrow";
+        let wrapped = super::split_display_line_for_kind(line, 24, ProblemLineKind::Bullet);
+
+        assert_eq!(
+            wrapped,
+            vec![
+                "- keep this bullet".to_string(),
+                "  readable when the".to_string(),
+                "  problem pane is narrow".to_string(),
+            ]
+        );
+        assert!(wrapped.iter().all(|line| line.chars().count() <= 24));
+    }
+
+    #[test]
+    fn problem_answer_shape_header_is_distinct_without_mutating_expected_answer() {
+        let expected = "fn main() {}";
+        let lines = super::problem_display_lines("do this:", "answer shape:\nfn main() {}", 24);
+
+        assert!(
+            lines
+                .iter()
+                .any(|line| line.kind == ProblemLineKind::AnswerShape
+                    && line.text == "answer shape:")
+        );
+        assert_eq!(expected, "fn main() {}");
+    }
+
+    #[test]
+    fn problem_prose_with_rust_words_is_not_syntax_highlighted() {
+        let line = "This prose mentions fn let i32 and match without being code.";
+        let lines = super::problem_display_lines_for_source_line(line, 80);
+
+        assert_eq!(lines.len(), 1);
+        assert_eq!(lines[0].kind, ProblemLineKind::Plain);
+        assert!(lines[0].tokens.is_empty());
+    }
+
+    #[test]
+    fn wrapped_code_slices_full_line_tokens_instead_of_retokenizing_fragments() {
+        let line = "let score: i32 = 1000;";
+        let wrapped = super::split_code_display_line(line, 12);
+
+        assert_eq!(
+            wrapped
+                .iter()
+                .map(|line| line.text.as_str())
+                .collect::<Vec<_>>(),
+            vec!["let score: i", "32 = 1000;"]
+        );
+        assert_eq!(
+            wrapped
+                .iter()
+                .map(|line| line.text.as_str())
+                .collect::<String>(),
+            line
+        );
+        assert!(
+            wrapped[1]
+                .tokens
+                .iter()
+                .filter(|token| !token.text.trim().is_empty())
+                .any(|token| token.kind == CodeTokenKind::Type && token.text == "32")
+        );
+        assert!(
+            !wrapped[1]
+                .tokens
+                .iter()
+                .any(|token| token.kind == CodeTokenKind::Number && token.text == "32")
+        );
+    }
+
+    #[test]
     fn problem_viewport_offset_is_capped_to_valid_bounds_after_wrapping() {
         let session = engine::Session::lab();
         let mut ui_state = ClientUiState::new();
@@ -1940,21 +2196,28 @@ mod tests {
 
     #[test]
     fn reward_timing_uses_shorter_middle_heavy_boop() {
-        assert_eq!(REWARD_ATTACK_DURATION, Duration::from_millis(150));
-        assert_eq!(REWARD_PLUS_ONE_BODY_DURATION, Duration::from_millis(1_050));
-        assert_eq!(REWARD_RELEASE_DURATION, Duration::from_millis(1_050));
+        assert_eq!(REWARD_ATTACK_DURATION, Duration::from_millis(100));
+        assert_eq!(REWARD_PLUS_ONE_BODY_DURATION, Duration::from_millis(450));
+        assert_eq!(REWARD_RELEASE_DURATION, Duration::from_millis(550));
+        assert_eq!(REWARD_PLUS_ONE_DURATION, Duration::from_millis(1_100));
         assert_eq!(REWARD_DURATION, Duration::from_millis(2_250));
+        assert_eq!(REWARD_GAME_ATTACK_DURATION, Duration::from_millis(150));
+        assert_eq!(REWARD_GAME_BODY_DURATION, Duration::from_millis(1_050));
+        assert_eq!(REWARD_GAME_RELEASE_DURATION, Duration::from_millis(1_050));
         assert_eq!(REWARD_SWEEP_DURATION, Duration::from_millis(850));
         assert_eq!(REWARD_GAME_GLOW_DELAY, Duration::from_millis(80));
         assert_eq!(REWARD_GAME_GLOW_MAX_INTENSITY, 58);
+        assert!(REWARD_PLUS_ONE_DURATION <= Duration::from_millis(1_150));
+        assert_eq!(REWARD_PLUS_ONE_DURATION * 2, Duration::from_millis(2_200));
         assert!(REWARD_DURATION >= Duration::from_millis(2_200));
-        assert!(REWARD_DURATION < Duration::from_millis(2_600));
-        assert!(REWARD_DURATION < Duration::from_millis(3_300));
         assert!(REWARD_RELEASE_DURATION > REWARD_ATTACK_DURATION);
         assert!(REWARD_PLUS_ONE_BODY_DURATION > REWARD_ATTACK_DURATION);
+        assert!(REWARD_PLUS_ONE_DURATION < REWARD_DURATION);
         assert!(REWARD_SWEEP_DURATION > REWARD_ATTACK_DURATION);
         assert!(REWARD_SWEEP_DURATION < REWARD_DURATION);
         assert!(REWARD_GAME_GLOW_MAX_INTENSITY < 100);
+        assert_eq!(FAILURE_PULSE_DURATION, Duration::from_millis(520));
+        assert_eq!(SKIP_TOAST_DURATION, Duration::from_millis(900));
     }
 
     #[test]
@@ -2012,7 +2275,7 @@ mod tests {
 
         let before_glow = ui_state.reward_frame_at(now + REWARD_GAME_GLOW_DELAY / 2);
         let glow_peak =
-            ui_state.reward_frame_at(now + REWARD_ATTACK_DURATION + REWARD_GAME_GLOW_DELAY);
+            ui_state.reward_frame_at(now + REWARD_GAME_ATTACK_DURATION + REWARD_GAME_GLOW_DELAY);
 
         assert!(before_glow.plus_one_intensity > 0);
         assert_eq!(before_glow.game_glow_intensity, 0);
@@ -2035,9 +2298,9 @@ mod tests {
             .reward_frame_at(now + REWARD_ATTACK_DURATION + (REWARD_PLUS_ONE_BODY_DURATION / 2));
         let release_starts_at = REWARD_ATTACK_DURATION + REWARD_PLUS_ONE_BODY_DURATION;
         let early_release =
-            ui_state.reward_frame_at(now + release_starts_at + Duration::from_millis(250));
+            ui_state.reward_frame_at(now + release_starts_at + Duration::from_millis(150));
         let late_release =
-            ui_state.reward_frame_at(now + release_starts_at + Duration::from_millis(800));
+            ui_state.reward_frame_at(now + release_starts_at + Duration::from_millis(450));
 
         assert_eq!(hold_mid.plus_one_intensity, 100);
         assert!(hold_mid.plus_one_intensity > hold_mid.game_glow_intensity);
@@ -2051,6 +2314,12 @@ mod tests {
         assert!(early_release.plus_one_intensity > late_release.plus_one_intensity);
         assert!(late_release.plus_one_intensity > 0);
         assert!(early_release.plus_one_intensity > early_release.game_glow_intensity);
+
+        let expired_plus_one = ui_state.reward_frame_at(now + REWARD_PLUS_ONE_DURATION);
+        assert!(expired_plus_one.active);
+        assert_eq!(expired_plus_one.plus_one_intensity, 0);
+        assert!(!expired_plus_one.show_plus_one);
+        assert!(expired_plus_one.game_glow_intensity > 0);
     }
 
     #[test]
