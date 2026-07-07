@@ -2,6 +2,10 @@ use std::time::{Duration, Instant};
 
 use crate::engine;
 
+mod editor;
+
+pub use editor::{CursorPosition, EditorAction, EditorBuffer, EditorView, EditorViewport};
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ClientAction {
     TypeChar(char),
@@ -145,7 +149,7 @@ fn smoothstep(progress: f32) -> f32 {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ClientUiState {
-    draft_input: String,
+    editor: EditorBuffer,
     cursor_visible: bool,
     help_open: bool,
     status_lines: Vec<String>,
@@ -155,7 +159,7 @@ pub struct ClientUiState {
 impl ClientUiState {
     pub fn new() -> Self {
         Self {
-            draft_input: String::new(),
+            editor: EditorBuffer::new(),
             cursor_visible: true,
             help_open: false,
             status_lines: Vec::new(),
@@ -163,8 +167,8 @@ impl ClientUiState {
         }
     }
 
-    pub fn draft_input(&self) -> &str {
-        &self.draft_input
+    pub fn editor_view(&self) -> EditorView {
+        self.editor.view()
     }
 
     pub fn cursor_visible(&self) -> bool {
@@ -190,11 +194,11 @@ impl ClientUiState {
     pub fn apply_action(&mut self, action: ClientAction) {
         match action {
             ClientAction::TypeChar(ch) => {
-                self.draft_input.push(ch);
+                self.editor.apply_action(EditorAction::InsertChar(ch));
                 self.show_cursor();
             }
             ClientAction::Backspace => {
-                self.draft_input.pop();
+                self.editor.apply_action(EditorAction::Backspace);
                 self.show_cursor();
             }
             ClientAction::ToggleHelp => {
@@ -210,7 +214,9 @@ impl ClientUiState {
 
     pub fn take_draft_input(&mut self) -> String {
         self.show_cursor();
-        std::mem::take(&mut self.draft_input)
+        let input = self.editor.text();
+        self.editor.clear();
+        input
     }
 
     pub fn set_status_lines(&mut self, status_lines: Vec<String>) {
@@ -260,6 +266,9 @@ pub struct ProblemView {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct WorkboxView {
     pub input: String,
+    pub lines: Vec<String>,
+    pub cursor: CursorPosition,
+    pub viewport: EditorViewport,
     pub input_tokens: Vec<CodeToken>,
     pub cursor_visible: bool,
 }
@@ -307,7 +316,8 @@ pub fn project_client_frame_at(
     let exercise = snapshot
         .exercise
         .unwrap_or_else(engine::first_exercise_packet);
-    let input = ui_state.draft_input().to_string();
+    let editor_view = ui_state.editor_view();
+    let input = editor_view.text.clone();
     let counter_reward = ui_state.counter_reward_frame_at(now);
 
     ClientFrame {
@@ -320,6 +330,9 @@ pub fn project_client_frame_at(
             workbox: WorkboxView {
                 input_tokens: tokenize_rust_line(&input),
                 input,
+                lines: editor_view.lines,
+                cursor: editor_view.cursor,
+                viewport: editor_view.viewport,
                 cursor_visible: ui_state.cursor_visible(),
             },
         },
@@ -961,7 +974,7 @@ mod tests {
         ui_state.apply_action(ClientAction::ToggleHelp);
         ui_state.apply_action(ClientAction::CursorTick);
 
-        assert_eq!(ui_state.draft_input(), "a");
+        assert_eq!(ui_state.editor_view().text, "a");
         assert!(ui_state.help_open());
         assert!(!ui_state.cursor_visible());
     }

@@ -29,8 +29,8 @@ impl TuiApp {
     }
 
     #[cfg(test)]
-    pub fn input(&self) -> &str {
-        self.ui_state.draft_input()
+    pub fn input(&self) -> String {
+        self.ui_state.editor_view().text
     }
 
     pub fn should_quit(&self) -> bool {
