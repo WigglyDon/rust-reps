@@ -104,6 +104,8 @@ impl TuiApp {
             | ClientAction::MoveCursorDown
             | ClientAction::MoveLineStart
             | ClientAction::MoveLineEnd
+            | ClientAction::ScrollProblemLineUp
+            | ClientAction::ScrollProblemLineDown
             | ClientAction::ScrollProblemUp
             | ClientAction::ScrollProblemDown
             | ClientAction::ScrollEditorUp
@@ -641,12 +643,17 @@ mod tests {
 
     #[test]
     fn problem_scroll_does_not_affect_editor_or_session_state() {
-        let mut app = TuiApp::new();
+        let mut app = lab_app();
         app.handle_action(ClientAction::TypeChar('x'));
         let before_input = app.input();
         let before_cursor = app.frame().game_window.workbox.cursor;
 
+        app.handle_action(ClientAction::ScrollProblemLineDown);
+        assert_eq!(app.frame().game_window.problem.viewport.scroll_offset, 1);
         app.handle_action(ClientAction::ScrollProblemDown);
+        assert_eq!(app.frame().game_window.problem.viewport.scroll_offset, 5);
+        app.handle_action(ClientAction::ScrollProblemLineUp);
+        assert_eq!(app.frame().game_window.problem.viewport.scroll_offset, 4);
         app.handle_action(ClientAction::ScrollProblemUp);
 
         assert_eq!(app.input(), before_input);

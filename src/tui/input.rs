@@ -43,8 +43,8 @@ pub fn classify_key_event(key: KeyEvent) -> ClientAction {
 
 pub(crate) fn classify_mouse_event(mouse: MouseEvent, pane: MousePane) -> ClientAction {
     match (mouse.kind, pane) {
-        (MouseEventKind::ScrollUp, MousePane::Problem) => ClientAction::ScrollProblemUp,
-        (MouseEventKind::ScrollDown, MousePane::Problem) => ClientAction::ScrollProblemDown,
+        (MouseEventKind::ScrollUp, MousePane::Problem) => ClientAction::ScrollProblemLineUp,
+        (MouseEventKind::ScrollDown, MousePane::Problem) => ClientAction::ScrollProblemLineDown,
         (MouseEventKind::ScrollUp, MousePane::Editor) => ClientAction::ScrollEditorUp,
         (MouseEventKind::ScrollDown, MousePane::Editor) => ClientAction::ScrollEditorDown,
         _ => ClientAction::Ignore,
@@ -192,11 +192,11 @@ mod tests {
 
         assert_eq!(
             classify_mouse_event(scroll_down, MousePane::Problem),
-            ClientAction::ScrollProblemDown
+            ClientAction::ScrollProblemLineDown
         );
         assert_eq!(
             classify_mouse_event(scroll_up, MousePane::Problem),
-            ClientAction::ScrollProblemUp
+            ClientAction::ScrollProblemLineUp
         );
         assert_eq!(
             classify_mouse_event(scroll_down, MousePane::Editor),

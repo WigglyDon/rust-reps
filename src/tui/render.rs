@@ -23,13 +23,13 @@ use ratatui::{
 };
 
 const FEEDBACK_CHROME_HEIGHT: u16 = 4;
-const PROBLEM_PANEL_PERCENT: u16 = 47;
+const EDITOR_PANEL_PERCENT: u16 = 56;
 const COMMAND_RAIL_HEIGHT: u16 = 3;
 const MIN_GUTTER_WIDTH: usize = 2;
 const REPS_SLOT_WIDTH: usize = 7;
 const PLUS_ONE_SLOT_WIDTH: usize = 6;
 const PRIMARY_ACTION_HINT: &str = "F5 submit";
-const SECONDARY_CONTROL_HINTS: &str = "F6 skip · Esc quit · wheel/Pg scroll";
+const SECONDARY_CONTROL_HINTS: &str = "F6 skip · Esc quit · wheel scroll · Pg scroll";
 #[cfg(test)]
 const SNAPSHOT_PROBLEM_HEIGHT: u16 = 8;
 #[cfg(test)]
@@ -41,7 +41,10 @@ pub(crate) fn render_ui(frame: &mut Frame<'_>, app: &mut TuiApp, now: std::time:
     let layout = shell_layout(frame.area(), feedback_height(&feedback_lines));
     app.set_editor_viewport_height(visible_editor_rows(layout.editor.height));
 
-    let client_frame = app.frame_at_for_layout(now, problem_wrap_width(layout.problem));
+    let client_frame = app.frame_at_for_layout(
+        now,
+        problem_wrap_width(problem_content_area(layout.problem)),
+    );
     render_client_frame(frame, &client_frame);
 }
 
@@ -56,13 +59,14 @@ fn render_client_frame(frame: &mut Frame<'_>, client_frame: &ClientFrame) {
     frame.render_widget(game_block, shell_area);
     render_game_border(frame, shell_area, client_frame.reward);
 
+    let problem_area = problem_content_area(layout.problem);
     frame.render_widget(
         Paragraph::new(Text::from(problem_lines_for_height(
             client_frame,
-            layout.problem.height,
+            problem_area.height,
         )))
-        .style(base_style()),
-        layout.problem,
+        .style(editor_canvas_style()),
+        problem_area,
     );
     render_viewport_indicator(
         frame,
@@ -70,7 +74,7 @@ fn render_client_frame(frame: &mut Frame<'_>, client_frame: &ClientFrame) {
         client_frame
             .game_window
             .problem
-            .overflow(usize::from(layout.problem.height)),
+            .overflow(usize::from(problem_area.height)),
     );
 
     frame.render_widget(
@@ -129,8 +133,8 @@ fn shell_layout(area: Rect, feedback_height: u16) -> ShellLayout {
         .split(body);
     let panels = panel_layout(vertical[0]);
     ShellLayout {
-        problem: panels[0],
-        editor: panels[1],
+        editor: panels[0],
+        problem: panels[1],
         feedback: vertical[1],
         rail: vertical[2],
     }
@@ -143,17 +147,17 @@ fn panel_layout(area: Rect) -> [Rect; 2] {
 
     let gap_width = if area.width >= 42 { 1 } else { 0 };
     let content_width = area.width.saturating_sub(gap_width);
-    let problem_width = ((u32::from(content_width) * u32::from(PROBLEM_PANEL_PERCENT)) / 100)
+    let editor_width = ((u32::from(content_width) * u32::from(EDITOR_PANEL_PERCENT)) / 100)
         .clamp(1, u32::from(content_width.saturating_sub(1).max(1))) as u16;
-    let editor_width = content_width.saturating_sub(problem_width);
-    let problem = Rect::new(area.x, area.y, problem_width, area.height);
-    let editor = Rect::new(
-        area.x + problem_width + gap_width,
+    let problem_width = content_width.saturating_sub(editor_width);
+    let editor = Rect::new(area.x, area.y, editor_width, area.height);
+    let problem = Rect::new(
+        area.x + editor_width + gap_width,
         area.y,
-        editor_width,
+        problem_width,
         area.height,
     );
-    [problem, editor]
+    [editor, problem]
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -187,8 +191,15 @@ fn shell_body(area: Rect) -> Rect {
     })
 }
 
+fn problem_content_area(area: Rect) -> Rect {
+    area.inner(Margin {
+        vertical: 0,
+        horizontal: if area.width > 4 { 1 } else { 0 },
+    })
+}
+
 fn problem_wrap_width(area: Rect) -> usize {
-    usize::from(area.width).saturating_sub(2)
+    usize::from(area.width).saturating_sub(3)
 }
 
 fn render_viewport_indicator(frame: &mut Frame<'_>, area: Rect, overflow: ViewportOverflow) {
@@ -844,9 +855,10 @@ mod tests {
 
         assert_eq!(layout.problem.y, layout.editor.y);
         assert_eq!(layout.problem.height, layout.editor.height);
+        assert!(layout.editor.width > 45);
         assert!(layout.problem.width > 30);
         assert!(layout.editor.width > layout.problem.width);
-        assert!(layout.problem.right() < layout.editor.left());
+        assert!(layout.editor.right() < layout.problem.left());
         assert!(layout.feedback.top() >= layout.problem.bottom());
         assert!(layout.rail.top() >= layout.feedback.bottom());
     }
@@ -876,7 +888,7 @@ mod tests {
         assert_eq!(layout.rail.height, COMMAND_RAIL_HEIGHT);
         assert!(layout.problem.width > 0);
         assert!(layout.editor.width > 0);
-        assert!(layout.problem.right() <= layout.editor.left());
+        assert!(layout.editor.right() <= layout.problem.left());
         assert!(layout.rail.bottom() <= 12);
     }
 
@@ -1290,16 +1302,24 @@ mod tests {
         let snapshot = render_snapshot(&app.frame());
         let rail = snapshot.bottom_chrome.join("\n");
 
-        for expected in ["F5 submit", "F6 skip", "Esc quit", "wheel/Pg scroll"] {
+        for expected in [
+            "F5 submit",
+            "F6 skip",
+            "Esc quit",
+            "wheel scroll",
+            "Pg scroll",
+        ] {
             assert!(rail.contains(expected), "missing {expected}");
         }
         let f5 = rail.find("F5 submit").expect("missing F5 submit");
         let skip = rail.find("F6 skip").expect("missing F6 skip");
         let esc = rail.find("Esc quit").expect("missing Esc quit");
-        let scroll = rail.find("wheel/Pg scroll").expect("missing scroll hint");
+        let scroll = rail.find("wheel scroll").expect("missing scroll hint");
+        let page = rail.find("Pg scroll").expect("missing page fallback hint");
         assert!(f5 < skip);
         assert!(skip < esc);
         assert!(esc < scroll);
+        assert!(scroll < page);
         assert!(!rail.contains("Enter newline"));
         assert!(!rail.contains("? help"));
 
@@ -1622,7 +1642,7 @@ mod tests {
         assert_eq!(wrong_layout, success_layout);
         assert_eq!(idle_layout.problem.y, idle_layout.editor.y);
         assert_eq!(idle_layout.problem.height, idle_layout.editor.height);
-        assert!(idle_layout.problem.right() < idle_layout.editor.left());
+        assert!(idle_layout.editor.right() < idle_layout.problem.left());
         assert!(idle_layout.problem.height > SNAPSHOT_PROBLEM_HEIGHT);
         assert!(idle_layout.editor.height > SNAPSHOT_WORKBOX_HEIGHT);
         assert_eq!(idle_layout.feedback.height, FEEDBACK_CHROME_HEIGHT);

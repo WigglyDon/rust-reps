@@ -17,6 +17,8 @@ pub enum ClientAction {
     MoveCursorDown,
     MoveLineStart,
     MoveLineEnd,
+    ScrollProblemLineUp,
+    ScrollProblemLineDown,
     ScrollProblemUp,
     ScrollProblemDown,
     ScrollEditorUp,
@@ -65,6 +67,7 @@ pub const REWARD_SWEEP_DURATION: Duration = Duration::from_millis(850);
 pub const REWARD_GAME_GLOW_DELAY: Duration = Duration::from_millis(80);
 pub const REWARD_GAME_GLOW_MAX_INTENSITY: u8 = 58;
 pub const FAILURE_PULSE_DURATION: Duration = Duration::from_millis(520);
+pub const PROBLEM_WHEEL_SCROLL_LINES: usize = 1;
 pub const PROBLEM_SCROLL_LINES: usize = 4;
 pub const DEFAULT_PROBLEM_WRAP_WIDTH: usize = 80;
 pub const MIN_PROBLEM_WRAP_WIDTH: usize = 12;
@@ -136,11 +139,27 @@ impl ProblemViewport {
     }
 
     pub fn scroll_up(&mut self) {
-        self.scroll_offset = self.scroll_offset.saturating_sub(PROBLEM_SCROLL_LINES);
+        self.scroll_up_by(PROBLEM_SCROLL_LINES);
     }
 
     pub fn scroll_down(&mut self) {
-        self.scroll_offset = self.scroll_offset.saturating_add(PROBLEM_SCROLL_LINES);
+        self.scroll_down_by(PROBLEM_SCROLL_LINES);
+    }
+
+    pub fn scroll_line_up(&mut self) {
+        self.scroll_up_by(PROBLEM_WHEEL_SCROLL_LINES);
+    }
+
+    pub fn scroll_line_down(&mut self) {
+        self.scroll_down_by(PROBLEM_WHEEL_SCROLL_LINES);
+    }
+
+    fn scroll_up_by(&mut self, lines: usize) {
+        self.scroll_offset = self.scroll_offset.saturating_sub(lines);
+    }
+
+    fn scroll_down_by(&mut self, lines: usize) {
+        self.scroll_offset = self.scroll_offset.saturating_add(lines);
     }
 
     pub fn clamped(self, total_lines: usize) -> Self {
@@ -520,6 +539,14 @@ impl ClientUiState {
                 self.editor.apply_action(EditorAction::MoveLineEnd);
                 self.show_cursor();
             }
+            ClientAction::ScrollProblemLineUp => {
+                self.problem_viewport.scroll_line_up();
+                self.show_cursor();
+            }
+            ClientAction::ScrollProblemLineDown => {
+                self.problem_viewport.scroll_line_down();
+                self.show_cursor();
+            }
             ClientAction::ScrollProblemUp => {
                 self.problem_viewport.scroll_up();
                 self.show_cursor();
@@ -769,24 +796,125 @@ fn problem_display_lines(
         if line.is_empty() {
             lines.push(ProblemDisplayLine::blank());
         } else {
+            let kind = problem_line_kind(line);
             lines.extend(
-                split_display_line(line, wrap_width)
+                split_display_line_for_kind(line, wrap_width, kind)
                     .into_iter()
-                    .map(|chunk| ProblemDisplayLine::code(&chunk)),
+                    .map(|chunk| match kind {
+                        ProblemLineKind::Header => ProblemDisplayLine::header(chunk),
+                        ProblemLineKind::Code => ProblemDisplayLine::code(&chunk),
+                        ProblemLineKind::Plain => ProblemDisplayLine::plain(chunk),
+                        ProblemLineKind::Blank => ProblemDisplayLine::blank(),
+                    }),
             );
         }
     }
     lines
 }
 
+fn split_display_line_for_kind(
+    line: &str,
+    wrap_width: usize,
+    kind: ProblemLineKind,
+) -> Vec<String> {
+    match kind {
+        ProblemLineKind::Code => split_long_segment(line, wrap_width),
+        _ => split_display_line(line, wrap_width),
+    }
+}
+
 fn split_display_line(line: &str, wrap_width: usize) -> Vec<String> {
     let wrap_width = wrap_width.max(MIN_PROBLEM_WRAP_WIDTH);
-    let chars = line.chars().collect::<Vec<_>>();
-
-    if chars.is_empty() {
+    if line.is_empty() {
         return vec![String::new()];
     }
 
+    if preserves_problem_spacing(line) {
+        return split_long_segment(line, wrap_width);
+    }
+
+    wrap_problem_prose(line, wrap_width)
+}
+
+fn problem_line_kind(line: &str) -> ProblemLineKind {
+    let trimmed = line.trim();
+    if trimmed.ends_with(':')
+        && trimmed
+            .chars()
+            .all(|ch| ch.is_ascii_alphanumeric() || ch.is_whitespace() || ch == ':' || ch == '-')
+    {
+        ProblemLineKind::Header
+    } else if preserves_problem_spacing(line) || looks_like_rust_code(trimmed) {
+        ProblemLineKind::Code
+    } else {
+        ProblemLineKind::Plain
+    }
+}
+
+fn preserves_problem_spacing(line: &str) -> bool {
+    line.starts_with(char::is_whitespace) || line.contains('\t')
+}
+
+fn looks_like_rust_code(line: &str) -> bool {
+    line.starts_with("fn ")
+        || line.starts_with("let ")
+        || line.starts_with("if ")
+        || line.starts_with("while ")
+        || line.starts_with("match ")
+        || line.starts_with("use ")
+        || line.starts_with("//")
+        || line.contains("::")
+        || line.contains("=>")
+        || line.contains('{')
+        || line.contains('}')
+}
+
+fn wrap_problem_prose(line: &str, wrap_width: usize) -> Vec<String> {
+    let wrap_width = wrap_width.max(MIN_PROBLEM_WRAP_WIDTH);
+    let mut lines = Vec::new();
+    let mut current = String::new();
+
+    for word in line.split_whitespace() {
+        if word.chars().count() > wrap_width {
+            if !current.is_empty() {
+                lines.push(current);
+                current = String::new();
+            }
+            lines.extend(split_long_segment(word, wrap_width));
+            continue;
+        }
+
+        let next_len = if current.is_empty() {
+            word.chars().count()
+        } else {
+            current.chars().count() + 1 + word.chars().count()
+        };
+
+        if next_len <= wrap_width {
+            if !current.is_empty() {
+                current.push(' ');
+            }
+            current.push_str(word);
+        } else {
+            lines.push(current);
+            current = word.to_string();
+        }
+    }
+
+    if !current.is_empty() {
+        lines.push(current);
+    }
+
+    if lines.is_empty() {
+        vec![String::new()]
+    } else {
+        lines
+    }
+}
+
+fn split_long_segment(text: &str, wrap_width: usize) -> Vec<String> {
+    let wrap_width = wrap_width.max(MIN_PROBLEM_WRAP_WIDTH);
+    let chars = text.chars().collect::<Vec<_>>();
     chars
         .chunks(wrap_width)
         .map(|chunk| chunk.iter().collect::<String>())
@@ -977,11 +1105,11 @@ mod tests {
 
     use super::{
         ClientAction, ClientUiState, CodeTokenKind, CursorPosition, FAILURE_PULSE_DURATION,
-        PROBLEM_SCROLL_LINES, ProblemDisplayLine, ProblemLineKind, ProblemView, ProblemViewport,
-        REWARD_ATTACK_DURATION, REWARD_DURATION, REWARD_GAME_GLOW_DELAY,
-        REWARD_GAME_GLOW_MAX_INTENSITY, REWARD_PLUS_ONE_BODY_DURATION, REWARD_RELEASE_DURATION,
-        REWARD_SWEEP_DURATION, StatusTone, project_client_frame, project_client_frame_at,
-        project_client_frame_for_layout, tokenize_rust_line,
+        PROBLEM_SCROLL_LINES, PROBLEM_WHEEL_SCROLL_LINES, ProblemDisplayLine, ProblemLineKind,
+        ProblemView, ProblemViewport, REWARD_ATTACK_DURATION, REWARD_DURATION,
+        REWARD_GAME_GLOW_DELAY, REWARD_GAME_GLOW_MAX_INTENSITY, REWARD_PLUS_ONE_BODY_DURATION,
+        REWARD_RELEASE_DURATION, REWARD_SWEEP_DURATION, StatusTone, project_client_frame,
+        project_client_frame_at, project_client_frame_for_layout, tokenize_rust_line,
     };
     use crate::engine;
 
@@ -1246,6 +1374,23 @@ mod tests {
     }
 
     #[test]
+    fn problem_line_scroll_moves_by_one_visual_line() {
+        let mut viewport = ProblemViewport::new();
+
+        viewport.scroll_line_up();
+        assert_eq!(viewport.scroll_offset, 0);
+
+        viewport.scroll_line_down();
+        assert_eq!(viewport.scroll_offset, PROBLEM_WHEEL_SCROLL_LINES);
+
+        viewport.scroll_line_down();
+        assert_eq!(viewport.scroll_offset, PROBLEM_WHEEL_SCROLL_LINES * 2);
+
+        viewport.scroll_up();
+        assert_eq!(viewport.scroll_offset, 0);
+    }
+
+    #[test]
     fn visible_problem_lines_and_overflow_are_derived_from_viewport() {
         let problem = ProblemView {
             instruction: "do this:".to_string(),
@@ -1412,6 +1557,37 @@ mod tests {
     }
 
     #[test]
+    fn wheel_problem_scroll_uses_small_repeated_deltas_without_editor_changes() {
+        let session = engine::Session::lab();
+        let mut ui_state = ClientUiState::new();
+        ui_state.apply_action(ClientAction::TypeChar('x'));
+        let before_editor = ui_state.editor_view();
+
+        ui_state.apply_action(ClientAction::ScrollProblemLineDown);
+        let once = project_client_frame_for_layout(&session, &ui_state, test_now(), 48);
+        assert_eq!(
+            once.game_window.problem.viewport.scroll_offset,
+            PROBLEM_WHEEL_SCROLL_LINES
+        );
+
+        ui_state.apply_action(ClientAction::ScrollProblemLineDown);
+        let twice = project_client_frame_for_layout(&session, &ui_state, test_now(), 48);
+        assert_eq!(
+            twice.game_window.problem.viewport.scroll_offset,
+            PROBLEM_WHEEL_SCROLL_LINES * 2
+        );
+        assert!(twice.game_window.problem.viewport.scroll_offset < PROBLEM_SCROLL_LINES);
+        assert_eq!(ui_state.editor_view(), before_editor);
+
+        ui_state.apply_action(ClientAction::ScrollProblemLineUp);
+        let returned = project_client_frame_for_layout(&session, &ui_state, test_now(), 48);
+        assert_eq!(
+            returned.game_window.problem.viewport.scroll_offset,
+            PROBLEM_WHEEL_SCROLL_LINES
+        );
+    }
+
+    #[test]
     fn long_problem_text_wraps_before_viewport_slicing() {
         let session = engine::Session::lab();
         let ui_state = ClientUiState::new();
@@ -1429,6 +1605,48 @@ mod tests {
                 .filter(|line| !line.text.is_empty())
                 .all(|line| line.text.chars().count() <= 24)
         );
+    }
+
+    #[test]
+    fn problem_prose_wrapping_is_deterministic_and_word_aware() {
+        let line = "The problem panel should wrap polished prose into stable display lines without changing the stored prompt.";
+        let wrapped = super::split_display_line(line, 28);
+
+        assert_eq!(
+            wrapped,
+            vec![
+                "The problem panel should".to_string(),
+                "wrap polished prose into".to_string(),
+                "stable display lines without".to_string(),
+                "changing the stored prompt.".to_string(),
+            ]
+        );
+        assert!(wrapped.iter().all(|line| line.chars().count() <= 28));
+    }
+
+    #[test]
+    fn problem_long_unbroken_token_splits_inside_pane_width() {
+        let line = "crate::very::long::module::path::that::must::stay::inside::the::pane";
+        let wrapped = super::split_display_line(line, 18);
+
+        assert!(wrapped.len() > 1);
+        assert!(wrapped.iter().all(|line| line.chars().count() <= 18));
+        assert_eq!(wrapped.join(""), line);
+    }
+
+    #[test]
+    fn problem_code_wrapping_preserves_spacing_without_changing_answer_buffer() {
+        let code = "fn main() {    println!(\"Rust Reps\"); }";
+        let wrapped = super::split_display_line_for_kind(code, 12, ProblemLineKind::Code);
+
+        assert!(wrapped.len() > 1);
+        assert_eq!(wrapped.join(""), code);
+
+        let mut ui_state = ClientUiState::new();
+        ui_state.apply_action(ClientAction::TypeChar('x'));
+        let before = ui_state.editor_view().text;
+        let _ = project_client_frame_for_layout(&engine::Session::lab(), &ui_state, test_now(), 12);
+        assert_eq!(ui_state.editor_view().text, before);
     }
 
     #[test]
