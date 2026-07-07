@@ -3,9 +3,9 @@ use crate::{
     tui::{
         app::TuiApp,
         theme::{
-            base_style, border_style, caret_style, code_token_style, counter_style,
-            editor_gutter_style, plus_one_style, problem_header_style, status_tone_style,
-            surface_style,
+            base_style, border_style, caret_style, code_token_style, control_hint_style,
+            counter_style, editor_gutter_style, plus_one_style, problem_header_style,
+            status_tone_style, surface_style,
         },
     },
 };
@@ -18,6 +18,7 @@ use ratatui::{
 
 const FEEDBACK_CHROME_HEIGHT: u16 = 3;
 const BOTTOM_CHROME_HEIGHT: u16 = 1;
+const CONTROL_HINTS: &str = "Enter newline · F5 submit · Esc quit · ? help";
 #[cfg(test)]
 const SNAPSHOT_WORKBOX_HEIGHT: u16 = 6;
 
@@ -219,6 +220,10 @@ fn bottom_chrome_lines(client_frame: &ClientFrame) -> Vec<Line<'static>> {
     if client_frame.reward.show_plus_one {
         spans.push(Span::styled("   +1", plus_one_style(client_frame.reward)));
     }
+    spans.push(Span::styled(
+        format!("   {CONTROL_HINTS}"),
+        control_hint_style(),
+    ));
     vec![Line::from(spans)]
 }
 
@@ -333,7 +338,7 @@ mod tests {
     use std::time::{Duration, Instant};
 
     use super::{
-        FEEDBACK_CHROME_HEIGHT, bottom_chrome_alignment, bottom_chrome_lines,
+        CONTROL_HINTS, FEEDBACK_CHROME_HEIGHT, bottom_chrome_alignment, bottom_chrome_lines,
         feedback_chrome_lines, feedback_height, layout_chunks, line_text, problem_lines,
         render_snapshot, render_snapshot_with_workbox_height,
     };
@@ -414,21 +419,11 @@ mod tests {
             .game
             .iter()
             .chain(snapshot.feedback.iter())
-            .chain(snapshot.bottom_chrome.iter())
             .collect();
-        for forbidden in [
-            "Passed",
-            "Skipped",
-            "Attempts",
-            "READY",
-            "Enter newline",
-            "Ctrl+Enter submit",
-            "Esc quit",
-            "? help",
-        ] {
+        for forbidden in ["Passed", "Skipped", "Attempts", "READY"] {
             assert!(
                 !visible_lines.iter().any(|line| line.contains(forbidden)),
-                "default render should not contain {forbidden}"
+                "default game/feedback render should not contain {forbidden}"
             );
         }
         assert!(snapshot.feedback.is_empty());
@@ -460,12 +455,35 @@ mod tests {
         let app = TuiApp::new();
         let frame = app.frame();
         let snapshot = render_snapshot(&frame);
-        assert_eq!(snapshot.bottom_chrome, vec!["reps 0".to_string()]);
+        assert_eq!(
+            snapshot.bottom_chrome,
+            vec![format!("reps 0   {CONTROL_HINTS}")]
+        );
         assert_eq!(bottom_chrome_alignment(), Alignment::Left);
         assert!(!snapshot.bottom_chrome.iter().any(|line| line.contains('●')));
         assert!(!snapshot.bottom_chrome.iter().any(|line| line.contains('✓')));
         assert!(!snapshot.game.iter().any(|line| line.contains("Passed")));
         assert!(!snapshot.feedback.iter().any(|line| line.contains("Passed")));
+    }
+
+    #[test]
+    fn bottom_chrome_shows_minimal_control_hints_without_dashboard_stats() {
+        let app = TuiApp::new();
+        let snapshot = render_snapshot(&app.frame());
+        let chrome = snapshot
+            .bottom_chrome
+            .first()
+            .expect("expected bottom chrome line");
+
+        for expected in ["reps 0", "Enter newline", "F5 submit", "Esc quit", "? help"] {
+            assert!(chrome.contains(expected), "missing {expected}");
+        }
+        for forbidden in ["Passed", "Skipped", "Attempts", "READY", "%", "/12"] {
+            assert!(
+                !chrome.contains(forbidden),
+                "bottom chrome should not contain {forbidden}"
+            );
+        }
     }
 
     #[test]
@@ -478,7 +496,12 @@ mod tests {
         assert_eq!(line.spans[0].content.as_ref(), "reps 0");
         assert_eq!(line.spans[0].style.fg, Some(RUST_REPS_DARK.counter_normal));
         assert!(line.spans[0].style.add_modifier.contains(Modifier::BOLD));
-        assert_eq!(line.spans.len(), 1);
+        assert_eq!(
+            line.spans[1].content.as_ref(),
+            format!("   {CONTROL_HINTS}")
+        );
+        assert_eq!(line.spans[1].style.fg, Some(RUST_REPS_DARK.text_muted));
+        assert_eq!(line.spans.len(), 2);
     }
 
     #[test]
@@ -499,6 +522,10 @@ mod tests {
         assert_eq!(line.spans[1].content.as_ref(), "   +1");
         assert_eq!(line.spans[1].style.fg, Some(RUST_REPS_DARK.reward_plus_one));
         assert!(line.spans[1].style.add_modifier.contains(Modifier::BOLD));
+        assert_eq!(
+            line.spans[2].content.as_ref(),
+            format!("   {CONTROL_HINTS}")
+        );
     }
 
     #[test]
@@ -542,7 +569,11 @@ mod tests {
         let line = lines.first().expect("expected bottom counter line");
         assert_eq!(line.spans[0].content.as_ref(), "reps 1");
         assert_eq!(line.spans[0].style.fg, Some(RUST_REPS_DARK.counter_normal));
-        assert_eq!(line.spans.len(), 1);
+        assert_eq!(
+            line.spans[1].content.as_ref(),
+            format!("   {CONTROL_HINTS}")
+        );
+        assert_eq!(line.spans.len(), 2);
     }
 
     #[test]
@@ -559,7 +590,11 @@ mod tests {
 
         assert_eq!(line.spans[0].content.as_ref(), "reps 1");
         assert_eq!(line.spans[0].style.fg, Some(RUST_REPS_DARK.counter_normal));
-        assert_eq!(line.spans.len(), 1);
+        assert_eq!(
+            line.spans[1].content.as_ref(),
+            format!("   {CONTROL_HINTS}")
+        );
+        assert_eq!(line.spans.len(), 2);
     }
 
     #[test]
@@ -635,7 +670,12 @@ mod tests {
         let frame = app.frame();
         let snapshot = render_snapshot(&frame);
 
-        assert!(snapshot.bottom_chrome.iter().any(|line| line == "reps 0"));
+        assert!(
+            snapshot
+                .bottom_chrome
+                .iter()
+                .any(|line| line.starts_with("reps 0"))
+        );
         assert!(
             !snapshot
                 .bottom_chrome
@@ -661,7 +701,7 @@ mod tests {
             skip_snapshot
                 .bottom_chrome
                 .iter()
-                .any(|line| line == "reps 0")
+                .any(|line| line.starts_with("reps 0"))
         );
         assert!(
             !skip_snapshot
@@ -673,7 +713,7 @@ mod tests {
             quit_snapshot
                 .bottom_chrome
                 .iter()
-                .any(|line| line == "reps 0")
+                .any(|line| line.starts_with("reps 0"))
         );
         assert!(
             !quit_snapshot
@@ -795,7 +835,7 @@ mod tests {
             !default_snapshot
                 .feedback
                 .iter()
-                .any(|line| line == "Commands:")
+                .any(|line| line == "Controls:")
         );
         assert!(
             !default_snapshot
@@ -811,23 +851,51 @@ mod tests {
             help_snapshot
                 .feedback
                 .iter()
-                .any(|line| line == "Commands:")
+                .any(|line| line == "Controls:")
         );
         assert!(
             help_snapshot
                 .feedback
                 .iter()
-                .any(|line| line == "Enter newline")
+                .any(|line| line.contains("Enter newline"))
         );
         assert!(
             help_snapshot
                 .feedback
                 .iter()
-                .any(|line| line == "Ctrl+Enter submit")
+                .any(|line| line.contains("F5 submit"))
         );
-        assert!(help_snapshot.feedback.iter().any(|line| line == "Esc quit"));
-        assert!(help_snapshot.feedback.iter().any(|line| line == "? help"));
-        assert!(!help_snapshot.game.iter().any(|line| line == "Commands:"));
+        assert!(
+            help_snapshot
+                .feedback
+                .iter()
+                .any(|line| line.contains("Esc quit"))
+        );
+        assert!(
+            help_snapshot
+                .feedback
+                .iter()
+                .any(|line| line.contains("? help"))
+        );
+        assert!(
+            help_snapshot
+                .feedback
+                .iter()
+                .any(|line| line.contains("Arrows/Home/End navigate"))
+        );
+        assert!(
+            help_snapshot
+                .feedback
+                .iter()
+                .any(|line| line.contains("Shift+Enter newline if reported"))
+        );
+        assert!(
+            help_snapshot
+                .feedback
+                .iter()
+                .any(|line| line.contains("Ctrl+Enter submit if supported"))
+        );
+        assert!(!help_snapshot.game.iter().any(|line| line == "Controls:"));
     }
 
     #[test]
@@ -901,7 +969,7 @@ mod tests {
             snapshot
                 .bottom_chrome
                 .iter()
-                .any(|line| line == "reps 1   +1")
+                .any(|line| line.starts_with("reps 1   +1"))
         );
         assert!(!snapshot.game.iter().any(|line| line == "PASS"));
     }

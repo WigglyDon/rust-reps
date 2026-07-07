@@ -7,8 +7,11 @@ pub fn classify_key_event(key: KeyEvent) -> ClientAction {
         KeyCode::Esc => ClientAction::Quit,
         KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => ClientAction::Quit,
         KeyCode::Enter if key.modifiers.contains(KeyModifiers::CONTROL) => ClientAction::Submit,
-        KeyCode::Enter if key.modifiers.contains(KeyModifiers::SHIFT) => ClientAction::Ignore,
+        KeyCode::Enter if key.modifiers.contains(KeyModifiers::SHIFT) => {
+            ClientAction::InsertNewline
+        }
         KeyCode::Enter if key.modifiers.is_empty() => ClientAction::InsertNewline,
+        KeyCode::F(5) => ClientAction::Submit,
         KeyCode::Char('?') => ClientAction::ToggleHelp,
         KeyCode::F(1) => ClientAction::ToggleHelp,
         KeyCode::Backspace => ClientAction::Backspace,
@@ -62,12 +65,18 @@ mod tests {
     }
 
     #[test]
-    fn shift_enter_is_deferred_until_terminal_support_is_proven() {
+    fn f5_classifies_as_submit() {
+        let intent = classify_key_event(KeyEvent::from(KeyCode::F(5)));
+        assert_eq!(intent, ClientAction::Submit);
+    }
+
+    #[test]
+    fn shift_enter_classifies_as_newline_when_reported() {
         let intent = classify_key_event(KeyEvent::new(
             KeyCode::Enter,
             crossterm::event::KeyModifiers::SHIFT,
         ));
-        assert_eq!(intent, ClientAction::Ignore);
+        assert_eq!(intent, ClientAction::InsertNewline);
     }
 
     #[test]

@@ -147,6 +147,12 @@ pub(crate) fn plus_one_style(reward: RewardFrame) -> Style {
         .add_modifier(Modifier::BOLD)
 }
 
+pub(crate) fn control_hint_style() -> Style {
+    Style::default()
+        .fg(RUST_REPS_DARK.text_muted)
+        .bg(RUST_REPS_DARK.background)
+}
+
 pub(crate) fn caret_style() -> Style {
     Style::default()
         .fg(RUST_REPS_DARK.caret)

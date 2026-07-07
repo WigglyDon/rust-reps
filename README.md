@@ -46,7 +46,9 @@ Keys:
 - type normal characters to build input
 - `Backspace` deletes
 - `Enter` inserts a newline
-- `Ctrl-Enter` submits
+- `F5` submits
+- `Ctrl-Enter` submits only when the terminal reports it distinctly
+- `Shift-Enter` inserts a newline when the terminal reports it distinctly
 - `Esc` or `Ctrl-C` quits
 - `F1` or `?` toggles help panel
 - `Tab` is currently ignored

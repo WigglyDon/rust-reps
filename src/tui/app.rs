@@ -213,6 +213,8 @@ mod tests {
     use crate::client::{
         ClientAction, REWARD_ATTACK_DURATION, REWARD_DURATION, REWARD_PLUS_ONE_HOLD_DURATION,
     };
+    use crate::tui::input::classify_key_event;
+    use crossterm::event::{KeyCode, KeyEvent};
 
     fn test_now() -> Instant {
         Instant::now()
@@ -250,6 +252,27 @@ mod tests {
                 .id,
             "002"
         );
+    }
+
+    #[test]
+    fn f5_submits_correct_answer_and_clears_editor() {
+        let mut app = TuiApp::new();
+        let now = test_now();
+        for ch in "fn main() {}".chars() {
+            app.handle_action(ClientAction::TypeChar(ch));
+        }
+
+        let action = classify_key_event(KeyEvent::from(KeyCode::F(5)));
+        assert_eq!(action, ClientAction::Submit);
+        app.handle_action_at(action, now);
+
+        let workbox = app.frame_at(now).game_window.workbox;
+        assert_eq!(workbox.input, "");
+        assert_eq!(workbox.cursor.line, 0);
+        assert_eq!(workbox.cursor.column, 0);
+        assert_eq!(app.session().passed(), 1);
+        assert!(app.frame_at(now).reward_active);
+        assert!(app.frame_at(now).reward.show_plus_one);
     }
 
     #[test]
@@ -307,6 +330,32 @@ mod tests {
                 .id,
             "001"
         );
+        assert_eq!(
+            app.status_lines(),
+            &[
+                "not quite".to_string(),
+                "expected:".to_string(),
+                "fn main() {}".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn f5_submits_wrong_answer_without_reward() {
+        let mut app = TuiApp::new();
+        let now = test_now();
+        for ch in "wrong".chars() {
+            app.handle_action(ClientAction::TypeChar(ch));
+        }
+
+        let action = classify_key_event(KeyEvent::from(KeyCode::F(5)));
+        assert_eq!(action, ClientAction::Submit);
+        app.handle_action_at(action, now);
+
+        assert_eq!(app.session().passed(), 0);
+        assert_eq!(app.session().attempts(), 1);
+        assert!(!app.frame_at(now).reward_active);
+        assert!(!app.frame_at(now).reward.show_plus_one);
         assert_eq!(
             app.status_lines(),
             &[

@@ -567,11 +567,10 @@ fn is_type_name(identifier: &str) -> bool {
 fn help_lines(open: bool) -> Vec<String> {
     if open {
         vec![
-            "Commands:".to_string(),
-            "Enter newline".to_string(),
-            "Ctrl+Enter submit".to_string(),
-            "Esc quit".to_string(),
-            "? help".to_string(),
+            "Controls:".to_string(),
+            "Enter newline · F5 submit · Esc quit · ? help".to_string(),
+            "Arrows/Home/End navigate · Shift+Enter newline if reported · Ctrl+Enter submit if supported"
+                .to_string(),
         ]
     } else {
         Vec::new()
