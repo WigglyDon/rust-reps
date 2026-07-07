@@ -535,8 +535,8 @@ fn render_editor_toast(
 
 fn reward_toast_anchor(anchor: EditorAnchor) -> EditorAnchor {
     EditorAnchor {
-        row: anchor.row.saturating_add(1),
-        column: anchor.column,
+        row: anchor.row,
+        column: anchor.column.saturating_add(2),
     }
 }
 
@@ -1438,7 +1438,7 @@ mod tests {
     }
 
     #[test]
-    fn reward_plus_one_renders_one_row_below_captured_cursor_anchor() {
+    fn reward_plus_one_renders_same_line_beside_captured_cursor_anchor() {
         let mut app = TuiApp::new();
         let now = test_now();
         for ch in "fn main() {}".chars() {
@@ -1452,32 +1452,30 @@ mod tests {
         assert_eq!(anchor, EditorAnchor { row: 0, column: 12 });
         assert_eq!(
             reward_toast_anchor(anchor),
-            EditorAnchor { row: 1, column: 12 }
+            EditorAnchor { row: 0, column: 14 }
         );
-        assert_eq!(
-            editor_anchor_position(area, &frame, reward_toast_anchor(anchor), 2),
-            Some((
-                editor_anchor_position(area, &frame, anchor, 2)
-                    .expect("expected cursor position")
-                    .0,
-                editor_anchor_position(area, &frame, anchor, 2)
-                    .expect("expected cursor position")
-                    .1
-                    + 1
-            ))
-        );
+        let cursor_position =
+            editor_anchor_position(area, &frame, anchor, 1).expect("expected cursor position");
+        let reward_position = editor_anchor_position(area, &frame, reward_toast_anchor(anchor), 2)
+            .expect("expected reward position");
+        assert_eq!(reward_position.1, cursor_position.1);
+        assert!(reward_position.0 > cursor_position.0);
+        assert_eq!(reward_position.0.saturating_sub(cursor_position.0), 2);
     }
 
     #[test]
-    fn reward_plus_one_anchor_clamps_inside_editor_area() {
+    fn reward_plus_one_anchor_clamps_on_same_line_near_right_edge() {
         let frame = TuiApp::new().frame();
         let area = Rect::new(0, 0, 20, 3);
-        let anchor = EditorAnchor { row: 99, column: 0 };
+        let anchor = EditorAnchor { row: 0, column: 99 };
+        let cursor_position =
+            editor_anchor_position(area, &frame, anchor, 1).expect("expected cursor position");
+        let reward_position = editor_anchor_position(area, &frame, reward_toast_anchor(anchor), 2)
+            .expect("expected reward position");
 
-        assert_eq!(
-            editor_anchor_position(area, &frame, reward_toast_anchor(anchor), 2),
-            Some((5, 2))
-        );
+        assert_eq!(reward_position.1, cursor_position.1);
+        assert_eq!(reward_position, (17, 1));
+        assert!(reward_position.0 <= cursor_position.0);
     }
 
     #[test]

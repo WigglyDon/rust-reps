@@ -1004,11 +1004,16 @@ fn problem_display_lines(
     prompt: &str,
     wrap_width: usize,
 ) -> Vec<ProblemDisplayLine> {
-    let mut lines = vec![
-        ProblemDisplayLine::blank(),
-        ProblemDisplayLine::header(instruction),
-        ProblemDisplayLine::blank(),
-    ];
+    let mut lines = Vec::new();
+    if should_render_problem_instruction(prompt) {
+        lines.extend([
+            ProblemDisplayLine::blank(),
+            ProblemDisplayLine::header(instruction),
+            ProblemDisplayLine::blank(),
+        ]);
+    } else {
+        lines.push(ProblemDisplayLine::blank());
+    }
     for line in prompt.lines() {
         if line.is_empty() {
             lines.push(ProblemDisplayLine::blank());
@@ -1017,6 +1022,13 @@ fn problem_display_lines(
         }
     }
     lines
+}
+
+fn should_render_problem_instruction(prompt: &str) -> bool {
+    prompt
+        .lines()
+        .find(|line| !line.trim().is_empty())
+        .is_none_or(|line| !is_problem_header(line.trim()))
 }
 
 fn problem_display_lines_for_source_line(line: &str, wrap_width: usize) -> Vec<ProblemDisplayLine> {
@@ -1081,6 +1093,8 @@ fn problem_line_kind(line: &str) -> ProblemLineKind {
         ProblemLineKind::Header
     } else if is_bullet_line(line) {
         ProblemLineKind::Bullet
+    } else if is_standalone_path_or_token(trimmed) {
+        ProblemLineKind::Plain
     } else if preserves_problem_spacing(line) || looks_like_rust_code(trimmed) {
         ProblemLineKind::Code
     } else {
@@ -1121,6 +1135,15 @@ fn looks_like_rust_code(line: &str) -> bool {
         || line.contains("=>")
         || line.contains('{')
         || line.contains('}')
+}
+
+fn is_standalone_path_or_token(line: &str) -> bool {
+    !line.chars().any(char::is_whitespace)
+        && (line.contains("::")
+            || line.contains('/')
+            || line.contains('.')
+            || line.contains('_')
+            || line.contains('-'))
 }
 
 fn is_bullet_line(line: &str) -> bool {
@@ -1209,10 +1232,32 @@ fn wrap_problem_bullet(line: &str, wrap_width: usize) -> Vec<String> {
 fn split_long_segment(text: &str, wrap_width: usize) -> Vec<String> {
     let wrap_width = wrap_width.max(MIN_PROBLEM_WRAP_WIDTH);
     let chars = text.chars().collect::<Vec<_>>();
-    chars
-        .chunks(wrap_width)
-        .map(|chunk| chunk.iter().collect::<String>())
-        .collect()
+    let mut lines = Vec::new();
+    let mut start = 0usize;
+
+    while start < chars.len() {
+        let hard_end = (start + wrap_width).min(chars.len());
+        if hard_end == chars.len() {
+            lines.push(chars[start..hard_end].iter().collect::<String>());
+            break;
+        }
+
+        let end = split_at_preferred_separator(&chars, start, hard_end).unwrap_or(hard_end);
+        lines.push(chars[start..end].iter().collect::<String>());
+        start = end;
+    }
+
+    lines
+}
+
+fn split_at_preferred_separator(chars: &[char], start: usize, hard_end: usize) -> Option<usize> {
+    ((start + 2)..=hard_end)
+        .rev()
+        .find(|&end| is_preferred_break_char(chars[end - 1], chars.get(end).copied()))
+}
+
+fn is_preferred_break_char(ch: char, next: Option<char>) -> bool {
+    matches!(ch, '/' | '.' | '_' | '-') || (ch == ':' && next != Some(':'))
 }
 
 fn split_code_display_line(line: &str, wrap_width: usize) -> Vec<ProblemDisplayLine> {
@@ -1793,8 +1838,8 @@ mod tests {
             .iter()
             .map(|line| line.text.as_str())
             .collect::<Vec<_>>();
-        assert_eq!(&visible[..4], &["", "do this:", "", "task:"]);
-        assert!(visible[4].starts_with("Build the smallest Rust entry point"));
+        assert_eq!(&visible[..2], &["", "task:"]);
+        assert!(visible[2].starts_with("Build the smallest Rust entry point"));
         assert_eq!(
             problem.overflow(5),
             super::ViewportOverflow {
@@ -2057,6 +2102,62 @@ mod tests {
         assert!(wrapped.len() > 1);
         assert!(wrapped.iter().all(|line| line.chars().count() <= 18));
         assert_eq!(wrapped.join(""), line);
+    }
+
+    #[test]
+    fn problem_standalone_paths_split_at_stable_separators_without_code_highlight() {
+        let line = "crate::stress::very::long::module";
+        let wrapped = super::split_display_line(line, 16);
+        let display_lines = super::problem_display_lines_for_source_line(line, 16);
+
+        assert_eq!(
+            wrapped,
+            vec![
+                "crate::stress::".to_string(),
+                "very::long::".to_string(),
+                "module".to_string(),
+            ]
+        );
+        assert!(wrapped.iter().all(|line| line.chars().count() <= 16));
+        assert_eq!(wrapped.join(""), line);
+        assert!(
+            display_lines
+                .iter()
+                .all(|line| line.kind == ProblemLineKind::Plain)
+        );
+        assert!(display_lines.iter().all(|line| line.tokens.is_empty()));
+    }
+
+    #[test]
+    fn prompt_that_already_has_task_label_omits_duplicate_instruction_header() {
+        let lines = super::problem_display_lines("do this:", "task:\nCopy this.", 40);
+        let nonblank = lines
+            .iter()
+            .filter(|line| !line.text.is_empty())
+            .map(|line| line.text.as_str())
+            .collect::<Vec<_>>();
+
+        assert_eq!(nonblank, vec!["task:", "Copy this."]);
+        assert!(!lines.iter().any(|line| line.text == "do this:"));
+    }
+
+    #[test]
+    fn simple_one_line_task_keeps_minimal_instruction_header() {
+        let lines = super::problem_display_lines("do this:", "fn main() {}", 40);
+        let visible = lines
+            .iter()
+            .map(|line| (&line.kind, line.text.as_str()))
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            visible,
+            vec![
+                (&ProblemLineKind::Blank, ""),
+                (&ProblemLineKind::Header, "do this:"),
+                (&ProblemLineKind::Blank, ""),
+                (&ProblemLineKind::Code, "fn main() {}"),
+            ]
+        );
     }
 
     #[test]
