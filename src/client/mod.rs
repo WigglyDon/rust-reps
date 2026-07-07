@@ -410,11 +410,8 @@ impl ClientUiState {
         }
     }
 
-    pub fn take_draft_input(&mut self) -> String {
-        self.show_cursor();
-        let input = self.editor.text();
-        self.editor.clear();
-        input
+    pub fn draft_input(&self) -> String {
+        self.editor.text()
     }
 
     pub fn clear_draft_input(&mut self) {

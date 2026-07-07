@@ -110,15 +110,17 @@ impl TuiApp {
             return;
         }
 
-        let submitted = self.ui_state.take_draft_input();
+        let submitted = self.ui_state.draft_input();
         let command = answer::trim_line_ending(&submitted);
         self.ui_state.clear_reward_event();
         let status_lines = if command == ":q" || command == ":quit" {
+            self.ui_state.clear_draft_input();
             {
                 self.should_quit = true;
                 collect_summary_lines("QUIT", &self.session)
             }
         } else if command == ":help" {
+            self.ui_state.clear_draft_input();
             vec![
                 ":help    show commands".to_string(),
                 ":status  show session status".to_string(),
@@ -128,6 +130,7 @@ impl TuiApp {
                 ":quit    quit".to_string(),
             ]
         } else if command == ":status" {
+            self.ui_state.clear_draft_input();
             vec![
                 "STATUS".to_string(),
                 format!(
@@ -144,11 +147,13 @@ impl TuiApp {
                 format!("Attempts: {}", self.session.attempts()),
             ]
         } else if command == ":list" {
+            self.ui_state.clear_draft_input();
             engine::exercise_packets()
                 .iter()
                 .map(|exercise| format!("{}  {}", exercise.id, exercise.expected_answer))
                 .collect()
         } else if command == ":skip" {
+            self.ui_state.clear_draft_input();
             let _ = self.session.skip();
             self.ui_state.reset_problem_scroll();
             if self.session.is_complete() {
@@ -158,6 +163,7 @@ impl TuiApp {
                 vec!["SKIP".to_string()]
             }
         } else if command.starts_with(':') {
+            self.ui_state.clear_draft_input();
             vec![
                 "UNKNOWN COMMAND".to_string(),
                 "Type :help for commands.".to_string(),
@@ -165,6 +171,7 @@ impl TuiApp {
         } else {
             match self.session.submit_answer(&submitted) {
                 engine::SubmitResult::Correct => {
+                    self.ui_state.clear_draft_input();
                     self.ui_state.start_reward_event(now);
                     self.ui_state.reset_problem_scroll();
                     if self.session.is_complete() {
@@ -185,6 +192,7 @@ impl TuiApp {
                     ]
                 }
                 engine::SubmitResult::NoActiveDrill => {
+                    self.ui_state.clear_draft_input();
                     self.should_quit = true;
                     collect_summary_lines("QUIT", &self.session)
                 }
@@ -341,9 +349,12 @@ mod tests {
         for ch in "wrong".chars() {
             app.handle_action(ClientAction::TypeChar(ch));
         }
+        app.handle_action(ClientAction::MoveCursorLeft);
+        let before_cursor = app.frame().game_window.workbox.cursor;
         app.handle_action_at(ClientAction::Submit, now);
 
-        assert_eq!(app.input(), "");
+        assert_eq!(app.input(), "wrong");
+        assert_eq!(app.frame_at(now).game_window.workbox.cursor, before_cursor);
         assert_eq!(app.session().passed(), 0);
         assert_eq!(app.session().attempts(), 1);
         assert!(!app.frame_at(now).reward_active);
@@ -378,6 +389,7 @@ mod tests {
         assert_eq!(action, ClientAction::Submit);
         app.handle_action_at(action, now);
 
+        assert_eq!(app.input(), "wrong");
         assert_eq!(app.session().passed(), 0);
         assert_eq!(app.session().attempts(), 1);
         assert!(!app.frame_at(now).reward_active);
@@ -659,6 +671,11 @@ mod tests {
                 "fn main() {}".to_string(),
             ]
         );
+        assert_eq!(app.input(), "fn main() {}\n\n");
+        assert_eq!(
+            app.frame().game_window.workbox.lines,
+            vec!["fn main() {}".to_string(), "".to_string(), "".to_string()]
+        );
     }
 
     #[test]
@@ -670,6 +687,11 @@ mod tests {
 
         app.handle_action(ClientAction::Submit);
 
+        assert_eq!(app.input(), "x\ny");
+        assert_eq!(
+            app.frame().game_window.workbox.cursor,
+            crate::client::CursorPosition { line: 1, column: 1 }
+        );
         assert_eq!(app.session().passed(), 0);
         assert_eq!(app.session().attempts(), 1);
         assert_eq!(
@@ -687,6 +709,33 @@ mod tests {
                 "fn main() {}".to_string(),
             ]
         );
+    }
+
+    #[test]
+    fn wrong_submit_can_be_edited_into_correct_answer() {
+        let mut app = TuiApp::new();
+        let now = test_now();
+        for ch in "fn main() }".chars() {
+            app.handle_action(ClientAction::TypeChar(ch));
+        }
+        app.handle_action(ClientAction::MoveCursorLeft);
+
+        app.handle_action_at(ClientAction::Submit, now);
+
+        assert_eq!(app.input(), "fn main() }");
+        assert_eq!(app.session().passed(), 0);
+        assert_eq!(app.session().attempts(), 1);
+
+        app.handle_action(ClientAction::TypeChar('{'));
+        assert_eq!(app.input(), "fn main() {}");
+        app.handle_action_at(ClientAction::Submit, now + Duration::from_millis(1));
+
+        let workbox = app.frame().game_window.workbox;
+        assert_eq!(app.session().passed(), 1);
+        assert_eq!(app.session().attempts(), 2);
+        assert_eq!(workbox.input, "");
+        assert_eq!(workbox.cursor.line, 0);
+        assert_eq!(workbox.cursor.column, 0);
     }
 
     #[test]
