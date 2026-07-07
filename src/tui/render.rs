@@ -1,15 +1,15 @@
 use crate::{
     client::{
-        ClientFrame, CodeToken, EditorViewport, ProblemDisplayLine, ProblemLineKind, RewardFrame,
-        StatusLine, StatusTone,
+        ClientFrame, CodeToken, EditorViewport, FailureFrame, ProblemDisplayLine, ProblemLineKind,
+        RewardFrame, StatusLine, StatusTone,
     },
     tui::{
         app::TuiApp,
         theme::{
-            base_style, border_sweep_style, caret_style, code_token_style, control_hint_style,
-            counter_style, editor_active_line_style, editor_canvas_style, editor_gutter_style,
-            plus_one_style, primary_action_style, problem_header_style, status_tone_style,
-            surface_style,
+            base_style, border_sweep_style, caret_feedback_style, code_token_style,
+            control_hint_style, counter_style, editor_canvas_style, editor_gutter_feedback_style,
+            editor_line_style, plus_one_style, primary_action_style, problem_header_style,
+            status_tone_style, surface_style,
         },
     },
 };
@@ -21,7 +21,7 @@ use ratatui::{
     widgets::{Block, Paragraph},
 };
 
-const FEEDBACK_CHROME_HEIGHT: u16 = 3;
+const FEEDBACK_CHROME_HEIGHT: u16 = 4;
 const PROBLEM_ZONE_HEIGHT: u16 = 6;
 const COMMAND_RAIL_HEIGHT: u16 = 4;
 const MIN_GUTTER_WIDTH: usize = 2;
@@ -284,6 +284,7 @@ fn workbox_lines(client_frame: &ClientFrame, workbox_height: u16) -> Vec<Line<'s
             cursor_column,
             client_frame.game_window.workbox.cursor_visible,
             active,
+            client_frame.failure,
         ));
     }
 
@@ -307,7 +308,18 @@ fn feedback_chrome_lines(client_frame: &ClientFrame) -> Vec<Line<'static>> {
                 code_tokens: Vec::new(),
             }),
     );
-    lines.into_iter().filter_map(feedback_line).collect()
+    let lines = lines
+        .into_iter()
+        .filter_map(feedback_line)
+        .collect::<Vec<_>>();
+    if lines.is_empty() {
+        lines
+    } else {
+        let mut padded = Vec::with_capacity(lines.len() + 1);
+        padded.push(Line::from(""));
+        padded.extend(lines);
+        padded
+    }
 }
 
 fn feedback_height(lines: &[Line<'static>]) -> u16 {
@@ -362,12 +374,9 @@ fn editor_line(
     cursor_column: Option<usize>,
     cursor_visible: bool,
     active: bool,
+    failure: FailureFrame,
 ) -> Line<'static> {
-    let style = if active {
-        editor_active_line_style()
-    } else {
-        editor_canvas_style()
-    };
+    let style = editor_line_style(active, failure);
     Line::from(editor_line_spans(
         line_index,
         gutter_width,
@@ -375,6 +384,7 @@ fn editor_line(
         cursor_column,
         cursor_visible,
         active,
+        failure,
     ))
     .style(style)
 }
@@ -386,18 +396,24 @@ fn editor_line_spans(
     cursor_column: Option<usize>,
     cursor_visible: bool,
     active: bool,
+    failure: FailureFrame,
 ) -> Vec<Span<'static>> {
     let mut spans = vec![Span::styled(
         format!(
             "{line_number:>gutter_width$} │ ",
             line_number = line_index + 1
         ),
-        editor_gutter_style(active),
+        editor_gutter_feedback_style(active, failure),
     )];
 
     if let Some(cursor_column) = cursor_column {
         let cursor = if cursor_visible { "|" } else { " " };
-        spans.extend(code_spans_with_cursor(tokens, cursor_column, cursor));
+        spans.extend(code_spans_with_cursor(
+            tokens,
+            cursor_column,
+            cursor,
+            caret_feedback_style(failure),
+        ));
     } else {
         spans.extend(code_spans(tokens));
     }
@@ -470,6 +486,7 @@ fn code_spans_with_cursor(
     tokens: &[CodeToken],
     cursor_column: usize,
     cursor: &'static str,
+    caret_style: ratatui::style::Style,
 ) -> Vec<Span<'static>> {
     let mut spans = Vec::new();
     let mut chars_before_cursor = 0;
@@ -483,7 +500,7 @@ fn code_spans_with_cursor(
             if !before.is_empty() {
                 spans.push(Span::styled(before, code_token_style(token.kind)));
             }
-            spans.push(Span::styled(cursor.to_string(), caret_style()));
+            spans.push(Span::styled(cursor.to_string(), caret_style));
             if !after.is_empty() {
                 spans.push(Span::styled(after, code_token_style(token.kind)));
             }
@@ -498,7 +515,7 @@ fn code_spans_with_cursor(
     }
 
     if !cursor_inserted {
-        spans.push(Span::styled(cursor.to_string(), caret_style()));
+        spans.push(Span::styled(cursor.to_string(), caret_style));
     }
 
     spans
@@ -588,7 +605,7 @@ mod tests {
         },
     };
     use ratatui::layout::{Alignment, Rect};
-    use ratatui::style::Modifier;
+    use ratatui::style::{Color, Modifier};
 
     fn test_now() -> Instant {
         Instant::now()
@@ -615,6 +632,10 @@ mod tests {
             .collect();
         frame.game_window.problem.viewport = ProblemViewport::with_offset(scroll_offset);
         frame
+    }
+
+    fn red_dominant(color: Color) -> bool {
+        matches!(color, Color::Rgb(red, green, blue) if red > green && red > blue)
     }
 
     #[test]
@@ -1307,6 +1328,79 @@ mod tests {
             .expect("expected not quite feedback");
 
         assert_eq!(try_again.spans[0].style.fg, Some(RUST_REPS_DARK.error));
+    }
+
+    #[test]
+    fn wrong_answer_failure_pulse_tints_active_editor_caret_and_line() {
+        let mut app = TuiApp::new();
+        let now = test_now();
+        for ch in "wrong".chars() {
+            app.handle_action(ClientAction::TypeChar(ch));
+        }
+        app.handle_action_at(ClientAction::Submit, now);
+
+        let frame = app.frame_at(now);
+        let lines = workbox_lines(&frame, SNAPSHOT_WORKBOX_HEIGHT);
+        let active_line = lines
+            .iter()
+            .find(|line| line_text(line) == " 1 │ wrong|")
+            .expect("expected active editor line with preserved wrong answer");
+        let caret = active_line
+            .spans
+            .iter()
+            .find(|span| span.content.as_ref() == "|")
+            .expect("expected rendered caret");
+
+        assert_eq!(
+            active_line.style.bg,
+            Some(RUST_REPS_DARK.editor_failure_line)
+        );
+        assert!(red_dominant(
+            caret.style.fg.expect("expected failure caret foreground")
+        ));
+        assert_ne!(
+            active_line.spans[0].style.fg,
+            Some(RUST_REPS_DARK.text_muted)
+        );
+    }
+
+    #[test]
+    fn status_feedback_has_top_padding() {
+        let mut app = TuiApp::new();
+        for ch in "wrong".chars() {
+            app.handle_action(ClientAction::TypeChar(ch));
+        }
+        app.handle_action(ClientAction::Submit);
+
+        let lines = feedback_chrome_lines(&app.frame());
+
+        assert_eq!(line_text(&lines[0]), "");
+        assert_eq!(line_text(&lines[1]), "not quite");
+        assert_eq!(line_text(&lines[2]), "expected:");
+        assert_eq!(line_text(&lines[3]), "fn main() {}");
+    }
+
+    #[test]
+    fn skip_and_complete_status_feedback_have_top_padding() {
+        let mut skip_app = TuiApp::new();
+        skip_app.handle_action(ClientAction::Skip);
+        let skip_lines = feedback_chrome_lines(&skip_app.frame());
+
+        assert_eq!(line_text(&skip_lines[0]), "");
+        assert_eq!(line_text(&skip_lines[1]), "SKIP");
+
+        let mut complete_app = TuiApp::new();
+        for _ in 0..12 {
+            complete_app.handle_action(ClientAction::Skip);
+        }
+        let complete_lines = feedback_chrome_lines(&complete_app.frame());
+
+        assert_eq!(line_text(&complete_lines[0]), "");
+        assert!(
+            complete_lines
+                .iter()
+                .any(|line| line_text(line) == "COMPLETE")
+        );
     }
 
     #[test]

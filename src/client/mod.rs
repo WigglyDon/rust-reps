@@ -62,6 +62,7 @@ pub const REWARD_DURATION: Duration = Duration::from_millis(2_250);
 pub const REWARD_SWEEP_DURATION: Duration = Duration::from_millis(850);
 pub const REWARD_GAME_GLOW_DELAY: Duration = Duration::from_millis(80);
 pub const REWARD_GAME_GLOW_MAX_INTENSITY: u8 = 58;
+pub const FAILURE_PULSE_DURATION: Duration = Duration::from_millis(520);
 pub const PROBLEM_SCROLL_LINES: usize = 4;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -202,6 +203,67 @@ impl RewardFrame {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct FailureFrame {
+    pub active: bool,
+    pub intensity: u8,
+}
+
+impl FailureFrame {
+    fn idle() -> Self {
+        Self {
+            active: false,
+            intensity: 0,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct FailurePulse {
+    started_at: Option<Instant>,
+    duration: Duration,
+}
+
+impl FailurePulse {
+    fn new() -> Self {
+        Self {
+            started_at: None,
+            duration: FAILURE_PULSE_DURATION,
+        }
+    }
+
+    fn start(&mut self, now: Instant) {
+        self.started_at = Some(now);
+    }
+
+    fn clear(&mut self) {
+        self.started_at = None;
+    }
+
+    fn settle(&mut self, now: Instant) {
+        if !self.frame_at(now).active {
+            self.clear();
+        }
+    }
+
+    fn frame_at(self, now: Instant) -> FailureFrame {
+        let Some(started_at) = self.started_at else {
+            return FailureFrame::idle();
+        };
+        let Some(elapsed) = now.checked_duration_since(started_at) else {
+            return FailureFrame::idle();
+        };
+        if elapsed >= self.duration {
+            return FailureFrame::idle();
+        }
+
+        FailureFrame {
+            active: true,
+            intensity: failure_pulse_intensity_at(elapsed),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct RewardAnimation {
     started_at: Option<Instant>,
     duration: Duration,
@@ -288,6 +350,23 @@ fn reward_sweep_progress_at(elapsed: Duration) -> u8 {
         .clamp(0.0, 100.0) as u8
 }
 
+fn failure_pulse_intensity_at(elapsed: Duration) -> u8 {
+    if elapsed >= FAILURE_PULSE_DURATION {
+        return 0;
+    }
+
+    let hold = Duration::from_millis(120);
+    let intensity = if elapsed < hold {
+        1.0
+    } else {
+        let release_elapsed = elapsed.saturating_sub(hold);
+        let release_duration = FAILURE_PULSE_DURATION.saturating_sub(hold);
+        1.0 - smoothstep(duration_progress(release_elapsed, release_duration))
+    };
+
+    (intensity * 100.0).round().clamp(0.0, 100.0) as u8
+}
+
 fn duration_progress(elapsed: Duration, duration: Duration) -> f32 {
     if duration.is_zero() {
         return 1.0;
@@ -312,6 +391,7 @@ pub struct ClientUiState {
     help_open: bool,
     status_lines: Vec<String>,
     reward_animation: RewardAnimation,
+    failure_pulse: FailurePulse,
 }
 
 impl ClientUiState {
@@ -323,6 +403,7 @@ impl ClientUiState {
             help_open: false,
             status_lines: Vec::new(),
             reward_animation: RewardAnimation::new(),
+            failure_pulse: FailurePulse::new(),
         }
     }
 
@@ -352,6 +433,14 @@ impl ClientUiState {
 
     pub fn reward_active_at(&self, now: Instant) -> bool {
         self.reward_frame_at(now).active
+    }
+
+    pub fn failure_frame_at(&self, now: Instant) -> FailureFrame {
+        self.failure_pulse.frame_at(now)
+    }
+
+    pub fn failure_active_at(&self, now: Instant) -> bool {
+        self.failure_frame_at(now).active
     }
 
     pub fn apply_action(&mut self, action: ClientAction) {
@@ -442,6 +531,18 @@ impl ClientUiState {
     pub fn settle_reward_event(&mut self, now: Instant) {
         self.reward_animation.settle(now);
     }
+
+    pub fn start_failure_pulse(&mut self, now: Instant) {
+        self.failure_pulse.start(now);
+    }
+
+    pub fn clear_failure_pulse(&mut self) {
+        self.failure_pulse.clear();
+    }
+
+    pub fn settle_failure_pulse(&mut self, now: Instant) {
+        self.failure_pulse.settle(now);
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -451,6 +552,8 @@ pub struct ClientFrame {
     pub completed_reps_this_run: usize,
     pub reward: RewardFrame,
     pub reward_active: bool,
+    pub failure: FailureFrame,
+    pub failure_active: bool,
     pub help_chrome: HelpChromeFrame,
 }
 
@@ -555,6 +658,7 @@ pub fn project_client_frame_at(
         .map(|line| tokenize_rust_line(line))
         .collect();
     let reward = ui_state.reward_frame_at(now);
+    let failure = ui_state.failure_frame_at(now);
     let problem_lines = problem_display_lines("do this:", exercise.prompt);
     let problem_viewport = ui_state.problem_viewport().clamped(problem_lines.len());
 
@@ -583,6 +687,8 @@ pub fn project_client_frame_at(
         completed_reps_this_run: snapshot.stats.passed,
         reward,
         reward_active: reward.active,
+        failure,
+        failure_active: failure.active,
         help_chrome: HelpChromeFrame {
             open: ui_state.help_open(),
             lines: help_lines(ui_state.help_open()),
@@ -782,11 +888,12 @@ mod tests {
     use std::time::{Duration, Instant};
 
     use super::{
-        ClientAction, ClientUiState, CodeTokenKind, CursorPosition, PROBLEM_SCROLL_LINES,
-        ProblemDisplayLine, ProblemLineKind, ProblemView, ProblemViewport, REWARD_ATTACK_DURATION,
-        REWARD_DURATION, REWARD_GAME_GLOW_DELAY, REWARD_GAME_GLOW_MAX_INTENSITY,
-        REWARD_PLUS_ONE_BODY_DURATION, REWARD_RELEASE_DURATION, REWARD_SWEEP_DURATION, StatusTone,
-        project_client_frame, project_client_frame_at, tokenize_rust_line,
+        ClientAction, ClientUiState, CodeTokenKind, CursorPosition, FAILURE_PULSE_DURATION,
+        PROBLEM_SCROLL_LINES, ProblemDisplayLine, ProblemLineKind, ProblemView, ProblemViewport,
+        REWARD_ATTACK_DURATION, REWARD_DURATION, REWARD_GAME_GLOW_DELAY,
+        REWARD_GAME_GLOW_MAX_INTENSITY, REWARD_PLUS_ONE_BODY_DURATION, REWARD_RELEASE_DURATION,
+        REWARD_SWEEP_DURATION, StatusTone, project_client_frame, project_client_frame_at,
+        tokenize_rust_line,
     };
     use crate::engine;
 
@@ -1100,6 +1207,8 @@ mod tests {
         assert_eq!(frame.reward.game_glow_intensity, 0);
         assert!(!frame.reward.show_plus_one);
         assert!(!frame.reward_active);
+        assert_eq!(frame.failure.intensity, 0);
+        assert!(!frame.failure_active);
     }
 
     #[test]
@@ -1245,6 +1354,46 @@ mod tests {
 
         ui_state.clear_reward_event();
         assert!(!ui_state.reward_active_at(now));
+    }
+
+    #[test]
+    fn failure_pulse_starts_short_and_expires() {
+        let mut ui_state = ClientUiState::new();
+        let now = test_now();
+
+        assert_eq!(FAILURE_PULSE_DURATION, Duration::from_millis(520));
+        assert!(FAILURE_PULSE_DURATION >= Duration::from_millis(350));
+        assert!(FAILURE_PULSE_DURATION <= Duration::from_millis(700));
+        assert!(FAILURE_PULSE_DURATION < REWARD_DURATION);
+        assert!(!ui_state.failure_active_at(now));
+
+        ui_state.start_failure_pulse(now);
+        let start = ui_state.failure_frame_at(now);
+        let mid = ui_state.failure_frame_at(now + FAILURE_PULSE_DURATION / 2);
+        let expired = ui_state.failure_frame_at(now + FAILURE_PULSE_DURATION);
+
+        assert!(start.active);
+        assert_eq!(start.intensity, 100);
+        assert!(mid.active);
+        assert!(mid.intensity < start.intensity);
+        assert!(mid.intensity > 0);
+        assert!(!expired.active);
+        assert_eq!(expired.intensity, 0);
+
+        ui_state.settle_failure_pulse(now + FAILURE_PULSE_DURATION);
+        assert!(!ui_state.failure_active_at(now + FAILURE_PULSE_DURATION));
+    }
+
+    #[test]
+    fn failure_pulse_can_be_cleared_without_session_truth() {
+        let mut ui_state = ClientUiState::new();
+        let now = test_now();
+
+        ui_state.start_failure_pulse(now);
+        assert!(ui_state.failure_active_at(now));
+
+        ui_state.clear_failure_pulse();
+        assert!(!ui_state.failure_active_at(now));
     }
 
     #[test]

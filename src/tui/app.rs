@@ -99,10 +99,15 @@ impl TuiApp {
 
     pub fn settle_animations(&mut self, now: Instant) {
         self.ui_state.settle_reward_event(now);
+        self.ui_state.settle_failure_pulse(now);
     }
 
     pub fn reward_active_at(&self, now: Instant) -> bool {
         self.ui_state.reward_active_at(now)
+    }
+
+    pub fn visual_feedback_active_at(&self, now: Instant) -> bool {
+        self.reward_active_at(now) || self.ui_state.failure_active_at(now)
     }
 
     fn submit_current_input(&mut self, now: Instant) {
@@ -114,12 +119,14 @@ impl TuiApp {
         let command = answer::trim_line_ending(&submitted);
         self.ui_state.clear_reward_event();
         let status_lines = if command == ":q" || command == ":quit" {
+            self.ui_state.clear_failure_pulse();
             self.ui_state.clear_draft_input();
             {
                 self.should_quit = true;
                 collect_summary_lines("QUIT", &self.session)
             }
         } else if command == ":help" {
+            self.ui_state.clear_failure_pulse();
             self.ui_state.clear_draft_input();
             vec![
                 ":help    show commands".to_string(),
@@ -130,6 +137,7 @@ impl TuiApp {
                 ":quit    quit".to_string(),
             ]
         } else if command == ":status" {
+            self.ui_state.clear_failure_pulse();
             self.ui_state.clear_draft_input();
             vec![
                 "STATUS".to_string(),
@@ -147,12 +155,14 @@ impl TuiApp {
                 format!("Attempts: {}", self.session.attempts()),
             ]
         } else if command == ":list" {
+            self.ui_state.clear_failure_pulse();
             self.ui_state.clear_draft_input();
             engine::exercise_packets()
                 .iter()
                 .map(|exercise| format!("{}  {}", exercise.id, exercise.expected_answer))
                 .collect()
         } else if command == ":skip" {
+            self.ui_state.clear_failure_pulse();
             self.ui_state.clear_draft_input();
             let _ = self.session.skip();
             self.ui_state.reset_problem_scroll();
@@ -163,6 +173,7 @@ impl TuiApp {
                 vec!["SKIP".to_string()]
             }
         } else if command.starts_with(':') {
+            self.ui_state.clear_failure_pulse();
             self.ui_state.clear_draft_input();
             vec![
                 "UNKNOWN COMMAND".to_string(),
@@ -171,6 +182,7 @@ impl TuiApp {
         } else {
             match self.session.submit_answer(&submitted) {
                 engine::SubmitResult::Correct => {
+                    self.ui_state.clear_failure_pulse();
                     self.ui_state.clear_draft_input();
                     self.ui_state.start_reward_event(now);
                     self.ui_state.reset_problem_scroll();
@@ -184,6 +196,7 @@ impl TuiApp {
                     }
                 }
                 engine::SubmitResult::TryAgain => {
+                    self.ui_state.start_failure_pulse(now);
                     let expected = self.active_exercise().expected_answer;
                     vec![
                         "not quite".to_string(),
@@ -192,6 +205,7 @@ impl TuiApp {
                     ]
                 }
                 engine::SubmitResult::NoActiveDrill => {
+                    self.ui_state.clear_failure_pulse();
                     self.ui_state.clear_draft_input();
                     self.should_quit = true;
                     collect_summary_lines("QUIT", &self.session)
@@ -207,6 +221,7 @@ impl TuiApp {
         }
 
         self.ui_state.clear_reward_event();
+        self.ui_state.clear_failure_pulse();
         self.ui_state.clear_draft_input();
         self.ui_state.reset_problem_scroll();
         let _ = self.session.skip();
@@ -222,6 +237,7 @@ impl TuiApp {
     fn quit(&mut self) {
         self.should_quit = true;
         self.ui_state.clear_reward_event();
+        self.ui_state.clear_failure_pulse();
         self.ui_state
             .set_status_lines(collect_summary_lines("QUIT", &self.session));
     }
@@ -241,7 +257,8 @@ mod tests {
 
     use super::TuiApp;
     use crate::client::{
-        ClientAction, REWARD_ATTACK_DURATION, REWARD_DURATION, REWARD_PLUS_ONE_BODY_DURATION,
+        ClientAction, FAILURE_PULSE_DURATION, REWARD_ATTACK_DURATION, REWARD_DURATION,
+        REWARD_PLUS_ONE_BODY_DURATION,
     };
     use crate::tui::input::classify_key_event;
     use crossterm::event::{KeyCode, KeyEvent};
@@ -258,6 +275,7 @@ mod tests {
         assert_eq!(app.frame_at(now).completed_reps_this_run, 0);
         assert!(!app.frame_at(now).reward_active);
         assert!(!app.frame_at(now).reward.show_plus_one);
+        assert!(!app.frame_at(now).failure_active);
     }
 
     #[test]
@@ -276,6 +294,7 @@ mod tests {
         assert_eq!(app.frame_at(now).reward.game_glow_intensity, 0);
         assert!(app.frame_at(now).reward_active);
         assert!(app.frame_at(now).reward.show_plus_one);
+        assert!(!app.frame_at(now).failure_active);
         assert_eq!(
             app.session()
                 .current_exercise()
@@ -304,6 +323,7 @@ mod tests {
         assert_eq!(app.session().passed(), 1);
         assert!(app.frame_at(now).reward_active);
         assert!(app.frame_at(now).reward.show_plus_one);
+        assert!(!app.frame_at(now).failure_active);
     }
 
     #[test]
@@ -360,6 +380,8 @@ mod tests {
         assert!(!app.frame_at(now).reward_active);
         assert!(!app.frame_at(now).reward.show_plus_one);
         assert_eq!(app.frame_at(now).reward.game_glow_intensity, 0);
+        assert!(app.frame_at(now).failure_active);
+        assert_eq!(app.frame_at(now).failure.intensity, 100);
         assert_eq!(
             app.session()
                 .current_exercise()
@@ -395,12 +417,35 @@ mod tests {
         assert!(!app.frame_at(now).reward_active);
         assert!(!app.frame_at(now).reward.show_plus_one);
         assert_eq!(app.frame_at(now).reward.game_glow_intensity, 0);
+        assert!(app.frame_at(now).failure_active);
         assert_eq!(
             app.status_lines(),
             &[
                 "not quite".to_string(),
                 "expected:".to_string(),
                 "fn main() {}".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn unknown_command_does_not_start_answer_failure_pulse() {
+        let mut app = TuiApp::new();
+        let now = test_now();
+        for ch in ":unknown".chars() {
+            app.handle_action(ClientAction::TypeChar(ch));
+        }
+
+        app.handle_action_at(ClientAction::Submit, now);
+
+        assert_eq!(app.session().attempts(), 0);
+        assert!(!app.frame_at(now).reward_active);
+        assert!(!app.frame_at(now).failure_active);
+        assert_eq!(
+            app.status_lines(),
+            &[
+                "UNKNOWN COMMAND".to_string(),
+                "Type :help for commands.".to_string(),
             ]
         );
     }
@@ -422,6 +467,7 @@ mod tests {
         assert!(!app.frame_at(now).reward_active);
         assert!(!app.frame_at(now).reward.show_plus_one);
         assert_eq!(app.frame_at(now).reward.game_glow_intensity, 0);
+        assert!(!app.frame_at(now).failure_active);
         assert_eq!(
             app.session()
                 .current_exercise()
@@ -463,6 +509,26 @@ mod tests {
         assert!(!app.frame_at(now).reward_active);
         assert!(!app.frame_at(now).reward.show_plus_one);
         assert_eq!(app.frame_at(now).reward.game_glow_intensity, 0);
+        assert!(!app.frame_at(now).failure_active);
+    }
+
+    #[test]
+    fn wrong_answer_failure_pulse_expires_after_duration() {
+        let mut app = TuiApp::new();
+        let now = test_now();
+        for ch in "wrong".chars() {
+            app.handle_action(ClientAction::TypeChar(ch));
+        }
+
+        app.handle_action_at(ClientAction::Submit, now);
+
+        assert!(app.frame_at(now).failure_active);
+        assert!(app.visual_feedback_active_at(now));
+
+        let expired_at = now + FAILURE_PULSE_DURATION;
+        assert!(!app.frame_at(expired_at).failure_active);
+        app.settle_animations(expired_at);
+        assert!(!app.visual_feedback_active_at(expired_at));
     }
 
     #[test]
@@ -484,6 +550,7 @@ mod tests {
         assert_eq!(app.frame_at(now).completed_reps_this_run, 1);
         assert!(!app.frame_at(now).reward_active);
         assert!(!app.frame_at(now).reward.show_plus_one);
+        assert!(app.frame_at(now + Duration::from_millis(50)).failure_active);
     }
 
     #[test]
@@ -505,6 +572,7 @@ mod tests {
         assert_eq!(app.session().skipped(), 1);
         assert!(!app.frame_at(now).reward_active);
         assert!(!app.frame_at(now).reward.show_plus_one);
+        assert!(!app.frame_at(now + Duration::from_millis(50)).failure_active);
     }
 
     #[test]
@@ -725,6 +793,7 @@ mod tests {
         assert_eq!(app.input(), "fn main() }");
         assert_eq!(app.session().passed(), 0);
         assert_eq!(app.session().attempts(), 1);
+        assert!(app.frame_at(now).failure_active);
 
         app.handle_action(ClientAction::TypeChar('{'));
         assert_eq!(app.input(), "fn main() {}");
@@ -736,6 +805,7 @@ mod tests {
         assert_eq!(workbox.input, "");
         assert_eq!(workbox.cursor.line, 0);
         assert_eq!(workbox.cursor.column, 0);
+        assert!(!app.frame_at(now + Duration::from_millis(1)).failure_active);
     }
 
     #[test]
