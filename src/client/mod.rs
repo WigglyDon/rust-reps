@@ -53,10 +53,10 @@ impl CodeToken {
     }
 }
 
-pub const REWARD_ATTACK_DURATION: Duration = Duration::from_millis(120);
-pub const REWARD_PLUS_ONE_HOLD_DURATION: Duration = Duration::from_millis(220);
-pub const REWARD_RELEASE_DURATION: Duration = Duration::from_millis(1_100);
-pub const REWARD_DURATION: Duration = Duration::from_millis(1_440);
+pub const REWARD_ATTACK_DURATION: Duration = Duration::from_millis(300);
+pub const REWARD_PLUS_ONE_HOLD_DURATION: Duration = Duration::from_millis(500);
+pub const REWARD_RELEASE_DURATION: Duration = Duration::from_millis(2_500);
+pub const REWARD_DURATION: Duration = Duration::from_millis(3_300);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct RewardFrame {
@@ -568,7 +568,7 @@ fn help_lines(open: bool) -> Vec<String> {
     if open {
         vec![
             "Controls:".to_string(),
-            "Enter newline · F5 submit · Esc quit · ? help".to_string(),
+            "F5 submit · Enter newline · Esc quit · ? help".to_string(),
             "Arrows/Home/End navigate · Shift+Enter newline if reported · Ctrl+Enter submit if supported"
                 .to_string(),
         ]
@@ -806,6 +806,16 @@ mod tests {
         assert_eq!(frame.reward.intensity, 0);
         assert!(!frame.reward.show_plus_one);
         assert!(!frame.reward_active);
+    }
+
+    #[test]
+    fn reward_timing_uses_slower_bottom_rail_pulse() {
+        assert_eq!(REWARD_ATTACK_DURATION, Duration::from_millis(300));
+        assert_eq!(REWARD_PLUS_ONE_HOLD_DURATION, Duration::from_millis(500));
+        assert_eq!(REWARD_RELEASE_DURATION, Duration::from_millis(2_500));
+        assert_eq!(REWARD_DURATION, Duration::from_millis(3_300));
+        assert!(REWARD_DURATION >= Duration::from_millis(3_000));
+        assert!(REWARD_RELEASE_DURATION > REWARD_ATTACK_DURATION);
     }
 
     #[test]
