@@ -4,8 +4,8 @@ use crate::{
         app::TuiApp,
         theme::{
             base_style, border_sweep_style, caret_style, code_token_style, control_hint_style,
-            counter_style, editor_gutter_style, plus_one_style, problem_header_style,
-            status_tone_style, surface_style,
+            counter_style, editor_gutter_style, plus_one_style, primary_action_style,
+            problem_header_style, status_tone_style, surface_style,
         },
     },
 };
@@ -18,8 +18,10 @@ use ratatui::{
 };
 
 const FEEDBACK_CHROME_HEIGHT: u16 = 3;
-const BOTTOM_CHROME_HEIGHT: u16 = 3;
-const CONTROL_HINTS: &str = "F5 submit · Enter newline · Esc quit · ? help";
+const PROBLEM_ZONE_HEIGHT: u16 = 6;
+const COMMAND_RAIL_HEIGHT: u16 = 4;
+const PRIMARY_ACTION_HINT: &str = "F5 submit";
+const SECONDARY_CONTROL_HINTS: &str = "Enter newline · Esc quit · ? help";
 #[cfg(test)]
 const SNAPSHOT_WORKBOX_HEIGHT: u16 = 6;
 
@@ -30,66 +32,54 @@ pub(crate) fn render_ui(frame: &mut Frame<'_>, app: &TuiApp, now: std::time::Ins
 
 fn render_client_frame(frame: &mut Frame<'_>, client_frame: &ClientFrame) {
     let feedback_lines = feedback_chrome_lines(client_frame);
-    let chunks = layout_chunks(frame.area(), feedback_height(&feedback_lines));
+    let shell_area = frame.area();
+    let chunks = layout_chunks(shell_area, feedback_height(&feedback_lines));
 
-    frame.render_widget(Block::default().style(base_style()), frame.area());
+    frame.render_widget(Block::default().style(base_style()), shell_area);
 
     let game_block = Block::default().style(surface_style());
-    let game_area = chunks[0];
-    let game_body = game_area.inner(Margin {
-        vertical: 1,
-        horizontal: 1,
-    });
-    let game_chunks = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
-        .split(game_body);
-
-    frame.render_widget(game_block, game_area);
-    render_game_border(frame, game_area, client_frame.reward);
+    frame.render_widget(game_block, shell_area);
+    render_game_border(frame, shell_area, client_frame.reward);
 
     frame.render_widget(
         Paragraph::new(Text::from(problem_lines(client_frame))).style(base_style()),
-        game_chunks[0],
+        chunks[0],
     );
 
     frame.render_widget(
-        Paragraph::new(Text::from(workbox_lines(
-            client_frame,
-            game_chunks[1].height,
-        )))
-        .style(base_style()),
-        game_chunks[1],
+        Paragraph::new(Text::from(workbox_lines(client_frame, chunks[1].height)))
+            .style(base_style()),
+        chunks[1],
     );
 
     if !feedback_lines.is_empty() {
         frame.render_widget(
             Paragraph::new(Text::from(feedback_lines)).style(base_style()),
-            chunks[1],
+            chunks[2],
         );
     }
 
-    let bottom_area = chunks[2].inner(Margin {
-        vertical: 0,
-        horizontal: 1,
-    });
-    frame.render_widget(
-        Paragraph::new(Text::from(bottom_chrome_lines(client_frame)))
-            .alignment(bottom_chrome_alignment())
-            .style(base_style()),
-        bottom_area,
-    );
+    render_command_rail(frame, chunks[3], client_frame);
 }
 
 fn layout_chunks(area: Rect, feedback_height: u16) -> std::rc::Rc<[Rect]> {
+    let body = shell_body(area);
     Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Min(12),
+            Constraint::Length(PROBLEM_ZONE_HEIGHT),
+            Constraint::Min(6),
             Constraint::Length(feedback_height),
-            Constraint::Length(BOTTOM_CHROME_HEIGHT),
+            Constraint::Length(COMMAND_RAIL_HEIGHT),
         ])
-        .split(area)
+        .split(body)
+}
+
+fn shell_body(area: Rect) -> Rect {
+    area.inner(Margin {
+        vertical: 1,
+        horizontal: 2,
+    })
 }
 
 fn render_game_border(frame: &mut Frame<'_>, area: Rect, reward: RewardFrame) {
@@ -275,6 +265,38 @@ fn feedback_height(lines: &[Line<'static>]) -> u16 {
     FEEDBACK_CHROME_HEIGHT
 }
 
+fn render_command_rail(frame: &mut Frame<'_>, area: Rect, client_frame: &ClientFrame) {
+    frame.render_widget(Block::default().style(base_style()), area);
+
+    let rail = area.inner(Margin {
+        vertical: 0,
+        horizontal: 1,
+    });
+    let rows = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(1),
+            Constraint::Length(1),
+            Constraint::Min(0),
+        ])
+        .split(rail);
+    let groups = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Percentage(55), Constraint::Percentage(45)])
+        .split(rows[1]);
+
+    frame.render_widget(
+        Paragraph::new(Line::from(primary_rail_spans(client_frame))).style(base_style()),
+        groups[0],
+    );
+    frame.render_widget(
+        Paragraph::new(Line::from(secondary_rail_spans()))
+            .alignment(Alignment::Right)
+            .style(base_style()),
+        groups[1],
+    );
+}
+
 fn visible_editor_rows(workbox_height: u16) -> usize {
     usize::from(workbox_height.saturating_sub(1).max(1))
 }
@@ -323,26 +345,35 @@ fn feedback_line(status_line: StatusLine) -> Option<Line<'static>> {
     )))
 }
 
+#[cfg(test)]
 fn bottom_chrome_lines(client_frame: &ClientFrame) -> Vec<Line<'static>> {
-    let mut reward_spans = vec![Span::styled(
+    vec![
+        Line::from(""),
+        Line::from(primary_rail_spans(client_frame)),
+        Line::from(secondary_rail_spans()),
+        Line::from(""),
+    ]
+}
+
+fn primary_rail_spans(client_frame: &ClientFrame) -> Vec<Span<'static>> {
+    let mut spans = vec![Span::styled(
         format!("reps {}", client_frame.completed_reps_this_run),
         counter_style(),
     )];
     if client_frame.reward.show_plus_one {
-        reward_spans.push(Span::styled(
-            "      +1",
-            plus_one_style(client_frame.reward),
-        ));
+        spans.push(Span::styled("   +1", plus_one_style(client_frame.reward)));
     }
 
-    vec![
-        Line::from(""),
-        Line::from(reward_spans),
-        Line::from(Span::styled(
-            format!("  {CONTROL_HINTS}"),
-            control_hint_style(),
-        )),
-    ]
+    spans.push(Span::raw("   "));
+    spans.push(Span::styled(PRIMARY_ACTION_HINT, primary_action_style()));
+    spans
+}
+
+fn secondary_rail_spans() -> Vec<Span<'static>> {
+    vec![Span::styled(
+        SECONDARY_CONTROL_HINTS.to_string(),
+        control_hint_style(),
+    )]
 }
 
 fn code_spans(tokens: &[CodeToken]) -> Vec<Span<'static>> {
@@ -402,6 +433,7 @@ fn split_at_char_column(text: &str, column: usize) -> (String, String) {
     )
 }
 
+#[cfg(test)]
 fn bottom_chrome_alignment() -> Alignment {
     Alignment::Left
 }
@@ -456,10 +488,11 @@ mod tests {
     use std::time::{Duration, Instant};
 
     use super::{
-        BOTTOM_CHROME_HEIGHT, CONTROL_HINTS, FEEDBACK_CHROME_HEIGHT, border_sweep_cell_progress,
-        bottom_chrome_alignment, bottom_chrome_lines, feedback_chrome_lines, feedback_height,
-        layout_chunks, line_text, problem_lines, render_snapshot,
-        render_snapshot_with_workbox_height, reward_sweep_intensity_at,
+        COMMAND_RAIL_HEIGHT, FEEDBACK_CHROME_HEIGHT, PRIMARY_ACTION_HINT, PROBLEM_ZONE_HEIGHT,
+        SECONDARY_CONTROL_HINTS, border_sweep_cell_progress, bottom_chrome_alignment,
+        bottom_chrome_lines, feedback_chrome_lines, feedback_height, layout_chunks, line_text,
+        problem_lines, render_snapshot, render_snapshot_with_workbox_height,
+        reward_sweep_intensity_at,
     };
     use crate::{
         client::{
@@ -524,6 +557,36 @@ mod tests {
     }
 
     #[test]
+    fn render_snapshot_shows_problem_editor_and_command_rail_zones() {
+        let app = TuiApp::new();
+        let snapshot = render_snapshot(&app.frame());
+        let problem_position = snapshot
+            .game
+            .iter()
+            .position(|line| line == "do this:")
+            .expect("expected problem header");
+        let editor_position = snapshot
+            .game
+            .iter()
+            .position(|line| line == "1 │ |")
+            .expect("expected editor gutter and caret");
+        let rail_position = snapshot
+            .bottom_chrome
+            .iter()
+            .position(|line| line.contains(PRIMARY_ACTION_HINT))
+            .expect("expected command rail primary action");
+
+        assert!(problem_position < editor_position);
+        assert_eq!(rail_position, 1);
+        assert!(
+            snapshot
+                .bottom_chrome
+                .iter()
+                .any(|line| line.contains(SECONDARY_CONTROL_HINTS))
+        );
+    }
+
+    #[test]
     fn editor_surface_snapshot_includes_gutter_spacing_and_reserved_space() {
         let app = TuiApp::new();
         let frame = app.frame();
@@ -584,7 +647,7 @@ mod tests {
     }
 
     #[test]
-    fn idle_counter_renders_as_reps_zero_bottom_left() {
+    fn idle_counter_renders_inside_command_rail() {
         let app = TuiApp::new();
         let frame = app.frame();
         let snapshot = render_snapshot(&frame);
@@ -592,8 +655,9 @@ mod tests {
             snapshot.bottom_chrome,
             vec![
                 "".to_string(),
-                "reps 0".to_string(),
-                format!("  {CONTROL_HINTS}")
+                format!("reps 0   {PRIMARY_ACTION_HINT}"),
+                SECONDARY_CONTROL_HINTS.to_string(),
+                "".to_string(),
             ]
         );
         assert_eq!(bottom_chrome_alignment(), Alignment::Left);
@@ -607,20 +671,15 @@ mod tests {
     fn bottom_chrome_shows_minimal_control_hints_without_dashboard_stats() {
         let app = TuiApp::new();
         let snapshot = render_snapshot(&app.frame());
-        let controls = snapshot
-            .bottom_chrome
-            .last()
-            .expect("expected bottom rail control line");
+        let rail = snapshot.bottom_chrome.join("\n");
 
         for expected in ["F5 submit", "Enter newline", "Esc quit", "? help"] {
-            assert!(controls.contains(expected), "missing {expected}");
+            assert!(rail.contains(expected), "missing {expected}");
         }
-        let f5 = controls.find("F5 submit").expect("missing F5 submit");
-        let enter = controls
-            .find("Enter newline")
-            .expect("missing Enter newline");
-        let esc = controls.find("Esc quit").expect("missing Esc quit");
-        let help = controls.find("? help").expect("missing ? help");
+        let f5 = rail.find("F5 submit").expect("missing F5 submit");
+        let enter = rail.find("Enter newline").expect("missing Enter newline");
+        let esc = rail.find("Esc quit").expect("missing Esc quit");
+        let help = rail.find("? help").expect("missing ? help");
         assert!(f5 < enter);
         assert!(enter < esc);
         assert!(esc < help);
@@ -633,18 +692,23 @@ mod tests {
                 );
             }
         }
-        assert!(snapshot.bottom_chrome.iter().any(|line| line == "reps 0"));
+        assert!(
+            snapshot
+                .bottom_chrome
+                .iter()
+                .any(|line| line == &format!("reps 0   {PRIMARY_ACTION_HINT}"))
+        );
     }
 
     #[test]
-    fn bottom_rail_renders_counter_prominently() {
+    fn command_rail_groups_counter_reward_and_primary_action() {
         let app = TuiApp::new();
         let frame = app.frame();
         let lines = bottom_chrome_lines(&frame);
         let reward_line = lines.get(1).expect("expected bottom rail reward line");
         let controls_line = lines.get(2).expect("expected bottom rail controls line");
 
-        assert_eq!(lines.len(), usize::from(BOTTOM_CHROME_HEIGHT));
+        assert_eq!(lines.len(), usize::from(COMMAND_RAIL_HEIGHT));
         assert_eq!(reward_line.spans[0].content.as_ref(), "reps 0");
         assert_eq!(
             reward_line.spans[0].style.fg,
@@ -656,10 +720,17 @@ mod tests {
                 .add_modifier
                 .contains(Modifier::BOLD)
         );
-        assert_eq!(reward_line.spans.len(), 1);
+        assert_eq!(reward_line.spans[1].content.as_ref(), "   ");
+        assert_eq!(reward_line.spans[2].content.as_ref(), PRIMARY_ACTION_HINT);
+        assert!(
+            reward_line.spans[2]
+                .style
+                .add_modifier
+                .contains(Modifier::BOLD)
+        );
         assert_eq!(
             controls_line.spans[0].content.as_ref(),
-            format!("  {CONTROL_HINTS}")
+            SECONDARY_CONTROL_HINTS
         );
         assert_eq!(
             controls_line.spans[0].style.fg,
@@ -682,13 +753,11 @@ mod tests {
         assert_eq!(line.spans[0].content.as_ref(), "reps 1");
         assert_eq!(line.spans[0].style.fg, Some(RUST_REPS_DARK.counter_normal));
         assert!(line.spans[0].style.add_modifier.contains(Modifier::BOLD));
-        assert_eq!(line.spans[1].content.as_ref(), "      +1");
+        assert_eq!(line.spans[1].content.as_ref(), "   +1");
         assert_eq!(line.spans[1].style.fg, Some(RUST_REPS_DARK.reward_plus_one));
         assert!(line.spans[1].style.add_modifier.contains(Modifier::BOLD));
-        assert_eq!(
-            lines[2].spans[0].content.as_ref(),
-            format!("  {CONTROL_HINTS}")
-        );
+        assert_eq!(line.spans[3].content.as_ref(), PRIMARY_ACTION_HINT);
+        assert_eq!(lines[2].spans[0].content.as_ref(), SECONDARY_CONTROL_HINTS);
     }
 
     #[test]
@@ -703,7 +772,7 @@ mod tests {
         let lines = bottom_chrome_lines(&frame);
         let line = lines.get(1).expect("expected bottom rail reward line");
         assert_eq!(line.spans[0].content.as_ref(), "reps 1");
-        assert_eq!(line.spans[1].content.as_ref(), "      +1");
+        assert_eq!(line.spans[1].content.as_ref(), "   +1");
         assert_ne!(line.spans[1].style.fg, Some(RUST_REPS_DARK.reward_plus_one));
 
         let frame = app.frame_at(now + REWARD_ATTACK_DURATION);
@@ -717,14 +786,14 @@ mod tests {
         let line = lines.get(1).expect("expected bottom rail reward line");
         assert_eq!(line.spans[0].content.as_ref(), "reps 1");
         assert_eq!(line.spans[0].style.fg, Some(RUST_REPS_DARK.counter_normal));
-        assert_eq!(line.spans[1].content.as_ref(), "      +1");
+        assert_eq!(line.spans[1].content.as_ref(), "   +1");
         assert_eq!(line.spans[1].style.fg, Some(RUST_REPS_DARK.reward_plus_one));
 
         let frame = app.frame_at(now + REWARD_DURATION - Duration::from_millis(500));
         let lines = bottom_chrome_lines(&frame);
         let line = lines.get(1).expect("expected bottom rail reward line");
         assert_eq!(line.spans[0].content.as_ref(), "reps 1");
-        assert_eq!(line.spans[1].content.as_ref(), "      +1");
+        assert_eq!(line.spans[1].content.as_ref(), "   +1");
         assert_ne!(line.spans[1].style.fg, Some(RUST_REPS_DARK.reward_plus_one));
 
         let frame = app.frame_at(now + REWARD_DURATION);
@@ -732,11 +801,9 @@ mod tests {
         let line = lines.get(1).expect("expected bottom rail reward line");
         assert_eq!(line.spans[0].content.as_ref(), "reps 1");
         assert_eq!(line.spans[0].style.fg, Some(RUST_REPS_DARK.counter_normal));
-        assert_eq!(line.spans.len(), 1);
-        assert_eq!(
-            lines[2].spans[0].content.as_ref(),
-            format!("  {CONTROL_HINTS}")
-        );
+        assert!(!line_text(line).contains("+1"));
+        assert!(line_text(line).contains(PRIMARY_ACTION_HINT));
+        assert_eq!(lines[2].spans[0].content.as_ref(), SECONDARY_CONTROL_HINTS);
     }
 
     #[test]
@@ -753,7 +820,8 @@ mod tests {
 
         assert_eq!(line.spans[0].content.as_ref(), "reps 1");
         assert_eq!(line.spans[0].style.fg, Some(RUST_REPS_DARK.counter_normal));
-        assert_eq!(line.spans.len(), 1);
+        assert!(!line_text(line).contains("+1"));
+        assert!(line_text(line).contains(PRIMARY_ACTION_HINT));
     }
 
     #[test]
@@ -897,7 +965,10 @@ mod tests {
         let success_chunks = layout_chunks(area, success_height);
         assert_eq!(idle_chunks, wrong_chunks);
         assert_eq!(wrong_chunks, success_chunks);
-        assert_eq!(idle_chunks[2].height, BOTTOM_CHROME_HEIGHT);
+        assert_eq!(idle_chunks.len(), 4);
+        assert_eq!(idle_chunks[0].height, PROBLEM_ZONE_HEIGHT);
+        assert_eq!(idle_chunks[2].height, FEEDBACK_CHROME_HEIGHT);
+        assert_eq!(idle_chunks[3].height, COMMAND_RAIL_HEIGHT);
     }
 
     #[test]

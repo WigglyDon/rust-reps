@@ -164,6 +164,13 @@ pub(crate) fn control_hint_style() -> Style {
         .bg(RUST_REPS_DARK.background)
 }
 
+pub(crate) fn primary_action_style() -> Style {
+    Style::default()
+        .fg(RUST_REPS_DARK.text_normal)
+        .bg(RUST_REPS_DARK.background)
+        .add_modifier(Modifier::BOLD)
+}
+
 pub(crate) fn caret_style() -> Style {
     Style::default()
         .fg(RUST_REPS_DARK.caret)
