@@ -194,7 +194,7 @@ pub(crate) fn primary_action_style() -> Style {
 
 pub(crate) fn footer_counter_style() -> Style {
     Style::default()
-        .fg(RUST_REPS_DARK.success)
+        .fg(RUST_REPS_DARK.reward_plus_one)
         .bg(RUST_REPS_DARK.background)
         .add_modifier(Modifier::BOLD)
 }

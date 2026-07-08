@@ -138,36 +138,32 @@ fn shell_layout(area: Rect, feedback_height: u16) -> ShellLayout {
     let rail_height = TOP_COUNTER_HEIGHT.min(body.height.saturating_sub(reserved_panes));
     let feedback_height =
         feedback_height.min(body.height.saturating_sub(rail_height + reserved_panes));
-    let panel_height = body.height.saturating_sub(rail_height + feedback_height);
+    let controls_height = COMMAND_RAIL_HEIGHT.min(
+        body.height
+            .saturating_sub(rail_height + feedback_height + reserved_panes),
+    );
+    let panel_height = body
+        .height
+        .saturating_sub(rail_height + controls_height + feedback_height);
 
     let vertical = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
             Constraint::Length(rail_height),
             Constraint::Length(panel_height),
+            Constraint::Length(controls_height),
             Constraint::Length(feedback_height),
         ])
         .split(body);
     let panels = panel_layout(vertical[1]);
-    let controls_height = COMMAND_RAIL_HEIGHT.min(panels[0].height.saturating_sub(1));
-    let editor = Rect::new(
-        panels[0].x,
-        panels[0].y,
-        panels[0].width,
-        panels[0].height.saturating_sub(controls_height),
-    );
-    let controls = Rect::new(
-        panels[0].x,
-        panels[0].bottom().saturating_sub(controls_height),
-        panels[0].width,
-        controls_height,
-    );
+    let editor = panels[0];
+    let controls = Rect::new(body.x, vertical[2].y, body.width, controls_height);
     let rail = Rect::new(body.x, body.y, panels[0].width, rail_height);
     ShellLayout {
         editor,
         problem: panels[1],
         controls,
-        feedback: vertical[2],
+        feedback: vertical[3],
         rail,
     }
 }
@@ -346,12 +342,12 @@ fn border_symbol(area: Rect, x: u16, y: u16) -> &'static str {
     let top = area.top();
     let bottom = area.bottom() - 1;
     match (x, y) {
-        (x, y) if x == left && y == top => "┌",
-        (x, y) if x == right && y == top => "┐",
-        (x, y) if x == left && y == bottom => "└",
-        (x, y) if x == right && y == bottom => "┘",
-        (_, y) if y == top || y == bottom => "─",
-        _ => "│",
+        (x, y) if x == left && y == top => "┏",
+        (x, y) if x == right && y == top => "┓",
+        (x, y) if x == left && y == bottom => "┗",
+        (x, y) if x == right && y == bottom => "┛",
+        (_, y) if y == top || y == bottom => "━",
+        _ => "┃",
     }
 }
 
@@ -650,6 +646,7 @@ fn render_editor_toasts(frame: &mut Frame<'_>, area: Rect, client_frame: &Client
             client_frame.reward.anchor.map(reward_toast_anchor),
             "+1",
             plus_one_style(client_frame.reward),
+            ToastPlacement::CursorLocal,
         );
     }
     if client_frame.failure.active {
@@ -660,6 +657,7 @@ fn render_editor_toasts(frame: &mut Frame<'_>, area: Rect, client_frame: &Client
             client_frame.failure.anchor,
             "not quite",
             status_tone_style(StatusTone::TryAgain),
+            ToastPlacement::AfterVisibleLine,
         );
     }
     if client_frame.skip.active {
@@ -670,6 +668,7 @@ fn render_editor_toasts(frame: &mut Frame<'_>, area: Rect, client_frame: &Client
             client_frame.skip.anchor,
             "skipped",
             status_tone_style(StatusTone::Warning),
+            ToastPlacement::AfterVisibleLine,
         );
     }
     if client_frame.format.active {
@@ -688,8 +687,15 @@ fn render_editor_toasts(frame: &mut Frame<'_>, area: Rect, client_frame: &Client
             client_frame.format.anchor,
             kind.message(),
             style,
+            ToastPlacement::AfterVisibleLine,
         );
     }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ToastPlacement {
+    CursorLocal,
+    AfterVisibleLine,
 }
 
 fn render_editor_toast(
@@ -699,6 +705,7 @@ fn render_editor_toast(
     anchor: Option<EditorAnchor>,
     text: &str,
     style: ratatui::style::Style,
+    placement: ToastPlacement,
 ) {
     let Some(anchor) = anchor else {
         return;
@@ -711,6 +718,14 @@ fn render_editor_toast(
     if x >= right_limit {
         return;
     }
+    if placement == ToastPlacement::AfterVisibleLine {
+        let max_x = right_limit.saturating_sub(usize_to_u16(text_width));
+        let after_cursor = x.saturating_add(1);
+        let after_line = editor_visible_line_end_x(area, client_frame, anchor)
+            .map(|line_end| line_end.saturating_add(1))
+            .unwrap_or(after_cursor);
+        x = after_cursor.max(after_line).min(max_x);
+    }
     let text_width = text_width.min(usize::from(right_limit.saturating_sub(x)));
     let buffer = frame.buffer_mut();
     for ch in text.chars().take(text_width) {
@@ -722,7 +737,7 @@ fn render_editor_toast(
 fn reward_toast_anchor(anchor: EditorAnchor) -> EditorAnchor {
     EditorAnchor {
         row: anchor.row,
-        column: anchor.column.saturating_add(2),
+        column: anchor.column.saturating_add(1),
     }
 }
 
@@ -744,10 +759,7 @@ fn editor_anchor_position(
     }
 
     let total_lines = client_frame.game_window.workbox.lines.len().max(1);
-    let content_left = area
-        .left()
-        .saturating_add(usize_to_u16(gutter_width(total_lines)))
-        .saturating_add(3);
+    let content_left = editor_content_left(area, total_lines);
     let indicator_safe_right = area.right().saturating_sub(1);
     if content_left >= indicator_safe_right {
         return None;
@@ -756,6 +768,38 @@ fn editor_anchor_position(
     let desired_x = content_left.saturating_add(usize_to_u16(anchor.column));
     let max_x = indicator_safe_right.saturating_sub(usize_to_u16(text_width));
     Some((desired_x.min(max_x).max(content_left), y))
+}
+
+fn editor_visible_line_end_x(
+    area: Rect,
+    client_frame: &ClientFrame,
+    anchor: EditorAnchor,
+) -> Option<u16> {
+    if area.width == 0 {
+        return None;
+    }
+
+    let workbox = &client_frame.game_window.workbox;
+    let total_lines = workbox.lines.len().max(1);
+    let content_left = editor_content_left(area, total_lines);
+    let line_index = workbox.viewport.first_line.saturating_add(anchor.row);
+    let line_len = workbox
+        .lines
+        .get(line_index)
+        .map(|line| line.chars().count())
+        .unwrap_or(0);
+    let visible_columns = editor_text_columns_for_area(area, total_lines);
+    let visible_len = line_len
+        .saturating_sub(workbox.viewport.first_column)
+        .min(visible_columns);
+
+    Some(content_left.saturating_add(usize_to_u16(visible_len)))
+}
+
+fn editor_content_left(area: Rect, total_lines: usize) -> u16 {
+    area.left()
+        .saturating_add(usize_to_u16(gutter_width(total_lines)))
+        .saturating_add(3)
 }
 
 fn usize_to_u16(value: usize) -> u16 {
@@ -1008,14 +1052,15 @@ mod tests {
         client::{
             ClientAction, CursorPosition, EditorAnchor, FormatFrame, FormatNoticeKind,
             ProblemDisplayLine, ProblemViewport, REWARD_ATTACK_DURATION, REWARD_DURATION,
-            REWARD_PLUS_ONE_BODY_DURATION, REWARD_PLUS_ONE_DURATION, RewardFrame, StatusTone,
-            ViewportOverflow,
+            REWARD_PLUS_ONE_BODY_DURATION, REWARD_PLUS_ONE_DURATION, RewardFrame, SkipFrame,
+            StatusTone, ViewportOverflow,
         },
         engine, lab,
         tui::{
             TuiApp,
             theme::{
-                RUST_REPS_DARK, base_style, border_style, editor_canvas_style, status_tone_style,
+                RUST_REPS_DARK, base_style, border_style, editor_canvas_style,
+                footer_counter_style, status_tone_style,
             },
         },
     };
@@ -1204,10 +1249,7 @@ mod tests {
         let layout = shell_layout(Rect::new(0, 0, 100, 32), FEEDBACK_CHROME_HEIGHT);
 
         assert_eq!(layout.problem.y, layout.editor.y);
-        assert_eq!(
-            layout.problem.height,
-            layout.editor.height + layout.controls.height
-        );
+        assert_eq!(layout.problem.height, layout.editor.height);
         assert!(layout.editor.width > 45);
         assert!(layout.problem.width > 30);
         assert!(layout.editor.width > layout.problem.width);
@@ -1217,9 +1259,10 @@ mod tests {
         assert!(layout.rail.bottom() <= layout.problem.top());
         assert_eq!(layout.controls.height, COMMAND_RAIL_HEIGHT);
         assert_eq!(layout.controls.left(), layout.editor.left());
-        assert_eq!(layout.controls.right(), layout.editor.right());
+        assert!(layout.controls.right() > layout.editor.right());
+        assert!(layout.controls.right() >= layout.problem.right());
         assert_eq!(layout.controls.top(), layout.editor.bottom());
-        assert_eq!(layout.controls.bottom(), layout.problem.bottom());
+        assert_eq!(layout.problem.bottom(), layout.controls.top());
         assert!(layout.feedback.top() >= layout.problem.bottom());
     }
 
@@ -1232,10 +1275,11 @@ mod tests {
         assert_eq!(layout.rail.bottom(), layout.editor.top());
         assert_eq!(layout.feedback.height, 0);
         assert_eq!(layout.controls.bottom(), layout.feedback.top());
-        assert_eq!(layout.problem.bottom(), layout.feedback.top());
+        assert_eq!(layout.problem.bottom(), layout.controls.top());
         assert_eq!(layout.controls.height, COMMAND_RAIL_HEIGHT);
         assert_eq!(layout.controls.left(), layout.editor.left());
-        assert_eq!(layout.controls.right(), layout.editor.right());
+        assert!(layout.controls.right() > layout.editor.right());
+        assert!(layout.controls.right() >= layout.problem.right());
     }
 
     #[test]
@@ -1756,6 +1800,23 @@ mod tests {
     }
 
     #[test]
+    fn counter_style_is_stronger_and_outer_border_uses_heavy_glyphs() {
+        let app = TuiApp::new();
+        let rendered = render_frame_text(&app.frame(), 80, 20);
+
+        assert_eq!(
+            footer_counter_style().fg,
+            Some(RUST_REPS_DARK.reward_plus_one)
+        );
+        assert!(rendered.contains('┏'));
+        assert!(rendered.contains('┓'));
+        assert!(rendered.contains('┗'));
+        assert!(rendered.contains('┛'));
+        assert!(rendered.contains('━'));
+        assert!(rendered.contains('┃'));
+    }
+
+    #[test]
     fn editor_local_controls_render_under_editor_in_order() {
         let controls = render_editor_controls_line(80);
         let f1 = controls
@@ -1778,6 +1839,23 @@ mod tests {
     }
 
     #[test]
+    fn command_row_uses_full_inner_width_to_keep_esc_visible() {
+        let layout = shell_layout(Rect::new(0, 0, 72, 18), FEEDBACK_CHROME_HEIGHT);
+        let controls = render_editor_controls_line(layout.controls.width);
+
+        assert!(layout.controls.width > layout.editor.width);
+        assert!(controls.contains(FORMAT_ACTION_HINT));
+        assert!(controls.contains(PRIMARY_ACTION_HINT));
+        assert!(controls.contains(SKIP_ACTION_HINT));
+        assert!(controls.contains(QUIT_ACTION_HINT));
+        assert_eq!(
+            controls.trim_end().rfind(QUIT_ACTION_HINT),
+            controls.find(QUIT_ACTION_HINT)
+        );
+        assert!(!controls.trim_end().ends_with('·'));
+    }
+
+    #[test]
     fn format_feedback_renders_locally_without_result_block() {
         let mut frame = TuiApp::new().frame();
         frame.format = FormatFrame {
@@ -1796,6 +1874,52 @@ mod tests {
         assert!(snapshot.bottom_chrome[0].contains(FORMAT_ACTION_HINT));
         assert!(!snapshot.bottom_chrome[0].contains("formatted"));
         assert!(!snapshot.bottom_chrome[0].contains("format failed"));
+    }
+
+    #[test]
+    fn local_toasts_keep_one_cell_gap_from_editor_text() {
+        let now = test_now();
+        let mut wrong_app = TuiApp::new();
+        type_text(&mut wrong_app, "wrong");
+        wrong_app.handle_action_at(ClientAction::Submit, now);
+        let wrong_frame = wrong_app.frame_at(now);
+        let wrong_rendered = render_frame_text(&wrong_frame, 96, 24);
+        assert!(wrong_rendered.contains("wrong not quite"));
+        assert!(!wrong_rendered.contains("wrongnot quite"));
+        assert_eq!(wrong_frame.game_window.workbox.input, "wrong");
+
+        let mut skip_frame = TuiApp::new().frame();
+        skip_frame.skip = SkipFrame {
+            active: true,
+            intensity: 100,
+            anchor: Some(EditorAnchor { row: 0, column: 0 }),
+        };
+        let skip_rendered = render_frame_text(&skip_frame, 96, 24);
+        let skip_line = skip_rendered
+            .lines()
+            .find(|line| line.contains("skipped"))
+            .expect("expected skipped toast");
+        assert!(skip_line.contains("│  skipped"));
+
+        let mut format_app = TuiApp::new();
+        type_text(&mut format_app, "abc");
+        let mut format_frame = format_app.frame();
+        format_frame.format = FormatFrame {
+            active: true,
+            intensity: 100,
+            kind: Some(FormatNoticeKind::Formatted),
+            anchor: Some(EditorAnchor { row: 0, column: 3 }),
+        };
+        format_frame.format_active = true;
+        let format_rendered = render_frame_text(&format_frame, 96, 24);
+        assert!(format_rendered.contains("abc formatted"));
+        assert!(!format_rendered.contains("abcformatted"));
+
+        format_frame.format.kind = Some(FormatNoticeKind::Unavailable);
+        let unavailable_rendered = render_frame_text(&format_frame, 96, 24);
+        assert!(unavailable_rendered.contains("abc rustfmt unavailable"));
+        assert!(!unavailable_rendered.contains("abcrustfmt unavailable"));
+        assert_eq!(format_frame.game_window.workbox.input, "abc");
     }
 
     #[test]
@@ -1903,7 +2027,7 @@ mod tests {
         assert_eq!(anchor, EditorAnchor { row: 0, column: 12 });
         assert_eq!(
             reward_toast_anchor(anchor),
-            EditorAnchor { row: 0, column: 14 }
+            EditorAnchor { row: 0, column: 13 }
         );
         let cursor_position =
             editor_anchor_position(area, &frame, anchor, 1).expect("expected cursor position");
@@ -1911,7 +2035,22 @@ mod tests {
             .expect("expected reward position");
         assert_eq!(reward_position.1, cursor_position.1);
         assert!(reward_position.0 > cursor_position.0);
-        assert_eq!(reward_position.0.saturating_sub(cursor_position.0), 2);
+        assert_eq!(reward_position.0.saturating_sub(cursor_position.0), 1);
+    }
+
+    #[test]
+    fn reward_plus_one_uses_small_cursor_offset_not_centered_position() {
+        let frame = TuiApp::new().frame();
+        let area = Rect::new(0, 0, 60, 5);
+        let anchor = EditorAnchor { row: 0, column: 1 };
+        let cursor_position =
+            editor_anchor_position(area, &frame, anchor, 1).expect("expected cursor position");
+        let reward_position = editor_anchor_position(area, &frame, reward_toast_anchor(anchor), 2)
+            .expect("expected reward position");
+
+        assert_eq!(reward_position.1, cursor_position.1);
+        assert_eq!(reward_position.0.saturating_sub(cursor_position.0), 1);
+        assert!(reward_position.0 < area.width / 2);
     }
 
     #[test]
@@ -2187,10 +2326,7 @@ mod tests {
         assert_eq!(idle_layout, wrong_layout);
         assert_eq!(wrong_layout, success_layout);
         assert_eq!(idle_layout.problem.y, idle_layout.editor.y);
-        assert_eq!(
-            idle_layout.problem.height,
-            idle_layout.editor.height + idle_layout.controls.height
-        );
+        assert_eq!(idle_layout.problem.height, idle_layout.editor.height);
         assert!(idle_layout.editor.right() < idle_layout.problem.left());
         assert!(idle_layout.problem.height > SNAPSHOT_PROBLEM_HEIGHT);
         assert!(idle_layout.editor.height > SNAPSHOT_WORKBOX_HEIGHT);

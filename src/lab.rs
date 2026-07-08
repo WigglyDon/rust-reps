@@ -131,22 +131,15 @@ fn many_short_problem_lines(number: usize) -> (String, String) {
 
 fn deep_indented_code_block(number: usize) -> (String, String) {
     (
-        format!(
-            "task:\n\
-             Copy a small nested Rust block for lab case {number}.\n\
-             \n\
-             sample shape:\n\
-             fn main() {{\n\
-                 if true {{\n\
-                     while false {{\n\
-                         println!(\"never\");\n\
-                     }}\n\
-                 }}\n\
-             }}\n\
-             \n\
-             purpose:\n\
-             This stresses indentation, gutter alignment, and syntax colors."
-        ),
+        format!("task:\nCopy a small nested Rust block for lab case {number}.\n\n")
+            + "sample shape:\n"
+            + "fn main() {\n"
+            + "    if true {\n"
+            + "        println!(\"nested\");\n"
+            + "    }\n"
+            + "}\n\n"
+            + "purpose:\n"
+            + "This stresses indentation, gutter alignment, and syntax colors.",
         concat!(
             "fn main() {\n",
             "    if true {\n",
@@ -348,10 +341,21 @@ mod tests {
     #[test]
     fn lab_fixtures_cover_scroll_multiline_and_syntax_pressure() {
         let long_problem = exercise_packet_at(0);
+        let nested = exercise_packet_at(2);
         let multiline = exercise_packet_at(MULTILINE_SOLUTION_FAMILY_INDEX);
         let syntax = exercise_packet_at(SYNTAX_SAMPLER_FAMILY_INDEX);
 
         assert!(long_problem.prompt.lines().count() > 20);
+        assert!(
+            nested
+                .prompt
+                .contains("fn main() {\n    if true {\n        println!(\"nested\");\n    }\n}")
+        );
+        assert!(
+            nested
+                .expected_answer
+                .contains("fn main() {\n    if true {\n        println!(\"nested\");\n    }\n}")
+        );
         assert!(multiline.expected_answer.contains('\n'));
         assert_eq!(multiline.expected_answer, MULTILINE_SOLUTION_EXPECTED);
         assert!(syntax.prompt.contains("Vec<T>"));
