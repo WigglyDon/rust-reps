@@ -798,14 +798,12 @@ fn feedback_height(lines: &[Line<'static>]) -> u16 {
 }
 
 fn render_top_banner(frame: &mut Frame<'_>, area: Rect, client_frame: &ClientFrame) {
-    frame.render_widget(Block::default().style(base_style()), area);
-
     let rail = area.inner(Margin {
         vertical: 0,
         horizontal: 1,
     });
     frame.render_widget(
-        Paragraph::new(Line::from(counter_spans(client_frame))).style(base_style()),
+        Paragraph::new(Line::from(counter_spans(client_frame))).style(surface_style()),
         rail,
     );
 }
@@ -1046,7 +1044,7 @@ mod tests {
             TuiApp,
             theme::{
                 RUST_REPS_DARK, base_style, border_style, editor_canvas_style,
-                footer_counter_style, status_tone_style,
+                footer_counter_style, plus_one_style, status_tone_style, surface_style,
             },
         },
     };
@@ -1056,7 +1054,7 @@ mod tests {
         layout::{Alignment, Position, Rect},
         style::{Color, Modifier},
         text::Text,
-        widgets::Paragraph,
+        widgets::{Block, Paragraph},
     };
 
     fn test_now() -> Instant {
@@ -1116,6 +1114,22 @@ mod tests {
             .map(|x| buffer[(x, 0)].symbol())
             .collect::<Vec<_>>()
             .concat()
+    }
+
+    fn render_top_banner_backgrounds(
+        client_frame: &crate::client::ClientFrame,
+        width: u16,
+    ) -> Vec<Color> {
+        let backend = TestBackend::new(width, 1);
+        let mut terminal = Terminal::new(backend).expect("expected test terminal");
+        terminal
+            .draw(|frame| {
+                frame.render_widget(Block::default().style(surface_style()), frame.area());
+                render_top_banner(frame, Rect::new(0, 0, width, 1), client_frame);
+            })
+            .expect("expected banner render");
+        let buffer = terminal.backend().buffer();
+        (0..width).map(|x| buffer[(x, 0)].bg).collect()
     }
 
     fn render_editor_controls_line(width: u16) -> String {
@@ -1787,6 +1801,41 @@ mod tests {
         assert!(!line.contains("wheel"));
         assert!(!line.contains("PageUp"));
         assert!(!line.contains("PageDown"));
+    }
+
+    #[test]
+    fn counter_banner_background_matches_shell_surface() {
+        let app = TuiApp::new();
+        let backgrounds = render_top_banner_backgrounds(&app.frame(), 24);
+
+        assert_eq!(footer_counter_style().bg, Some(RUST_REPS_DARK.surface));
+        assert!(
+            backgrounds
+                .iter()
+                .all(|background| *background == RUST_REPS_DARK.surface)
+        );
+    }
+
+    #[test]
+    fn counter_plus_one_background_matches_shell_surface() {
+        let mut app = TuiApp::new();
+        let now = test_now();
+        for ch in "fn main() {}".chars() {
+            app.handle_action(ClientAction::TypeChar(ch));
+        }
+        app.handle_action_at(ClientAction::Submit, now);
+        let frame = app.frame_at(now + REWARD_ATTACK_DURATION);
+        let line = render_top_banner_line(&frame, 24);
+        let backgrounds = render_top_banner_backgrounds(&frame, 24);
+        let plus_one_start = line.find("+1").expect("expected counter-local +1");
+
+        assert_eq!(
+            plus_one_style(frame.reward).bg,
+            Some(RUST_REPS_DARK.surface)
+        );
+        assert_eq!(backgrounds[plus_one_start], RUST_REPS_DARK.surface);
+        assert_eq!(backgrounds[plus_one_start + 1], RUST_REPS_DARK.surface);
+        assert!(line.trim_start().starts_with("● 1 +1"));
     }
 
     #[test]

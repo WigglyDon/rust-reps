@@ -548,6 +548,10 @@ enum CharacterEdit {
 }
 
 fn character_edit_for(editor: &EditorBuffer, ch: char) -> CharacterEdit {
+    if ch == '"' && editor.next_char_is('"') {
+        return CharacterEdit::SkipCloser;
+    }
+
     if let Some(close) = matching_close_for_open(ch) {
         return CharacterEdit::InsertPair(ch, close);
     }
@@ -588,12 +592,13 @@ fn matching_close_for_open(ch: char) -> Option<char> {
         '{' => Some('}'),
         '(' => Some(')'),
         '[' => Some(']'),
+        '"' => Some('"'),
         _ => None,
     }
 }
 
 fn is_closing_delimiter(ch: char) -> bool {
-    matches!(ch, '}' | ')' | ']')
+    matches!(ch, '}' | ')' | ']' | '"')
 }
 
 #[cfg(test)]
@@ -732,6 +737,16 @@ mod tests {
     }
 
     #[test]
+    fn typing_double_quote_creates_pair_with_cursor_between() {
+        let mut editor = EditorBuffer::new();
+
+        editor.insert_char('"');
+
+        assert_eq!(editor.text(), "\"\"");
+        assert_eq!(editor.cursor(), CursorPosition { line: 0, column: 1 });
+    }
+
+    #[test]
     fn smart_pair_insertion_preserves_surrounding_text() {
         let mut editor = EditorBuffer::new();
         editor.set_text("fn main");
@@ -744,6 +759,18 @@ mod tests {
     }
 
     #[test]
+    fn smart_quote_pair_insertion_preserves_surrounding_text() {
+        let mut editor = EditorBuffer::new();
+        editor.set_text("let s = value;");
+        editor.set_cursor(CursorPosition { line: 0, column: 8 });
+
+        editor.insert_char('"');
+
+        assert_eq!(editor.text(), "let s = \"\"value;");
+        assert_eq!(editor.cursor(), CursorPosition { line: 0, column: 9 });
+    }
+
+    #[test]
     fn smart_pair_insertion_preserves_indentation_without_tabs() {
         let mut editor = EditorBuffer::new();
         editor.insert_string("    ");
@@ -751,6 +778,18 @@ mod tests {
         editor.insert_char('{');
 
         assert_eq!(editor.text(), "    {}");
+        assert_eq!(editor.cursor(), CursorPosition { line: 0, column: 5 });
+        assert!(!editor.text().contains('\t'));
+    }
+
+    #[test]
+    fn smart_quote_pair_insertion_preserves_indentation_without_tabs() {
+        let mut editor = EditorBuffer::new();
+        editor.insert_string("    ");
+
+        editor.insert_char('"');
+
+        assert_eq!(editor.text(), "    \"\"");
         assert_eq!(editor.cursor(), CursorPosition { line: 0, column: 5 });
         assert!(!editor.text().contains('\t'));
     }
@@ -831,6 +870,29 @@ mod tests {
     }
 
     #[test]
+    fn closing_quote_skips_over_generated_pair_close() {
+        let mut editor = EditorBuffer::new();
+        editor.insert_char('"');
+
+        editor.insert_char('"');
+
+        assert_eq!(editor.text(), "\"\"");
+        assert_eq!(editor.cursor(), CursorPosition { line: 0, column: 2 });
+    }
+
+    #[test]
+    fn quote_before_existing_quote_skips_over_it_without_duplicate() {
+        let mut editor = EditorBuffer::new();
+        editor.set_text("\"value\"");
+        editor.set_cursor(CursorPosition { line: 0, column: 6 });
+
+        editor.insert_char('"');
+
+        assert_eq!(editor.text(), "\"value\"");
+        assert_eq!(editor.cursor(), CursorPosition { line: 0, column: 7 });
+    }
+
+    #[test]
     fn closing_delimiter_inserts_normally_when_next_char_differs() {
         let mut editor = EditorBuffer::new();
         editor.insert_string("abc");
@@ -886,6 +948,17 @@ mod tests {
     }
 
     #[test]
+    fn backspace_between_empty_quotes_deletes_both_quotes() {
+        let mut editor = EditorBuffer::new();
+        editor.insert_char('"');
+
+        editor.backspace();
+
+        assert_eq!(editor.text(), "");
+        assert_eq!(editor.cursor(), CursorPosition { line: 0, column: 0 });
+    }
+
+    #[test]
     fn backspace_inside_non_empty_pair_deletes_previous_character_only() {
         let mut editor = EditorBuffer::new();
         editor.insert_char('{');
@@ -894,6 +967,18 @@ mod tests {
         editor.backspace();
 
         assert_eq!(editor.text(), "{}");
+        assert_eq!(editor.cursor(), CursorPosition { line: 0, column: 1 });
+    }
+
+    #[test]
+    fn backspace_inside_non_empty_quotes_deletes_previous_character_only() {
+        let mut editor = EditorBuffer::new();
+        editor.insert_char('"');
+        editor.insert_char('x');
+
+        editor.backspace();
+
+        assert_eq!(editor.text(), "\"\"");
         assert_eq!(editor.cursor(), CursorPosition { line: 0, column: 1 });
     }
 

@@ -2970,10 +2970,11 @@ mod tests {
         ui_state.apply_action(ClientAction::TypeChar('{'));
         ui_state.apply_action(ClientAction::TypeChar('('));
         ui_state.apply_action(ClientAction::TypeChar('['));
+        ui_state.apply_action(ClientAction::TypeChar('"'));
 
         let view = ui_state.editor_view();
-        assert_eq!(view.text, "{([])}");
-        assert_eq!(view.cursor, CursorPosition { line: 0, column: 3 });
+        assert_eq!(view.text, "{([\"\"])}");
+        assert_eq!(view.cursor, CursorPosition { line: 0, column: 4 });
         assert_eq!(session.passed(), 0);
         assert_eq!(session.attempts(), 0);
         assert_eq!(
