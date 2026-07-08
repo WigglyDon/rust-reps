@@ -1138,8 +1138,20 @@ fn looks_like_rust_code(line: &str) -> bool {
         || line.starts_with("//")
         || line.contains("::")
         || line.contains("=>")
+        || looks_like_rust_statement_fragment(line)
         || line.contains('{')
         || line.contains('}')
+}
+
+fn looks_like_rust_statement_fragment(line: &str) -> bool {
+    line.ends_with(';')
+        && (line.contains("+=")
+            || line.contains("-=")
+            || line.contains("*=")
+            || line.contains("/=")
+            || line.contains('=')
+            || line.contains('(')
+            || line.chars().any(|ch| ch.is_ascii_digit()))
 }
 
 fn is_standalone_path_or_token(line: &str) -> bool {
@@ -2208,6 +2220,67 @@ mod tests {
                     && line.text == "answer shape:")
         );
         assert_eq!(expected, "fn main() {}");
+    }
+
+    #[test]
+    fn task_code_fragment_uses_same_tokens_as_editor_code() {
+        let line = "score += 1;";
+        let lines = super::problem_display_lines_for_source_line(line, 80);
+        let editor_tokens = tokenize_rust_line(line);
+
+        assert_eq!(lines.len(), 1);
+        assert_eq!(lines[0].kind, ProblemLineKind::Code);
+        assert_eq!(lines[0].tokens, editor_tokens);
+        assert!(
+            lines[0]
+                .tokens
+                .iter()
+                .any(|token| { token.kind == CodeTokenKind::Punctuation && token.text == "+=" })
+        );
+        assert!(
+            lines[0]
+                .tokens
+                .iter()
+                .any(|token| token.kind == CodeTokenKind::Number && token.text == "1")
+        );
+    }
+
+    #[test]
+    fn task_let_statement_gets_keyword_and_number_tokens() {
+        let line = "let answer = 42;";
+        let lines = super::problem_display_lines_for_source_line(line, 80);
+
+        assert_eq!(lines.len(), 1);
+        assert_eq!(lines[0].kind, ProblemLineKind::Code);
+        assert!(
+            lines[0]
+                .tokens
+                .iter()
+                .any(|token| token.kind == CodeTokenKind::Keyword && token.text == "let")
+        );
+        assert!(
+            lines[0]
+                .tokens
+                .iter()
+                .any(|token| token.kind == CodeTokenKind::Number && token.text == "42")
+        );
+    }
+
+    #[test]
+    fn answer_shape_snippet_is_code_styled() {
+        let lines = super::problem_display_lines("do this:", "answer shape:\nscore += 1;", 24);
+        let snippet = lines
+            .iter()
+            .find(|line| line.text == "score += 1;")
+            .expect("expected answer-shape code snippet");
+
+        assert_eq!(snippet.kind, ProblemLineKind::Code);
+        assert!(
+            snippet
+                .tokens
+                .iter()
+                .any(|token| token.kind == CodeTokenKind::Number && token.text == "1")
+        );
     }
 
     #[test]

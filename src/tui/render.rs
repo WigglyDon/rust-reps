@@ -104,7 +104,7 @@ fn render_client_frame(frame: &mut Frame<'_>, client_frame: &ClientFrame) {
         );
     }
 
-    render_command_rail(frame, layout.rail, client_frame);
+    render_top_banner(frame, layout.rail, client_frame);
 }
 
 pub(crate) fn input_layout(area: Rect, app: &TuiApp, now: std::time::Instant) -> ShellLayout {
@@ -129,17 +129,17 @@ fn shell_layout(area: Rect, feedback_height: u16) -> ShellLayout {
     let vertical = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
+            Constraint::Length(rail_height),
             Constraint::Length(panel_height),
             Constraint::Length(feedback_height),
-            Constraint::Length(rail_height),
         ])
         .split(body);
-    let panels = panel_layout(vertical[0]);
+    let panels = panel_layout(vertical[1]);
     ShellLayout {
         editor: panels[0],
         problem: panels[1],
-        feedback: vertical[1],
-        rail: vertical[2],
+        feedback: vertical[2],
+        rail: vertical[0],
     }
 }
 
@@ -354,9 +354,8 @@ fn border_sweep_cell_progress(x: u16, y: u16, area: Rect) -> f32 {
     }
 
     let horizontal = f32::from(x.saturating_sub(area.left())) / f32::from(area.width - 1);
-    let vertical_from_bottom =
-        f32::from((area.bottom() - 1).saturating_sub(y)) / f32::from(area.height - 1);
-    ((horizontal + vertical_from_bottom) / 2.0).clamp(0.0, 1.0)
+    let vertical_from_top = f32::from(y.saturating_sub(area.top())) / f32::from(area.height - 1);
+    ((horizontal + vertical_from_top) / 2.0).clamp(0.0, 1.0)
 }
 
 fn smoothstep(progress: f32) -> f32 {
@@ -629,7 +628,7 @@ fn feedback_height(lines: &[Line<'static>]) -> u16 {
     FEEDBACK_CHROME_HEIGHT
 }
 
-fn render_command_rail(frame: &mut Frame<'_>, area: Rect, client_frame: &ClientFrame) {
+fn render_top_banner(frame: &mut Frame<'_>, area: Rect, client_frame: &ClientFrame) {
     frame.render_widget(Block::default().style(base_style()), area);
 
     let rail = area.inner(Margin {
@@ -774,9 +773,10 @@ mod tests {
         SKIP_ACTION_HINT, SNAPSHOT_PROBLEM_HEIGHT, SNAPSHOT_WORKBOX_HEIGHT,
         border_sweep_cell_progress, bottom_chrome_alignment, bottom_chrome_lines,
         editor_anchor_position, editor_cursor_at, feedback_chrome_lines, feedback_height,
-        gutter_width, layout_chunks, line_text, problem_lines, render_snapshot,
-        render_snapshot_with_workbox_height, reward_sweep_intensity_at, reward_toast_anchor,
-        shell_layout, usize_to_u16, viewport_indicator_cells, visible_editor_rows, workbox_lines,
+        gutter_width, layout_chunks, line_text, problem_display_line, problem_lines,
+        render_snapshot, render_snapshot_with_workbox_height, reward_sweep_intensity_at,
+        reward_toast_anchor, shell_layout, usize_to_u16, viewport_indicator_cells,
+        visible_editor_rows, workbox_lines,
     };
     use crate::{
         client::{
@@ -901,7 +901,7 @@ mod tests {
     }
 
     #[test]
-    fn normal_terminal_layout_uses_side_by_side_problem_and_editor_panels() {
+    fn normal_terminal_layout_uses_top_banner_and_side_by_side_panels() {
         let layout = shell_layout(Rect::new(0, 0, 100, 32), FEEDBACK_CHROME_HEIGHT);
 
         assert_eq!(layout.problem.y, layout.editor.y);
@@ -910,8 +910,22 @@ mod tests {
         assert!(layout.problem.width > 30);
         assert!(layout.editor.width > layout.problem.width);
         assert!(layout.editor.right() < layout.problem.left());
+        assert_eq!(layout.rail.height, COMMAND_RAIL_HEIGHT);
+        assert!(layout.rail.bottom() <= layout.editor.top());
+        assert!(layout.rail.bottom() <= layout.problem.top());
         assert!(layout.feedback.top() >= layout.problem.bottom());
-        assert!(layout.rail.top() >= layout.feedback.bottom());
+    }
+
+    #[test]
+    fn top_banner_replaces_bottom_footer_strip() {
+        let layout = shell_layout(Rect::new(0, 0, 100, 32), FEEDBACK_CHROME_HEIGHT);
+
+        assert_eq!(layout.rail.height, COMMAND_RAIL_HEIGHT);
+        assert!(layout.rail.top() < layout.editor.top());
+        assert_eq!(layout.rail.bottom(), layout.editor.top());
+        assert_eq!(layout.feedback.height, 0);
+        assert_eq!(layout.editor.bottom(), layout.feedback.top());
+        assert_eq!(layout.problem.bottom(), layout.feedback.top());
     }
 
     #[test]
@@ -1686,42 +1700,45 @@ mod tests {
     }
 
     #[test]
-    fn sweep_cell_progress_runs_from_bottom_left_to_top_right() {
+    fn sweep_cell_progress_runs_from_top_left_to_bottom_right() {
         let area = Rect::new(2, 3, 20, 10);
         let bottom_left = border_sweep_cell_progress(area.left(), area.bottom() - 1, area);
-        let top_right = border_sweep_cell_progress(area.right() - 1, area.top(), area);
-        let top_left = border_sweep_cell_progress(area.left(), area.top(), area);
         let bottom_right = border_sweep_cell_progress(area.right() - 1, area.bottom() - 1, area);
+        let top_left = border_sweep_cell_progress(area.left(), area.top(), area);
+        let top_right = border_sweep_cell_progress(area.right() - 1, area.top(), area);
 
-        assert_eq!(bottom_left, 0.0);
-        assert_eq!(top_right, 1.0);
-        assert!(top_left > bottom_left);
-        assert!(bottom_right > bottom_left);
-        assert!(top_left < top_right);
-        assert!(bottom_right < top_right);
+        assert_eq!(top_left, 0.0);
+        assert_eq!(bottom_right, 1.0);
+        assert!(bottom_left > top_left);
+        assert!(top_right > top_left);
+        assert!(bottom_left < bottom_right);
+        assert!(top_right < bottom_right);
     }
 
     #[test]
-    fn directional_sweep_lights_bottom_left_before_top_right() {
+    fn directional_sweep_lights_top_left_before_bottom_right() {
         let area = Rect::new(0, 0, 80, 20);
         let early = reward_frame(100, 58, 10);
-        let bottom_left = reward_sweep_intensity_at(area.left(), area.bottom() - 1, area, early);
-        let top_right = reward_sweep_intensity_at(area.right() - 1, area.top(), area, early);
+        let top_left = reward_sweep_intensity_at(area.left(), area.top(), area, early);
+        let bottom_right =
+            reward_sweep_intensity_at(area.right() - 1, area.bottom() - 1, area, early);
 
-        assert!(bottom_left > 30);
-        assert!(top_right < 5);
+        assert!(top_left > 30);
+        assert!(bottom_right < 5);
     }
 
     #[test]
-    fn directional_sweep_reaches_top_right_later() {
+    fn directional_sweep_reaches_bottom_right_later() {
         let area = Rect::new(0, 0, 80, 20);
         let early = reward_frame(100, 58, 10);
         let later = reward_frame(100, 58, 100);
-        let early_top_right = reward_sweep_intensity_at(area.right() - 1, area.top(), area, early);
-        let later_top_right = reward_sweep_intensity_at(area.right() - 1, area.top(), area, later);
+        let early_bottom_right =
+            reward_sweep_intensity_at(area.right() - 1, area.bottom() - 1, area, early);
+        let later_bottom_right =
+            reward_sweep_intensity_at(area.right() - 1, area.bottom() - 1, area, later);
 
-        assert!(later_top_right > early_top_right);
-        assert!(later_top_right > 45);
+        assert!(later_bottom_right > early_bottom_right);
+        assert!(later_bottom_right > 45);
     }
 
     #[test]
@@ -1729,11 +1746,13 @@ mod tests {
         let area = Rect::new(0, 0, 80, 20);
         let peak = reward_frame(100, 58, 100);
         let faded = reward_frame(20, 12, 100);
-        let peak_top_right = reward_sweep_intensity_at(area.right() - 1, area.top(), area, peak);
-        let faded_top_right = reward_sweep_intensity_at(area.right() - 1, area.top(), area, faded);
+        let peak_bottom_right =
+            reward_sweep_intensity_at(area.right() - 1, area.bottom() - 1, area, peak);
+        let faded_bottom_right =
+            reward_sweep_intensity_at(area.right() - 1, area.bottom() - 1, area, faded);
 
-        assert!(peak_top_right > faded_top_right);
-        assert!(faded_top_right > 0);
+        assert!(peak_bottom_right > faded_bottom_right);
+        assert!(faded_bottom_right > 0);
     }
 
     #[test]
@@ -1793,8 +1812,9 @@ mod tests {
         assert!(idle_layout.editor.height > SNAPSHOT_WORKBOX_HEIGHT);
         assert_eq!(idle_layout.feedback.height, FEEDBACK_CHROME_HEIGHT);
         assert_eq!(idle_layout.rail.height, COMMAND_RAIL_HEIGHT);
+        assert!(idle_layout.rail.bottom() <= idle_layout.editor.top());
+        assert!(idle_layout.rail.bottom() <= idle_layout.problem.top());
         assert!(idle_layout.feedback.top() >= idle_layout.problem.bottom());
-        assert!(idle_layout.rail.top() >= idle_layout.feedback.bottom());
 
         let chunks = layout_chunks(area, idle_height);
         assert_eq!(chunks[0], idle_layout.problem);
@@ -2006,6 +2026,19 @@ mod tests {
                 .iter()
                 .any(|span| span.style != base_style())
         );
+    }
+
+    #[test]
+    fn task_code_snippet_uses_editor_consistent_token_styles() {
+        let line = problem_display_line(&ProblemDisplayLine::code("score += 1;"));
+
+        assert!(line.spans.iter().any(|span| {
+            span.content.as_ref() == "+="
+                && span.style.fg == Some(RUST_REPS_DARK.punctuation_operator)
+        }));
+        assert!(line.spans.iter().any(|span| {
+            span.content.as_ref() == "1" && span.style.fg == Some(RUST_REPS_DARK.number)
+        }));
     }
 
     #[test]
