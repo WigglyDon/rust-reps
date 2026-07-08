@@ -802,6 +802,29 @@ mod tests {
     }
 
     #[test]
+    fn lab_f1_formatted_full_function_answer_matches_expected_and_passes() {
+        let unformatted = "fn add_one(x: i32) -> i32 { x + 1 }";
+        match crate::formatter::format_rust_source(unformatted) {
+            FormatResult::Formatted(formatted) => {
+                assert_eq!(formatted, crate::lab::MULTILINE_SOLUTION_EXPECTED);
+            }
+            FormatResult::Unavailable => return,
+            other => panic!("expected rustfmt to format lab function, got {other:?}"),
+        }
+
+        let mut app = lab_app();
+        advance_lab_to_family(&mut app, crate::lab::MULTILINE_SOLUTION_FAMILY_INDEX);
+        load_text(&mut app, unformatted);
+
+        app.handle_action(ClientAction::Format);
+        assert_eq!(app.input(), crate::lab::MULTILINE_SOLUTION_EXPECTED);
+        app.handle_action(ClientAction::Submit);
+
+        assert_eq!(app.session().passed(), 1);
+        assert_eq!(app.session().attempts(), 1);
+    }
+
+    #[test]
     fn lab_correct_multiline_answer_with_one_final_newline_passes() {
         let mut app = lab_app();
         advance_lab_to_family(&mut app, crate::lab::MULTILINE_SOLUTION_FAMILY_INDEX);

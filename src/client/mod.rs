@@ -63,9 +63,9 @@ impl CodeToken {
 }
 
 pub const REWARD_ATTACK_DURATION: Duration = Duration::from_millis(100);
-pub const REWARD_PLUS_ONE_BODY_DURATION: Duration = Duration::from_millis(450);
-pub const REWARD_RELEASE_DURATION: Duration = Duration::from_millis(550);
-pub const REWARD_PLUS_ONE_DURATION: Duration = Duration::from_millis(1_100);
+pub const REWARD_PLUS_ONE_BODY_DURATION: Duration = Duration::from_millis(600);
+pub const REWARD_RELEASE_DURATION: Duration = Duration::from_millis(800);
+pub const REWARD_PLUS_ONE_DURATION: Duration = Duration::from_millis(1_500);
 pub const REWARD_DURATION: Duration = Duration::from_millis(2_250);
 pub const REWARD_GAME_ATTACK_DURATION: Duration = Duration::from_millis(150);
 pub const REWARD_GAME_BODY_DURATION: Duration = Duration::from_millis(1_050);
@@ -1675,10 +1675,10 @@ mod tests {
 
     use super::{
         ClientAction, ClientUiState, CodeTokenKind, CursorPosition, FAILURE_PULSE_DURATION,
-        PROBLEM_SCROLL_LINES, PROBLEM_WHEEL_SCROLL_LINES, ProblemDisplayLine, ProblemLineKind,
-        ProblemView, ProblemViewport, REWARD_ATTACK_DURATION, REWARD_DURATION,
-        REWARD_GAME_ATTACK_DURATION, REWARD_GAME_BODY_DURATION, REWARD_GAME_GLOW_DELAY,
-        REWARD_GAME_GLOW_MAX_INTENSITY, REWARD_GAME_RELEASE_DURATION,
+        FORMAT_TOAST_DURATION, PROBLEM_SCROLL_LINES, PROBLEM_WHEEL_SCROLL_LINES,
+        ProblemDisplayLine, ProblemLineKind, ProblemView, ProblemViewport, REWARD_ATTACK_DURATION,
+        REWARD_DURATION, REWARD_GAME_ATTACK_DURATION, REWARD_GAME_BODY_DURATION,
+        REWARD_GAME_GLOW_DELAY, REWARD_GAME_GLOW_MAX_INTENSITY, REWARD_GAME_RELEASE_DURATION,
         REWARD_PLUS_ONE_BODY_DURATION, REWARD_PLUS_ONE_DURATION, REWARD_RELEASE_DURATION,
         REWARD_SWEEP_DURATION, SKIP_TOAST_DURATION, StatusTone, project_client_frame,
         project_client_frame_at, project_client_frame_for_layout, tokenize_rust_line,
@@ -2566,9 +2566,9 @@ mod tests {
     #[test]
     fn reward_timing_uses_shorter_middle_heavy_boop() {
         assert_eq!(REWARD_ATTACK_DURATION, Duration::from_millis(100));
-        assert_eq!(REWARD_PLUS_ONE_BODY_DURATION, Duration::from_millis(450));
-        assert_eq!(REWARD_RELEASE_DURATION, Duration::from_millis(550));
-        assert_eq!(REWARD_PLUS_ONE_DURATION, Duration::from_millis(1_100));
+        assert_eq!(REWARD_PLUS_ONE_BODY_DURATION, Duration::from_millis(600));
+        assert_eq!(REWARD_RELEASE_DURATION, Duration::from_millis(800));
+        assert_eq!(REWARD_PLUS_ONE_DURATION, Duration::from_millis(1_500));
         assert_eq!(REWARD_DURATION, Duration::from_millis(2_250));
         assert_eq!(REWARD_GAME_ATTACK_DURATION, Duration::from_millis(150));
         assert_eq!(REWARD_GAME_BODY_DURATION, Duration::from_millis(1_050));
@@ -2576,8 +2576,9 @@ mod tests {
         assert_eq!(REWARD_SWEEP_DURATION, Duration::from_millis(850));
         assert_eq!(REWARD_GAME_GLOW_DELAY, Duration::from_millis(80));
         assert_eq!(REWARD_GAME_GLOW_MAX_INTENSITY, 58);
-        assert!(REWARD_PLUS_ONE_DURATION <= Duration::from_millis(1_150));
-        assert_eq!(REWARD_PLUS_ONE_DURATION * 2, Duration::from_millis(2_200));
+        assert!(REWARD_PLUS_ONE_DURATION > Duration::from_millis(1_100));
+        assert!(REWARD_PLUS_ONE_DURATION <= Duration::from_millis(1_650));
+        assert!(REWARD_PLUS_ONE_DURATION < Duration::from_millis(2_200));
         assert!(REWARD_DURATION >= Duration::from_millis(2_200));
         assert!(REWARD_RELEASE_DURATION > REWARD_ATTACK_DURATION);
         assert!(REWARD_PLUS_ONE_BODY_DURATION > REWARD_ATTACK_DURATION);
@@ -2587,6 +2588,7 @@ mod tests {
         assert!(REWARD_GAME_GLOW_MAX_INTENSITY < 100);
         assert_eq!(FAILURE_PULSE_DURATION, Duration::from_millis(520));
         assert_eq!(SKIP_TOAST_DURATION, Duration::from_millis(900));
+        assert_eq!(FORMAT_TOAST_DURATION, Duration::from_millis(900));
     }
 
     #[test]
@@ -2952,6 +2954,34 @@ mod tests {
                 .expect("expected current exercise")
                 .id,
             "001"
+        );
+    }
+
+    #[test]
+    fn smart_pair_insertion_changes_only_editor_state_not_engine_truth() {
+        let session = engine::Session::new();
+        let before_expected = session
+            .current_exercise()
+            .expect("expected current exercise")
+            .expected_answer
+            .to_string();
+        let mut ui_state = ClientUiState::new();
+
+        ui_state.apply_action(ClientAction::TypeChar('{'));
+        ui_state.apply_action(ClientAction::TypeChar('('));
+        ui_state.apply_action(ClientAction::TypeChar('['));
+
+        let view = ui_state.editor_view();
+        assert_eq!(view.text, "{([])}");
+        assert_eq!(view.cursor, CursorPosition { line: 0, column: 3 });
+        assert_eq!(session.passed(), 0);
+        assert_eq!(session.attempts(), 0);
+        assert_eq!(
+            session
+                .current_exercise()
+                .expect("expected current exercise")
+                .expected_answer,
+            before_expected
         );
     }
 

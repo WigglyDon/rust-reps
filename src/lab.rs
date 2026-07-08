@@ -179,7 +179,11 @@ fn multiline_exact_answer(number: usize) -> (String, String) {
              - body returns x + 1\n\
              \n\
              purpose:\n\
-             This fixture tests exact multiline submit and failed-attempt preservation."
+             This fixture tests exact multiline submit and failed-attempt preservation.\n\
+             \n\
+             answer shape:\n\
+             {answer}",
+            answer = MULTILINE_SOLUTION_EXPECTED
         ),
         MULTILINE_SOLUTION_EXPECTED.to_string(),
     )
@@ -291,6 +295,7 @@ mod tests {
     };
     use crate::client::{CodeTokenKind, tokenize_rust_line};
     use crate::engine::{ExerciseKind, ExerciseValidator};
+    use crate::formatter::{FormatResult, format_rust_source};
 
     fn token_text(tokens: &[crate::client::CodeToken]) -> String {
         tokens
@@ -368,6 +373,19 @@ mod tests {
         assert!(syntax.expected_answer.contains("// sample"));
         assert!(SYNTAX_SAMPLER_EXPECTED.contains("'R'"));
         assert!(MULTILINE_SOLUTION_EXPECTED.contains("x + 1"));
+    }
+
+    #[test]
+    fn lab_full_function_reference_and_expected_are_rustfmt_shaped() {
+        let multiline = exercise_packet_at(MULTILINE_SOLUTION_FAMILY_INDEX);
+
+        assert!(multiline.prompt.contains(MULTILINE_SOLUTION_EXPECTED));
+        assert_eq!(multiline.expected_answer, MULTILINE_SOLUTION_EXPECTED);
+
+        let unformatted = "fn add_one(x: i32) -> i32 { x + 1 }";
+        if let FormatResult::Formatted(formatted) = format_rust_source(unformatted) {
+            assert_eq!(formatted, MULTILINE_SOLUTION_EXPECTED);
+        }
     }
 
     #[test]

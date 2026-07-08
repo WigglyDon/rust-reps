@@ -200,11 +200,22 @@ impl EditorBuffer {
             return;
         }
 
-        let line = &mut self.lines[self.cursor.line];
-        let byte_index = byte_index_at_char_column(line, self.cursor.column);
-        line.insert(byte_index, ch);
-        self.cursor.column += 1;
-        self.ensure_cursor_visible();
+        if let Some(close) = matching_close_for_open(ch) {
+            if self.next_char_is(close) {
+                self.insert_raw_char(ch);
+            } else {
+                self.insert_pair(ch, close);
+            }
+            return;
+        }
+
+        if is_closing_delimiter(ch) && self.next_char_is(ch) {
+            self.cursor.column += 1;
+            self.ensure_cursor_visible();
+            return;
+        }
+
+        self.insert_raw_char(ch);
     }
 
     pub fn insert_string(&mut self, text: &str) {
@@ -220,19 +231,17 @@ impl EditorBuffer {
         let before_cursor = self.lines[line_index][..byte_index].to_string();
         let after_cursor = self.lines[line_index][byte_index..].to_string();
         let base_indent = leading_spaces(&self.lines[line_index]);
+        let after_trimmed = after_cursor.trim();
 
-        if before_cursor.trim_end().ends_with('{') && after_cursor.trim().is_empty() {
-            let inner_indent = format!("{base_indent}    ");
-            let should_insert_closing_brace = !self.next_meaningful_line_is_closing_brace();
-            self.lines[line_index] = before_cursor;
-            self.lines.insert(line_index + 1, inner_indent.clone());
-            if should_insert_closing_brace {
-                self.lines
-                    .insert(line_index + 2, format!("{base_indent}}}"));
-            }
-            self.cursor.line = line_index + 1;
-            self.cursor.column = char_count(&inner_indent);
-            self.ensure_cursor_visible();
+        if before_cursor.trim_end().ends_with('{') && after_trimmed == "}" {
+            self.expand_brace_block(line_index, before_cursor, base_indent, true);
+            return;
+        }
+
+        if before_cursor.trim_end().ends_with('{') && after_trimmed.is_empty() {
+            let insert_closing_brace =
+                !self.next_meaningful_line_is_closing_brace_at_indent(&base_indent);
+            self.expand_brace_block(line_index, before_cursor, base_indent, insert_closing_brace);
             return;
         }
 
@@ -244,6 +253,42 @@ impl EditorBuffer {
         self.ensure_cursor_visible();
     }
 
+    fn insert_pair(&mut self, open: char, close: char) {
+        let line = &mut self.lines[self.cursor.line];
+        let byte_index = byte_index_at_char_column(line, self.cursor.column);
+        line.insert(byte_index, open);
+        line.insert(byte_index + open.len_utf8(), close);
+        self.cursor.column += 1;
+        self.ensure_cursor_visible();
+    }
+
+    fn insert_raw_char(&mut self, ch: char) {
+        let line = &mut self.lines[self.cursor.line];
+        let byte_index = byte_index_at_char_column(line, self.cursor.column);
+        line.insert(byte_index, ch);
+        self.cursor.column += 1;
+        self.ensure_cursor_visible();
+    }
+
+    fn expand_brace_block(
+        &mut self,
+        line_index: usize,
+        before_cursor: String,
+        base_indent: String,
+        insert_closing_brace: bool,
+    ) {
+        let inner_indent = format!("{base_indent}    ");
+        self.lines[line_index] = before_cursor;
+        self.lines.insert(line_index + 1, inner_indent.clone());
+        if insert_closing_brace {
+            self.lines
+                .insert(line_index + 2, format!("{base_indent}}}"));
+        }
+        self.cursor.line = line_index + 1;
+        self.cursor.column = char_count(&inner_indent);
+        self.ensure_cursor_visible();
+    }
+
     pub fn backspace(&mut self) {
         self.clamp_cursor();
         if self.cursor.line == 0 && self.cursor.column == 0 {
@@ -251,6 +296,10 @@ impl EditorBuffer {
         }
 
         if self.cursor.column > 0 {
+            if self.remove_empty_pair_before_cursor() {
+                self.ensure_cursor_visible();
+                return;
+            }
             let line = &mut self.lines[self.cursor.line];
             let remove_start = byte_index_at_char_column(line, self.cursor.column - 1);
             let remove_end = byte_index_at_char_column(line, self.cursor.column);
@@ -429,12 +478,35 @@ impl EditorBuffer {
         self.viewport.first_column = self.viewport.first_column.min(max_first_column);
     }
 
-    fn next_meaningful_line_is_closing_brace(&self) -> bool {
+    fn next_char_is(&self, ch: char) -> bool {
+        self.lines[self.cursor.line].chars().nth(self.cursor.column) == Some(ch)
+    }
+
+    fn remove_empty_pair_before_cursor(&mut self) -> bool {
+        let line = &mut self.lines[self.cursor.line];
+        let Some(open) = char_at(line, self.cursor.column - 1) else {
+            return false;
+        };
+        let Some(close) = matching_close_for_open(open) else {
+            return false;
+        };
+        if char_at(line, self.cursor.column) != Some(close) {
+            return false;
+        }
+
+        let remove_start = byte_index_at_char_column(line, self.cursor.column - 1);
+        let remove_end = byte_index_at_char_column(line, self.cursor.column + 1);
+        line.replace_range(remove_start..remove_end, "");
+        self.cursor.column -= 1;
+        true
+    }
+
+    fn next_meaningful_line_is_closing_brace_at_indent(&self, indent: &str) -> bool {
         self.lines
             .iter()
             .skip(self.cursor.line + 1)
             .find(|line| !line.trim().is_empty())
-            .is_some_and(|line| line.trim() == "}")
+            .is_some_and(|line| line.trim() == "}" && leading_spaces(line) == indent)
     }
 }
 
@@ -457,6 +529,23 @@ fn char_count(text: &str) -> usize {
 
 fn leading_spaces(text: &str) -> String {
     text.chars().take_while(|ch| *ch == ' ').collect()
+}
+
+fn char_at(text: &str, column: usize) -> Option<char> {
+    text.chars().nth(column)
+}
+
+fn matching_close_for_open(ch: char) -> Option<char> {
+    match ch {
+        '{' => Some('}'),
+        '(' => Some(')'),
+        '[' => Some(']'),
+        _ => None,
+    }
+}
+
+fn is_closing_delimiter(ch: char) -> bool {
+    matches!(ch, '}' | ')' | ']')
 }
 
 #[cfg(test)]
@@ -565,6 +654,81 @@ mod tests {
     }
 
     #[test]
+    fn typing_open_brace_creates_pair_with_cursor_between() {
+        let mut editor = EditorBuffer::new();
+
+        editor.insert_char('{');
+
+        assert_eq!(editor.text(), "{}");
+        assert_eq!(editor.cursor(), CursorPosition { line: 0, column: 1 });
+    }
+
+    #[test]
+    fn typing_open_paren_creates_pair_with_cursor_between() {
+        let mut editor = EditorBuffer::new();
+
+        editor.insert_char('(');
+
+        assert_eq!(editor.text(), "()");
+        assert_eq!(editor.cursor(), CursorPosition { line: 0, column: 1 });
+    }
+
+    #[test]
+    fn typing_open_bracket_creates_pair_with_cursor_between() {
+        let mut editor = EditorBuffer::new();
+
+        editor.insert_char('[');
+
+        assert_eq!(editor.text(), "[]");
+        assert_eq!(editor.cursor(), CursorPosition { line: 0, column: 1 });
+    }
+
+    #[test]
+    fn smart_pair_insertion_preserves_surrounding_text() {
+        let mut editor = EditorBuffer::new();
+        editor.set_text("fn main");
+        editor.set_cursor(CursorPosition { line: 0, column: 3 });
+
+        editor.insert_char('{');
+
+        assert_eq!(editor.text(), "fn {}main");
+        assert_eq!(editor.cursor(), CursorPosition { line: 0, column: 4 });
+    }
+
+    #[test]
+    fn smart_pair_insertion_preserves_indentation_without_tabs() {
+        let mut editor = EditorBuffer::new();
+        editor.insert_string("    ");
+
+        editor.insert_char('{');
+
+        assert_eq!(editor.text(), "    {}");
+        assert_eq!(editor.cursor(), CursorPosition { line: 0, column: 5 });
+        assert!(!editor.text().contains('\t'));
+    }
+
+    #[test]
+    fn opening_delimiter_reuses_existing_matching_close() {
+        let mut editor = EditorBuffer::new();
+        editor.set_text("fn main() }");
+        editor.set_cursor(CursorPosition {
+            line: 0,
+            column: "fn main() ".chars().count(),
+        });
+
+        editor.insert_char('{');
+
+        assert_eq!(editor.text(), "fn main() {}");
+        assert_eq!(
+            editor.cursor(),
+            CursorPosition {
+                line: 0,
+                column: "fn main() {".chars().count()
+            }
+        );
+    }
+
+    #[test]
     fn insert_string_updates_text_and_cursor() {
         let mut editor = EditorBuffer::new();
 
@@ -586,6 +750,51 @@ mod tests {
     }
 
     #[test]
+    fn closing_brace_skips_over_generated_pair_close() {
+        let mut editor = EditorBuffer::new();
+        editor.insert_char('{');
+
+        editor.insert_char('}');
+
+        assert_eq!(editor.text(), "{}");
+        assert_eq!(editor.cursor(), CursorPosition { line: 0, column: 2 });
+    }
+
+    #[test]
+    fn closing_paren_skips_over_generated_pair_close() {
+        let mut editor = EditorBuffer::new();
+        editor.insert_char('(');
+
+        editor.insert_char(')');
+
+        assert_eq!(editor.text(), "()");
+        assert_eq!(editor.cursor(), CursorPosition { line: 0, column: 2 });
+    }
+
+    #[test]
+    fn closing_bracket_skips_over_generated_pair_close() {
+        let mut editor = EditorBuffer::new();
+        editor.insert_char('[');
+
+        editor.insert_char(']');
+
+        assert_eq!(editor.text(), "[]");
+        assert_eq!(editor.cursor(), CursorPosition { line: 0, column: 2 });
+    }
+
+    #[test]
+    fn closing_delimiter_inserts_normally_when_next_char_differs() {
+        let mut editor = EditorBuffer::new();
+        editor.insert_string("abc");
+        editor.set_cursor(CursorPosition { line: 0, column: 1 });
+
+        editor.insert_char('}');
+
+        assert_eq!(editor.text(), "a}bc");
+        assert_eq!(editor.cursor(), CursorPosition { line: 0, column: 2 });
+    }
+
+    #[test]
     fn backspace_at_beginning_is_safe() {
         let mut editor = EditorBuffer::new();
 
@@ -593,6 +802,51 @@ mod tests {
 
         assert_eq!(editor.text(), "");
         assert_eq!(editor.cursor(), CursorPosition { line: 0, column: 0 });
+    }
+
+    #[test]
+    fn backspace_between_empty_braces_deletes_both_delimiters() {
+        let mut editor = EditorBuffer::new();
+        editor.insert_char('{');
+
+        editor.backspace();
+
+        assert_eq!(editor.text(), "");
+        assert_eq!(editor.cursor(), CursorPosition { line: 0, column: 0 });
+    }
+
+    #[test]
+    fn backspace_between_empty_parens_deletes_both_delimiters() {
+        let mut editor = EditorBuffer::new();
+        editor.insert_char('(');
+
+        editor.backspace();
+
+        assert_eq!(editor.text(), "");
+        assert_eq!(editor.cursor(), CursorPosition { line: 0, column: 0 });
+    }
+
+    #[test]
+    fn backspace_between_empty_brackets_deletes_both_delimiters() {
+        let mut editor = EditorBuffer::new();
+        editor.insert_char('[');
+
+        editor.backspace();
+
+        assert_eq!(editor.text(), "");
+        assert_eq!(editor.cursor(), CursorPosition { line: 0, column: 0 });
+    }
+
+    #[test]
+    fn backspace_inside_non_empty_pair_deletes_previous_character_only() {
+        let mut editor = EditorBuffer::new();
+        editor.insert_char('{');
+        editor.insert_char('x');
+
+        editor.backspace();
+
+        assert_eq!(editor.text(), "{}");
+        assert_eq!(editor.cursor(), CursorPosition { line: 0, column: 1 });
     }
 
     #[test]
@@ -628,6 +882,17 @@ mod tests {
     }
 
     #[test]
+    fn smart_newline_after_raw_open_brace_inserts_closing_brace() {
+        let mut editor = EditorBuffer::new();
+        editor.set_text("fn main() {");
+
+        editor.insert_newline();
+
+        assert_eq!(editor.text(), "fn main() {\n    \n}");
+        assert_eq!(editor.cursor(), CursorPosition { line: 1, column: 4 });
+    }
+
+    #[test]
     fn smart_newline_after_indented_open_brace_uses_nested_space_indent() {
         let mut editor = EditorBuffer::new();
         editor.insert_string("    if true {");
@@ -637,6 +902,37 @@ mod tests {
         assert_eq!(editor.text(), "    if true {\n        \n    }");
         assert_eq!(editor.cursor(), CursorPosition { line: 1, column: 8 });
         assert_eq!(editor.lines()[2], "    }");
+    }
+
+    #[test]
+    fn smart_newline_between_generated_braces_expands_block() {
+        let mut editor = EditorBuffer::new();
+        editor.insert_char('{');
+
+        editor.insert_newline();
+
+        assert_eq!(editor.text(), "{\n    \n}");
+        assert_eq!(editor.cursor(), CursorPosition { line: 1, column: 4 });
+    }
+
+    #[test]
+    fn smart_newline_expands_nested_generated_brace_pair() {
+        let mut editor = EditorBuffer::new();
+        editor.set_text("fn main() {\n    if true {}\n}");
+        editor.set_cursor(CursorPosition {
+            line: 1,
+            column: "    if true {".chars().count(),
+        });
+
+        editor.insert_newline();
+
+        assert_eq!(
+            editor.text(),
+            "fn main() {\n    if true {\n        \n    }\n}"
+        );
+        assert_eq!(editor.cursor(), CursorPosition { line: 2, column: 8 });
+        assert_eq!(editor.lines()[3], "    }");
+        assert_eq!(editor.lines()[4], "}");
     }
 
     #[test]
@@ -665,7 +961,7 @@ mod tests {
     #[test]
     fn smart_newline_before_non_whitespace_right_text_does_not_insert_closing_brace() {
         let mut editor = EditorBuffer::new();
-        editor.insert_string("fn main() { body");
+        editor.set_text("fn main() { body");
         editor.set_cursor(CursorPosition {
             line: 0,
             column: "fn main() {".chars().count(),
