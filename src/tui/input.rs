@@ -22,6 +22,7 @@ pub fn classify_key_event(key: KeyEvent) -> ClientAction {
         KeyCode::F(7) => ClientAction::Skip,
         KeyCode::F(1) => ClientAction::Ignore,
         KeyCode::Backspace => ClientAction::Backspace,
+        KeyCode::Delete => ClientAction::DeleteForward,
         KeyCode::Left => ClientAction::MoveCursorLeft,
         KeyCode::Right => ClientAction::MoveCursorRight,
         KeyCode::Up => ClientAction::MoveCursorUp,
@@ -76,6 +77,12 @@ mod tests {
     fn backspace_classifies_as_backspace() {
         let intent = classify_key_event(KeyEvent::from(KeyCode::Backspace));
         assert_eq!(intent, ClientAction::Backspace);
+    }
+
+    #[test]
+    fn delete_classifies_as_forward_delete() {
+        let intent = classify_key_event(KeyEvent::from(KeyCode::Delete));
+        assert_eq!(intent, ClientAction::DeleteForward);
     }
 
     #[test]

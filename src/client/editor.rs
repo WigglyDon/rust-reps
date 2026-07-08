@@ -14,6 +14,8 @@ impl CursorPosition {
 pub struct EditorViewport {
     pub first_line: usize,
     pub visible_lines: usize,
+    pub first_column: usize,
+    pub visible_columns: usize,
 }
 
 impl EditorViewport {
@@ -21,6 +23,8 @@ impl EditorViewport {
         Self {
             first_line: 0,
             visible_lines: 5,
+            first_column: 0,
+            visible_columns: 80,
         }
     }
 
@@ -30,6 +34,8 @@ impl EditorViewport {
             return Self {
                 first_line: 0,
                 visible_lines: 0,
+                first_column: 0,
+                visible_columns: 80,
             };
         }
 
@@ -38,6 +44,8 @@ impl EditorViewport {
             return Self {
                 first_line: 0,
                 visible_lines,
+                first_column: 0,
+                visible_columns: 80,
             };
         }
 
@@ -49,6 +57,8 @@ impl EditorViewport {
         Self {
             first_line,
             visible_lines,
+            first_column: 0,
+            visible_columns: 80,
         }
     }
 }
@@ -60,6 +70,7 @@ pub enum EditorAction {
     InsertString(String),
     InsertNewline,
     Backspace,
+    DeleteForward,
     Clear,
     SetText(String),
     MoveLeft,
@@ -146,6 +157,7 @@ impl EditorBuffer {
             EditorAction::InsertString(text) => self.insert_string(&text),
             EditorAction::InsertNewline => self.insert_newline(),
             EditorAction::Backspace => self.backspace(),
+            EditorAction::DeleteForward => self.delete_forward(),
             EditorAction::Clear => self.clear(),
             EditorAction::SetText(text) => self.set_text(&text),
             EditorAction::MoveLeft => self.move_left(),
@@ -162,6 +174,13 @@ impl EditorBuffer {
     pub fn set_viewport_height(&mut self, visible_lines: usize) {
         self.viewport.visible_lines = visible_lines;
         self.clamp_viewport();
+        self.ensure_cursor_visible();
+    }
+
+    pub fn set_viewport_width(&mut self, visible_columns: usize) {
+        self.viewport.visible_columns = visible_columns.max(1);
+        self.clamp_viewport();
+        self.ensure_cursor_visible();
     }
 
     pub fn scroll_viewport_up(&mut self) {
@@ -228,11 +247,34 @@ impl EditorBuffer {
         self.ensure_cursor_visible();
     }
 
+    pub fn delete_forward(&mut self) {
+        self.clamp_cursor();
+        let line_len = char_count(&self.lines[self.cursor.line]);
+        if self.cursor.column < line_len {
+            let line = &mut self.lines[self.cursor.line];
+            let remove_start = byte_index_at_char_column(line, self.cursor.column);
+            let remove_end = byte_index_at_char_column(line, self.cursor.column + 1);
+            line.replace_range(remove_start..remove_end, "");
+            self.ensure_cursor_visible();
+            return;
+        }
+
+        if self.cursor.line + 1 >= self.lines.len() {
+            self.ensure_cursor_visible();
+            return;
+        }
+
+        let next_line = self.lines.remove(self.cursor.line + 1);
+        self.lines[self.cursor.line].push_str(&next_line);
+        self.ensure_cursor_visible();
+    }
+
     pub fn clear(&mut self) {
         self.lines.clear();
         self.lines.push(String::new());
         self.cursor = CursorPosition::origin();
         self.viewport.first_line = 0;
+        self.viewport.first_column = 0;
         self.ensure_cursor_visible();
     }
 
@@ -333,18 +375,38 @@ impl EditorBuffer {
         }
 
         let max_first_line = self.lines.len().saturating_sub(self.viewport.visible_lines);
+        let line_len = char_count(&self.lines[self.cursor.line]);
+        let max_first_column = line_len
+            .saturating_add(1)
+            .saturating_sub(self.viewport.visible_columns.max(1));
         if self.cursor.line < self.viewport.first_line {
             self.viewport.first_line = self.cursor.line;
         } else if self.cursor.line >= self.viewport.first_line + self.viewport.visible_lines {
             self.viewport.first_line = self.cursor.line + 1 - self.viewport.visible_lines;
         }
+        if self.cursor.column < self.viewport.first_column {
+            self.viewport.first_column = self.cursor.column;
+        } else if self.cursor.column >= self.viewport.first_column + self.viewport.visible_columns {
+            self.viewport.first_column =
+                self.cursor.column + 1 - self.viewport.visible_columns.max(1);
+        }
 
         self.viewport.first_line = self.viewport.first_line.min(max_first_line);
+        self.viewport.first_column = self.viewport.first_column.min(max_first_column);
     }
 
     fn clamp_viewport(&mut self) {
         let max_first_line = self.lines.len().saturating_sub(self.viewport.visible_lines);
+        let line_len = self
+            .lines
+            .get(self.cursor.line.min(self.lines.len().saturating_sub(1)))
+            .map(|line| char_count(line))
+            .unwrap_or(0);
+        let max_first_column = line_len
+            .saturating_add(1)
+            .saturating_sub(self.viewport.visible_columns.max(1));
         self.viewport.first_line = self.viewport.first_line.min(max_first_line);
+        self.viewport.first_column = self.viewport.first_column.min(max_first_column);
     }
 }
 
@@ -524,6 +586,70 @@ mod tests {
 
         assert_eq!(editor.text(), "letscore");
         assert_eq!(editor.cursor(), CursorPosition { line: 0, column: 3 });
+    }
+
+    #[test]
+    fn delete_forward_removes_character_after_cursor() {
+        let mut editor = EditorBuffer::new();
+        editor.set_text("abcd");
+        editor.set_cursor(CursorPosition { line: 0, column: 1 });
+
+        editor.delete_forward();
+
+        assert_eq!(editor.text(), "acd");
+        assert_eq!(editor.cursor(), CursorPosition { line: 0, column: 1 });
+    }
+
+    #[test]
+    fn delete_forward_at_line_end_joins_next_line() {
+        let mut editor = EditorBuffer::new();
+        editor.set_text("let\nscore");
+        editor.set_cursor(CursorPosition { line: 0, column: 3 });
+
+        editor.delete_forward();
+
+        assert_eq!(editor.text(), "letscore");
+        assert_eq!(editor.cursor(), CursorPosition { line: 0, column: 3 });
+    }
+
+    #[test]
+    fn delete_forward_at_final_line_end_is_safe() {
+        let mut editor = EditorBuffer::new();
+        editor.set_text("abc");
+        editor.set_cursor(CursorPosition { line: 0, column: 3 });
+
+        editor.delete_forward();
+
+        assert_eq!(editor.text(), "abc");
+        assert_eq!(editor.cursor(), CursorPosition { line: 0, column: 3 });
+    }
+
+    #[test]
+    fn typing_past_visible_width_advances_horizontal_viewport() {
+        let mut editor = EditorBuffer::new();
+        editor.set_viewport_width(4);
+        editor.insert_string("abcdef");
+
+        assert_eq!(editor.text(), "abcdef");
+        assert_eq!(editor.cursor(), CursorPosition { line: 0, column: 6 });
+        assert_eq!(editor.viewport().first_column, 3);
+    }
+
+    #[test]
+    fn moving_left_past_visible_start_retreats_horizontal_viewport() {
+        let mut editor = EditorBuffer::new();
+        editor.set_viewport_width(4);
+        editor.insert_string("abcdef");
+
+        editor.move_left();
+        editor.move_left();
+        editor.move_left();
+        editor.move_left();
+
+        assert_eq!(editor.cursor(), CursorPosition { line: 0, column: 2 });
+        assert_eq!(editor.viewport().first_column, 2);
+        editor.move_left();
+        assert_eq!(editor.viewport().first_column, 1);
     }
 
     #[test]

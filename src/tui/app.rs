@@ -84,6 +84,10 @@ impl TuiApp {
         self.ui_state.set_editor_viewport_height(visible_lines);
     }
 
+    pub fn set_editor_viewport_width(&mut self, visible_columns: usize) {
+        self.ui_state.set_editor_viewport_width(visible_columns);
+    }
+
     #[cfg(test)]
     pub fn handle_action(&mut self, action: ClientAction) {
         self.handle_action_at(action, Instant::now());
@@ -97,6 +101,7 @@ impl TuiApp {
             ClientAction::Ignore => {}
             ClientAction::TypeChar(_)
             | ClientAction::Backspace
+            | ClientAction::DeleteForward
             | ClientAction::InsertNewline
             | ClientAction::MoveCursorTo(_)
             | ClientAction::MoveCursorLeft
@@ -895,6 +900,46 @@ mod tests {
         assert_eq!(workbox.input, "ab");
         assert_eq!(workbox.cursor.line, 0);
         assert_eq!(workbox.cursor.column, 1);
+    }
+
+    #[test]
+    fn delete_forward_removes_next_character_through_app_path() {
+        let mut app = TuiApp::new();
+        type_text(&mut app, "abc");
+        app.handle_action(ClientAction::MoveCursorLeft);
+        app.handle_action(ClientAction::DeleteForward);
+
+        let workbox = app.frame().game_window.workbox;
+        assert_eq!(workbox.input, "ab");
+        assert_eq!(workbox.cursor.line, 0);
+        assert_eq!(workbox.cursor.column, 2);
+    }
+
+    #[test]
+    fn delete_forward_at_line_end_joins_next_line_through_app_path() {
+        let mut app = TuiApp::new();
+        type_text(&mut app, "ab\ncd");
+        app.handle_action(ClientAction::MoveCursorUp);
+        app.handle_action(ClientAction::MoveLineEnd);
+        app.handle_action(ClientAction::DeleteForward);
+
+        let workbox = app.frame().game_window.workbox;
+        assert_eq!(workbox.input, "abcd");
+        assert_eq!(workbox.cursor.line, 0);
+        assert_eq!(workbox.cursor.column, 2);
+    }
+
+    #[test]
+    fn long_one_line_answer_submit_uses_full_buffer_after_horizontal_viewport() {
+        let mut app = TuiApp::new();
+        app.set_editor_viewport_width(4);
+        type_text(&mut app, "fn main() {}");
+        assert!(app.frame().game_window.workbox.viewport.first_column > 0);
+
+        app.handle_action(ClientAction::Submit);
+
+        assert_eq!(app.session().passed(), 1);
+        assert_eq!(app.input(), "");
     }
 
     #[test]

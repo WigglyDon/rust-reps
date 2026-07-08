@@ -18,8 +18,7 @@ use crate::{
 use ratatui::{
     Frame,
     buffer::Buffer,
-    layout::{Constraint, Direction, Layout, Margin, Rect},
-    style::Modifier,
+    layout::{Alignment, Constraint, Direction, Layout, Margin, Rect},
     text::{Line, Span, Text},
     widgets::{Block, Paragraph},
 };
@@ -41,6 +40,10 @@ pub(crate) fn render_ui(frame: &mut Frame<'_>, app: &mut TuiApp, now: std::time:
     let feedback_lines = feedback_chrome_lines(&preliminary_frame);
     let layout = shell_layout(frame.area(), feedback_height(&feedback_lines));
     app.set_editor_viewport_height(visible_editor_rows(layout.editor.height));
+    app.set_editor_viewport_width(editor_text_columns_for_area(
+        layout.editor,
+        preliminary_frame.game_window.workbox.lines.len().max(1),
+    ));
 
     let client_frame = app.frame_at_for_layout(
         now,
@@ -79,13 +82,14 @@ fn render_client_frame(frame: &mut Frame<'_>, client_frame: &ClientFrame) {
     );
 
     frame.render_widget(
-        Paragraph::new(Text::from(workbox_lines(
+        Paragraph::new(Text::from(workbox_lines_for_area(
             client_frame,
-            layout.editor.height,
+            layout.editor,
         )))
         .style(editor_canvas_style()),
         layout.editor,
     );
+    render_editor_horizontal_indicators(frame, layout.editor, client_frame);
     render_editor_cursor(frame, layout.editor, client_frame);
     render_editor_toasts(frame, layout.editor, client_frame);
     render_viewport_indicator(
@@ -393,7 +397,20 @@ fn problem_display_line(line: &ProblemDisplayLine) -> Line<'static> {
     }
 }
 
+#[cfg(test)]
 fn workbox_lines(client_frame: &ClientFrame, workbox_height: u16) -> Vec<Line<'static>> {
+    workbox_lines_for_width(client_frame, workbox_height, u16::MAX)
+}
+
+fn workbox_lines_for_area(client_frame: &ClientFrame, area: Rect) -> Vec<Line<'static>> {
+    workbox_lines_for_width(client_frame, area.height, area.width)
+}
+
+fn workbox_lines_for_width(
+    client_frame: &ClientFrame,
+    workbox_height: u16,
+    workbox_width: u16,
+) -> Vec<Line<'static>> {
     let visible_editor_rows = visible_editor_rows(workbox_height);
     let source_viewport = client_frame.game_window.workbox.viewport;
     let total_lines = client_frame.game_window.workbox.lines.len().max(1);
@@ -405,6 +422,11 @@ fn workbox_lines(client_frame: &ClientFrame, workbox_height: u16) -> Vec<Line<'s
     let first_line = source_viewport.first_line.min(max_first_line);
     let visible_end = (first_line + visible_lines).min(total_lines);
     let gutter_width = gutter_width(total_lines.max(visible_end));
+    let visible_columns = source_viewport
+        .visible_columns
+        .min(editor_text_columns(workbox_width, total_lines))
+        .max(1);
+    let first_column = source_viewport.first_column;
     let mut lines = vec![Line::from("").style(editor_canvas_style())];
 
     for line_index in first_line..visible_end {
@@ -422,6 +444,8 @@ fn workbox_lines(client_frame: &ClientFrame, workbox_height: u16) -> Vec<Line<'s
             tokens,
             active,
             client_frame.failure,
+            first_column,
+            visible_columns,
         ));
     }
 
@@ -430,6 +454,17 @@ fn workbox_lines(client_frame: &ClientFrame, workbox_height: u16) -> Vec<Line<'s
     }
 
     lines
+}
+
+fn editor_text_columns_for_area(area: Rect, total_lines: usize) -> usize {
+    editor_text_columns(area.width, total_lines)
+}
+
+fn editor_text_columns(area_width: u16, total_lines: usize) -> usize {
+    usize::from(area_width)
+        .saturating_sub(gutter_width(total_lines.max(1)))
+        .saturating_sub(4)
+        .max(1)
 }
 
 fn render_editor_cursor(frame: &mut Frame<'_>, area: Rect, client_frame: &ClientFrame) {
@@ -446,7 +481,8 @@ fn render_editor_cursor(frame: &mut Frame<'_>, area: Rect, client_frame: &Client
     };
 
     frame.buffer_mut()[(x, y)]
-        .set_style(caret_feedback_style(client_frame.failure).add_modifier(Modifier::REVERSED));
+        .set_symbol("▏")
+        .set_style(caret_feedback_style(client_frame.failure));
 }
 
 fn visible_cursor_anchor(area: Rect, client_frame: &ClientFrame) -> Option<EditorAnchor> {
@@ -466,10 +502,19 @@ fn visible_cursor_anchor(area: Rect, client_frame: &ClientFrame) -> Option<Edito
     if workbox.cursor.line < first_line || workbox.cursor.line >= end_line {
         return None;
     }
+    if workbox.cursor.column < workbox.viewport.first_column {
+        return None;
+    }
+
+    let visible_columns =
+        editor_text_columns_for_area(area, total_lines).min(workbox.viewport.visible_columns);
+    if workbox.cursor.column >= workbox.viewport.first_column + visible_columns.max(1) {
+        return None;
+    }
 
     Some(EditorAnchor {
         row: workbox.cursor.line - first_line,
-        column: workbox.cursor.column,
+        column: workbox.cursor.column - workbox.viewport.first_column,
     })
 }
 
@@ -502,7 +547,8 @@ pub(crate) fn editor_cursor_at(
         .left()
         .saturating_add(usize_to_u16(gutter_width(total_lines)))
         .saturating_add(3);
-    let clicked_column = usize::from(column.saturating_sub(content_left));
+    let clicked_column = usize::from(column.saturating_sub(content_left))
+        .saturating_add(workbox.viewport.first_column);
     let line_len = workbox
         .lines
         .get(line_index)
@@ -513,6 +559,62 @@ pub(crate) fn editor_cursor_at(
         line: line_index,
         column: clicked_column.min(line_len),
     })
+}
+
+fn render_editor_horizontal_indicators(
+    frame: &mut Frame<'_>,
+    area: Rect,
+    client_frame: &ClientFrame,
+) {
+    let workbox = &client_frame.game_window.workbox;
+    let Some(anchor) = visible_cursor_anchor(area, client_frame) else {
+        return;
+    };
+    let Some((content_left, row_y)) = editor_anchor_position(
+        area,
+        client_frame,
+        EditorAnchor {
+            row: anchor.row,
+            column: 0,
+        },
+        1,
+    ) else {
+        return;
+    };
+    let visible_columns = editor_text_columns_for_area(area, workbox.lines.len().max(1))
+        .min(workbox.viewport.visible_columns)
+        .max(1);
+    let (hidden_left, hidden_right) =
+        editor_horizontal_overflow(client_frame, workbox.cursor.line, visible_columns);
+    let buffer = frame.buffer_mut();
+    if hidden_left && content_left > area.left() {
+        buffer[(content_left - 1, row_y)]
+            .set_symbol("‹")
+            .set_style(problem_header_style());
+    }
+    if hidden_right && area.right() > area.left() {
+        buffer[(area.right() - 1, row_y)]
+            .set_symbol("›")
+            .set_style(problem_header_style());
+    }
+}
+
+fn editor_horizontal_overflow(
+    client_frame: &ClientFrame,
+    line_index: usize,
+    visible_columns: usize,
+) -> (bool, bool) {
+    let workbox = &client_frame.game_window.workbox;
+    let line_len = workbox
+        .lines
+        .get(line_index)
+        .map(|line| line.chars().count())
+        .unwrap_or(0);
+    let first_column = workbox.viewport.first_column;
+    (
+        first_column > 0,
+        line_len > first_column.saturating_add(visible_columns.max(1)),
+    )
 }
 
 fn render_editor_toasts(frame: &mut Frame<'_>, area: Rect, client_frame: &ClientFrame) {
@@ -636,7 +738,13 @@ fn render_top_banner(frame: &mut Frame<'_>, area: Rect, client_frame: &ClientFra
         horizontal: 1,
     });
     frame.render_widget(
-        Paragraph::new(Line::from(command_rail_spans(client_frame))).style(base_style()),
+        Paragraph::new(Line::from(command_spans()))
+            .style(base_style())
+            .alignment(Alignment::Right),
+        rail,
+    );
+    frame.render_widget(
+        Paragraph::new(Line::from(counter_spans(client_frame))).style(base_style()),
         rail,
     );
 }
@@ -655,6 +763,8 @@ fn editor_line(
     tokens: &[CodeToken],
     active: bool,
     failure: FailureFrame,
+    first_column: usize,
+    visible_columns: usize,
 ) -> Line<'static> {
     let style = editor_line_style(active, failure);
     Line::from(editor_line_spans(
@@ -663,6 +773,8 @@ fn editor_line(
         tokens,
         active,
         failure,
+        first_column,
+        visible_columns,
     ))
     .style(style)
 }
@@ -673,6 +785,8 @@ fn editor_line_spans(
     tokens: &[CodeToken],
     active: bool,
     failure: FailureFrame,
+    first_column: usize,
+    visible_columns: usize,
 ) -> Vec<Span<'static>> {
     let mut spans = vec![Span::styled(
         format!(
@@ -682,7 +796,11 @@ fn editor_line_spans(
         editor_gutter_feedback_style(active, failure),
     )];
 
-    spans.extend(code_spans(tokens));
+    spans.extend(code_spans_for_columns(
+        tokens,
+        first_column,
+        visible_columns,
+    ));
 
     spans
 }
@@ -692,13 +810,23 @@ fn bottom_chrome_lines(client_frame: &ClientFrame) -> Vec<Line<'static>> {
     vec![Line::from(command_rail_spans(client_frame))]
 }
 
+#[cfg(test)]
 fn command_rail_spans(client_frame: &ClientFrame) -> Vec<Span<'static>> {
+    let mut spans = counter_spans(client_frame);
+    spans.push(Span::styled(" · ", control_hint_style()));
+    spans.extend(command_spans());
+    spans
+}
+
+fn counter_spans(client_frame: &ClientFrame) -> Vec<Span<'static>> {
+    vec![Span::styled(
+        format!("● {}", client_frame.completed_reps_this_run),
+        footer_counter_style(),
+    )]
+}
+
+fn command_spans() -> Vec<Span<'static>> {
     vec![
-        Span::styled(
-            format!("● {}", client_frame.completed_reps_this_run),
-            footer_counter_style(),
-        ),
-        Span::styled(" · ", control_hint_style()),
         Span::styled(PRIMARY_ACTION_HINT, primary_action_style()),
         Span::styled(" · ", control_hint_style()),
         Span::styled(SKIP_ACTION_HINT, control_hint_style()),
@@ -712,6 +840,52 @@ fn code_spans(tokens: &[CodeToken]) -> Vec<Span<'static>> {
         .iter()
         .map(|token| Span::styled(token.text.clone(), code_token_style(token.kind)))
         .collect()
+}
+
+fn code_spans_for_columns(
+    tokens: &[CodeToken],
+    first_column: usize,
+    visible_columns: usize,
+) -> Vec<Span<'static>> {
+    tokens_for_columns(tokens, first_column, visible_columns)
+        .iter()
+        .map(|token| Span::styled(token.text.clone(), code_token_style(token.kind)))
+        .collect()
+}
+
+fn tokens_for_columns(
+    tokens: &[CodeToken],
+    first_column: usize,
+    visible_columns: usize,
+) -> Vec<CodeToken> {
+    let end_column = first_column.saturating_add(visible_columns.max(1));
+    let mut cursor = 0usize;
+    let mut visible = Vec::new();
+
+    for token in tokens {
+        let token_width = token.text.chars().count();
+        let token_start = cursor;
+        let token_end = token_start.saturating_add(token_width);
+        if token_end > first_column && token_start < end_column {
+            let start = first_column.saturating_sub(token_start);
+            let end = end_column.min(token_end).saturating_sub(token_start);
+            let text = token
+                .text
+                .chars()
+                .skip(start)
+                .take(end.saturating_sub(start))
+                .collect::<String>();
+            if !text.is_empty() {
+                visible.push(CodeToken {
+                    kind: token.kind,
+                    text,
+                });
+            }
+        }
+        cursor = token_end;
+    }
+
+    visible
 }
 
 #[cfg(test)]
@@ -772,11 +946,13 @@ mod tests {
         COMMAND_RAIL_HEIGHT, FEEDBACK_CHROME_HEIGHT, PRIMARY_ACTION_HINT, QUIT_ACTION_HINT,
         SKIP_ACTION_HINT, SNAPSHOT_PROBLEM_HEIGHT, SNAPSHOT_WORKBOX_HEIGHT,
         border_sweep_cell_progress, bottom_chrome_alignment, bottom_chrome_lines,
-        editor_anchor_position, editor_cursor_at, feedback_chrome_lines, feedback_height,
-        gutter_width, layout_chunks, line_text, problem_display_line, problem_lines,
-        render_snapshot, render_snapshot_with_workbox_height, reward_sweep_intensity_at,
-        reward_toast_anchor, shell_layout, usize_to_u16, viewport_indicator_cells,
-        visible_editor_rows, workbox_lines,
+        editor_anchor_position, editor_cursor_at, editor_horizontal_overflow,
+        feedback_chrome_lines, feedback_height, gutter_width, layout_chunks, line_text,
+        problem_display_line, problem_lines, render_editor_cursor,
+        render_editor_horizontal_indicators, render_snapshot, render_snapshot_with_workbox_height,
+        render_top_banner, reward_sweep_intensity_at, reward_toast_anchor, shell_layout,
+        usize_to_u16, viewport_indicator_cells, visible_editor_rows, workbox_lines,
+        workbox_lines_for_area, workbox_lines_for_width,
     };
     use crate::{
         client::{
@@ -787,11 +963,19 @@ mod tests {
         engine, lab,
         tui::{
             TuiApp,
-            theme::{RUST_REPS_DARK, base_style, border_style, status_tone_style},
+            theme::{
+                RUST_REPS_DARK, base_style, border_style, editor_canvas_style, status_tone_style,
+            },
         },
     };
-    use ratatui::layout::{Alignment, Rect};
-    use ratatui::style::{Color, Modifier};
+    use ratatui::{
+        Terminal,
+        backend::TestBackend,
+        layout::{Alignment, Rect},
+        style::{Color, Modifier},
+        text::Text,
+        widgets::Paragraph,
+    };
 
     fn test_now() -> Instant {
         Instant::now()
@@ -835,6 +1019,40 @@ mod tests {
         frame
     }
 
+    fn render_top_banner_line(client_frame: &crate::client::ClientFrame, width: u16) -> String {
+        let backend = TestBackend::new(width, 1);
+        let mut terminal = Terminal::new(backend).expect("expected test terminal");
+        terminal
+            .draw(|frame| render_top_banner(frame, Rect::new(0, 0, width, 1), client_frame))
+            .expect("expected banner render");
+        let buffer = terminal.backend().buffer();
+        (0..width)
+            .map(|x| buffer[(x, 0)].symbol())
+            .collect::<Vec<_>>()
+            .concat()
+    }
+
+    fn render_editor_buffer_line(client_frame: &crate::client::ClientFrame, area: Rect) -> String {
+        let backend = TestBackend::new(area.width, area.height);
+        let mut terminal = Terminal::new(backend).expect("expected test terminal");
+        terminal
+            .draw(|frame| {
+                frame.render_widget(
+                    Paragraph::new(Text::from(workbox_lines_for_area(client_frame, area)))
+                        .style(editor_canvas_style()),
+                    area,
+                );
+                render_editor_horizontal_indicators(frame, area, client_frame);
+                render_editor_cursor(frame, area, client_frame);
+            })
+            .expect("expected editor render");
+        let buffer = terminal.backend().buffer();
+        (0..area.width)
+            .map(|x| buffer[(x, 1)].symbol())
+            .collect::<Vec<_>>()
+            .concat()
+    }
+
     fn red_dominant(color: Color) -> bool {
         matches!(color, Color::Rgb(red, green, blue) if red > green && red > blue)
     }
@@ -844,11 +1062,6 @@ mod tests {
         let app = TuiApp::new();
         let frame = app.frame();
         let snapshot = render_snapshot(&frame);
-        let instruction_position = snapshot
-            .game
-            .iter()
-            .position(|line| line == "do this:")
-            .expect("expected concise problem instruction in game snapshot");
         let prompt_value_position = snapshot
             .game
             .iter()
@@ -860,8 +1073,8 @@ mod tests {
             .position(|line| line == " 1 │ ")
             .expect("expected editor gutter in game snapshot");
 
-        assert!(instruction_position < prompt_value_position);
         assert!(prompt_value_position < input_position);
+        assert!(!snapshot.game.iter().any(|line| line == "do this:"));
         assert!(!snapshot.game.iter().any(|line| line == "Problem"));
         assert!(!snapshot.game.iter().any(|line| line == "Workbox"));
         assert!(!snapshot.game.iter().any(|line| line.contains("Drill")));
@@ -877,8 +1090,8 @@ mod tests {
         let problem_position = snapshot
             .game
             .iter()
-            .position(|line| line == "do this:")
-            .expect("expected problem header");
+            .position(|line| line == "fn main() {}")
+            .expect("expected problem prompt");
         let editor_position = snapshot
             .game
             .iter()
@@ -1095,24 +1308,30 @@ mod tests {
     }
 
     #[test]
-    fn render_snapshot_problem_instruction_is_concise() {
+    fn render_snapshot_simple_prompt_aligns_without_problem_instruction_offset() {
         let app = TuiApp::new();
         let frame = app.frame();
-        let snapshot = render_snapshot(&frame);
-        let descriptor_position = snapshot
-            .game
+        let problem = problem_lines(&frame)
             .iter()
-            .position(|line| line == "do this:")
-            .expect("expected problem descriptor");
-        let prompt_position = snapshot
-            .game
+            .map(line_text)
+            .collect::<Vec<_>>();
+        let editor = workbox_lines(&frame, SNAPSHOT_WORKBOX_HEIGHT)
+            .iter()
+            .map(line_text)
+            .collect::<Vec<_>>();
+
+        let prompt_position = problem
             .iter()
             .position(|line| line == "fn main() {}")
             .expect("expected prompt line");
+        let editor_line_position = editor
+            .iter()
+            .position(|line| line == " 1 │ ")
+            .expect("expected editor line 1");
 
-        assert!(descriptor_position < prompt_position);
-        assert_eq!(snapshot.game[descriptor_position - 1], "");
-        assert_eq!(snapshot.game[descriptor_position + 1], "");
+        assert_eq!(prompt_position, editor_line_position);
+        assert_eq!(prompt_position, 1);
+        assert!(!problem.iter().any(|line| line == "do this:"));
     }
 
     #[test]
@@ -1419,6 +1638,26 @@ mod tests {
         assert!(!snapshot.bottom_chrome.iter().any(|line| line.contains('✓')));
         assert!(!snapshot.game.iter().any(|line| line.contains("Passed")));
         assert!(!snapshot.feedback.iter().any(|line| line.contains("Passed")));
+    }
+
+    #[test]
+    fn top_banner_keeps_counter_left_and_controls_right_anchored() {
+        let app = TuiApp::new();
+        let line = render_top_banner_line(&app.frame(), 72);
+        let f5 = line.find(PRIMARY_ACTION_HINT).expect("missing F5 submit");
+        let f7 = line.find(SKIP_ACTION_HINT).expect("missing F7 skip");
+        let esc = line.find(QUIT_ACTION_HINT).expect("missing Esc quit");
+
+        assert!(line.trim_start().starts_with("● 0"));
+        assert_eq!(line[..f5].trim(), "● 0");
+        assert!(f5 > 32, "controls should be right anchored: {line}");
+        assert!(f5 < f7);
+        assert!(f7 < esc);
+        assert_eq!(line.trim_end().rfind(QUIT_ACTION_HINT), Some(esc));
+        assert!(!line.contains("F6 skip"));
+        assert!(!line.contains("wheel"));
+        assert!(!line.contains("PageUp"));
+        assert!(!line.contains("PageDown"));
     }
 
     #[test]
@@ -2097,6 +2336,59 @@ mod tests {
         assert_eq!(middle_line, end_line);
         assert_eq!(middle_line.chars().count(), end_line.chars().count());
         assert_eq!(app.input(), "let score: i32 = 1;");
+    }
+
+    #[test]
+    fn cursor_overlay_is_slim_and_does_not_displace_rendered_text() {
+        let mut app = TuiApp::new();
+        type_text(&mut app, "abc");
+        app.handle_action(ClientAction::MoveCursorLeft);
+        let frame = app.frame();
+        let snapshot = render_snapshot(&frame);
+        let rendered = render_editor_buffer_line(&frame, Rect::new(0, 0, 16, 4));
+
+        assert!(snapshot.game.iter().any(|line| line == " 1 │ abc"));
+        assert!(rendered.contains(" 1 │ ab▏"));
+        assert!(!rendered.contains(" 1 │ ab c"));
+    }
+
+    #[test]
+    fn long_editor_line_uses_horizontal_viewport_and_overflow_cues() {
+        let mut app = TuiApp::new();
+        app.set_editor_viewport_width(4);
+        type_text(&mut app, "abcdef");
+        let frame = app.frame();
+        let lines = workbox_lines_for_width(&frame, 4, 10)
+            .iter()
+            .map(line_text)
+            .collect::<Vec<_>>();
+        let rendered = render_editor_buffer_line(&frame, Rect::new(0, 0, 10, 4));
+
+        assert_eq!(frame.game_window.workbox.viewport.first_column, 3);
+        assert!(lines.iter().any(|line| line == " 1 │ def"));
+        assert_eq!(editor_horizontal_overflow(&frame, 0, 4), (true, false));
+        assert!(rendered.contains("‹"));
+        assert!(!rendered.contains("abcdef"));
+    }
+
+    #[test]
+    fn horizontal_viewport_retreats_when_cursor_moves_left() {
+        let mut app = TuiApp::new();
+        app.set_editor_viewport_width(4);
+        type_text(&mut app, "abcdef");
+        for _ in 0..5 {
+            app.handle_action(ClientAction::MoveCursorLeft);
+        }
+        let frame = app.frame();
+        let lines = workbox_lines_for_width(&frame, 4, 10)
+            .iter()
+            .map(line_text)
+            .collect::<Vec<_>>();
+
+        assert_eq!(frame.game_window.workbox.cursor.column, 1);
+        assert_eq!(frame.game_window.workbox.viewport.first_column, 1);
+        assert!(lines.iter().any(|line| line == " 1 │ bcde"));
+        assert_eq!(editor_horizontal_overflow(&frame, 0, 4), (true, true));
     }
 
     #[test]

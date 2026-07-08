@@ -10,6 +10,7 @@ pub use editor::{CursorPosition, EditorAction, EditorBuffer, EditorView, EditorV
 pub enum ClientAction {
     TypeChar(char),
     Backspace,
+    DeleteForward,
     InsertNewline,
     MoveCursorTo(CursorPosition),
     MoveCursorLeft,
@@ -637,6 +638,10 @@ impl ClientUiState {
         self.editor.set_viewport_height(visible_lines);
     }
 
+    pub fn set_editor_viewport_width(&mut self, visible_columns: usize) {
+        self.editor.set_viewport_width(visible_columns);
+    }
+
     pub fn cursor_visible(&self) -> bool {
         self.cursor_visible
     }
@@ -685,6 +690,10 @@ impl ClientUiState {
             }
             ClientAction::Backspace => {
                 self.editor.apply_action(EditorAction::Backspace);
+                self.show_cursor();
+            }
+            ClientAction::DeleteForward => {
+                self.editor.apply_action(EditorAction::DeleteForward);
                 self.show_cursor();
             }
             ClientAction::InsertNewline => {
@@ -822,7 +831,9 @@ fn editor_anchor_from_view(view: &EditorView) -> EditorAnchor {
     let last_visible_line = first_line + visible_lines - 1;
     let line = view.cursor.line.clamp(first_line, last_visible_line);
     let column = if line == view.cursor.line {
-        view.cursor.column
+        view.cursor
+            .column
+            .saturating_sub(view.viewport.first_column)
     } else {
         view.lines
             .get(line)
@@ -1030,10 +1041,26 @@ fn problem_display_lines(
 }
 
 fn should_render_problem_instruction(prompt: &str) -> bool {
+    if is_simple_exact_copy_prompt(prompt) {
+        return false;
+    }
+
     prompt
         .lines()
         .find(|line| !line.trim().is_empty())
         .is_none_or(|line| !is_problem_header(line.trim()))
+}
+
+fn is_simple_exact_copy_prompt(prompt: &str) -> bool {
+    let mut meaningful = prompt.lines().filter_map(|line| {
+        let trimmed = line.trim();
+        (!trimmed.is_empty()).then_some(trimmed)
+    });
+    let Some(first) = meaningful.next() else {
+        return false;
+    };
+
+    meaningful.next().is_none() && looks_like_rust_code(first)
 }
 
 fn problem_display_lines_for_source_line(line: &str, wrap_width: usize) -> Vec<ProblemDisplayLine> {
@@ -1291,21 +1318,26 @@ fn split_code_tokens_for_display(tokens: &[CodeToken], wrap_width: usize) -> Vec
     let mut current_width = 0usize;
 
     for token in tokens {
-        let chars = token.text.chars().collect::<Vec<_>>();
-        let mut start = 0usize;
-        while start < chars.len() {
-            if current_width == wrap_width {
+        let token_width = token.text.chars().count();
+        if token_width == 0 {
+            continue;
+        }
+
+        if current_width > 0 && current_width + token_width > wrap_width {
+            lines.push(current);
+            current = Vec::new();
+            current_width = 0;
+        }
+
+        if token_width <= wrap_width {
+            current.push(token.clone());
+            current_width += token_width;
+        } else {
+            if !current.is_empty() {
                 lines.push(current);
                 current = Vec::new();
-                current_width = 0;
             }
-
-            let available = wrap_width.saturating_sub(current_width).max(1);
-            let take = available.min(chars.len().saturating_sub(start));
-            let segment = chars[start..start + take].iter().collect::<String>();
-            current.push(CodeToken::new(token.kind.clone(), segment));
-            current_width += take;
-            start += take;
+            lines.extend(split_long_code_token(token, wrap_width));
         }
     }
 
@@ -1318,6 +1350,13 @@ fn split_code_tokens_for_display(tokens: &[CodeToken], wrap_width: usize) -> Vec
     } else {
         lines
     }
+}
+
+fn split_long_code_token(token: &CodeToken, wrap_width: usize) -> Vec<Vec<CodeToken>> {
+    split_long_segment(&token.text, wrap_width)
+        .into_iter()
+        .map(|segment| vec![CodeToken::new(token.kind, segment)])
+        .collect()
 }
 
 pub fn tokenize_rust_line(line: &str) -> Vec<CodeToken> {
@@ -1743,9 +1782,7 @@ mod tests {
                 .collect::<Vec<_>>(),
             vec![
                 (&ProblemLineKind::Blank, ""),
-                (&ProblemLineKind::Header, "do this:"),
-                (&ProblemLineKind::Blank, ""),
-                (&ProblemLineKind::Code, "fn main() {}"),
+                (&ProblemLineKind::Code, "fn main() {}")
             ]
         );
     }
@@ -2159,7 +2196,7 @@ mod tests {
     }
 
     #[test]
-    fn simple_one_line_task_keeps_minimal_instruction_header() {
+    fn simple_one_line_task_aligns_without_extra_instruction_header() {
         let lines = super::problem_display_lines("do this:", "fn main() {}", 40);
         let visible = lines
             .iter()
@@ -2170,9 +2207,7 @@ mod tests {
             visible,
             vec![
                 (&ProblemLineKind::Blank, ""),
-                (&ProblemLineKind::Header, "do this:"),
-                (&ProblemLineKind::Blank, ""),
-                (&ProblemLineKind::Code, "fn main() {}"),
+                (&ProblemLineKind::Code, "fn main() {}")
             ]
         );
     }
@@ -2303,7 +2338,7 @@ mod tests {
                 .iter()
                 .map(|line| line.text.as_str())
                 .collect::<Vec<_>>(),
-            vec!["let score: i", "32 = 1000;"]
+            vec!["let score: ", "i32 = 1000;"]
         );
         assert_eq!(
             wrapped
@@ -2317,13 +2352,39 @@ mod tests {
                 .tokens
                 .iter()
                 .filter(|token| !token.text.trim().is_empty())
-                .any(|token| token.kind == CodeTokenKind::Type && token.text == "32")
+                .any(|token| token.kind == CodeTokenKind::Type && token.text == "i32")
         );
         assert!(
             !wrapped[1]
                 .tokens
                 .iter()
                 .any(|token| token.kind == CodeTokenKind::Number && token.text == "32")
+        );
+    }
+
+    #[test]
+    fn task_code_wrapping_does_not_split_short_rust_types() {
+        let line = "fn add_one(x: i32) -> i32 { x + 1 }";
+        let wrapped = super::split_code_display_line(line, 18);
+
+        assert!(wrapped.iter().all(|line| line.text.chars().count() <= 18));
+        assert_eq!(
+            wrapped
+                .iter()
+                .map(|line| line.text.as_str())
+                .collect::<String>(),
+            line
+        );
+        assert!(wrapped.iter().all(|line| !line.text.ends_with("i3")));
+        assert!(wrapped.iter().all(|line| !line.text.starts_with("2")));
+        assert!(wrapped.iter().all(|line| line.text != "2"));
+        assert_eq!(
+            wrapped
+                .iter()
+                .flat_map(|line| line.tokens.iter())
+                .filter(|token| token.kind == CodeTokenKind::Type && token.text == "i32")
+                .count(),
+            2
         );
     }
 
@@ -2791,6 +2852,56 @@ mod tests {
             ui_state.editor_view().cursor,
             CursorPosition { line: 0, column: 1 }
         );
+    }
+
+    #[test]
+    fn delete_forward_deletes_after_cursor_through_client_action() {
+        let mut ui_state = ClientUiState::new();
+        for ch in "abc".chars() {
+            ui_state.apply_action(ClientAction::TypeChar(ch));
+        }
+        ui_state.apply_action(ClientAction::MoveCursorLeft);
+        ui_state.apply_action(ClientAction::DeleteForward);
+
+        assert_eq!(ui_state.editor_view().text, "ab");
+        assert_eq!(
+            ui_state.editor_view().cursor,
+            CursorPosition { line: 0, column: 2 }
+        );
+    }
+
+    #[test]
+    fn delete_forward_after_click_position_preserves_expected_buffer() {
+        let mut ui_state = ClientUiState::new();
+        for ch in "abcd".chars() {
+            ui_state.apply_action(ClientAction::TypeChar(ch));
+        }
+        ui_state.apply_action(ClientAction::MoveCursorTo(CursorPosition {
+            line: 0,
+            column: 1,
+        }));
+        ui_state.apply_action(ClientAction::DeleteForward);
+
+        assert_eq!(ui_state.editor_view().text, "acd");
+        assert_eq!(
+            ui_state.editor_view().cursor,
+            CursorPosition { line: 0, column: 1 }
+        );
+    }
+
+    #[test]
+    fn horizontal_viewport_does_not_mutate_exact_editor_text() {
+        let mut ui_state = ClientUiState::new();
+        ui_state.set_editor_viewport_width(6);
+        for ch in "fn add_one(x: i32) -> i32 { x + 1 }".chars() {
+            ui_state.apply_action(ClientAction::TypeChar(ch));
+        }
+
+        let view = ui_state.editor_view();
+
+        assert_eq!(view.text, "fn add_one(x: i32) -> i32 { x + 1 }");
+        assert!(view.viewport.first_column > 0);
+        assert_eq!(view.cursor.column, view.text.chars().count());
     }
 
     #[test]
