@@ -1277,6 +1277,8 @@ mod tests {
         assert!(app.frame_at(now).failure_active);
 
         app.handle_action(ClientAction::TypeChar('{'));
+        assert_eq!(app.input(), "fn main() {}}");
+        app.handle_action(ClientAction::DeleteForward);
         assert_eq!(app.input(), "fn main() {}");
         app.handle_action_at(ClientAction::Submit, now + Duration::from_millis(1));
 
