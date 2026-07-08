@@ -2,8 +2,9 @@ use std::time::Instant;
 
 use crate::{
     answer,
-    client::{ClientAction, ClientFrame, ClientUiState, project_client_frame_at},
+    client::{ClientAction, ClientFrame, ClientUiState, FormatNoticeKind, project_client_frame_at},
     engine,
+    formatter::{self, FormatResult},
 };
 
 pub struct TuiApp {
@@ -96,6 +97,7 @@ impl TuiApp {
     pub fn handle_action_at(&mut self, action: ClientAction, now: Instant) {
         match action {
             ClientAction::Quit => self.quit(),
+            ClientAction::Format => self.format_current_input(now),
             ClientAction::Submit => self.submit_current_input(now),
             ClientAction::Skip => self.skip_current_exercise(now),
             ClientAction::Ignore => {}
@@ -128,6 +130,7 @@ impl TuiApp {
         self.ui_state.settle_reward_event(now);
         self.ui_state.settle_failure_pulse(now);
         self.ui_state.settle_skip_toast(now);
+        self.ui_state.settle_format_toast(now);
     }
 
     pub fn reward_active_at(&self, now: Instant) -> bool {
@@ -138,6 +141,35 @@ impl TuiApp {
         self.reward_active_at(now)
             || self.ui_state.failure_active_at(now)
             || self.ui_state.skip_active_at(now)
+            || self.ui_state.format_active_at(now)
+    }
+
+    fn format_current_input(&mut self, now: Instant) {
+        if self.completed {
+            return;
+        }
+
+        let result = formatter::format_rust_source(&self.ui_state.draft_input());
+        self.apply_format_result(now, result);
+    }
+
+    fn apply_format_result(&mut self, now: Instant, result: FormatResult) {
+        self.ui_state.clear_reward_event();
+        self.ui_state.clear_failure_pulse();
+        self.ui_state.clear_skip_toast();
+
+        let notice = match result {
+            FormatResult::Formatted(formatted) => {
+                self.ui_state.replace_draft_input(&formatted);
+                FormatNoticeKind::Formatted
+            }
+            FormatResult::Unavailable => FormatNoticeKind::Unavailable,
+            FormatResult::Failed(_) => FormatNoticeKind::Failed,
+            FormatResult::TimedOut => FormatNoticeKind::TimedOut,
+        };
+
+        self.ui_state.start_format_toast(now, notice);
+        self.ui_state.set_status_lines(Vec::new());
     }
 
     fn submit_current_input(&mut self, now: Instant) {
@@ -151,6 +183,7 @@ impl TuiApp {
         let status_lines = if command == ":q" || command == ":quit" {
             self.ui_state.clear_failure_pulse();
             self.ui_state.clear_skip_toast();
+            self.ui_state.clear_format_toast();
             self.ui_state.clear_draft_input();
             {
                 self.should_quit = true;
@@ -159,6 +192,7 @@ impl TuiApp {
         } else if command == ":help" {
             self.ui_state.clear_failure_pulse();
             self.ui_state.clear_skip_toast();
+            self.ui_state.clear_format_toast();
             self.ui_state.clear_draft_input();
             vec![
                 ":help    show commands".to_string(),
@@ -171,6 +205,7 @@ impl TuiApp {
         } else if command == ":status" {
             self.ui_state.clear_failure_pulse();
             self.ui_state.clear_skip_toast();
+            self.ui_state.clear_format_toast();
             self.ui_state.clear_draft_input();
             vec![
                 "STATUS".to_string(),
@@ -190,6 +225,7 @@ impl TuiApp {
         } else if command == ":list" {
             self.ui_state.clear_failure_pulse();
             self.ui_state.clear_skip_toast();
+            self.ui_state.clear_format_toast();
             self.ui_state.clear_draft_input();
             engine::exercise_packets()
                 .iter()
@@ -197,6 +233,7 @@ impl TuiApp {
                 .collect()
         } else if command == ":skip" {
             self.ui_state.clear_failure_pulse();
+            self.ui_state.clear_format_toast();
             self.ui_state.start_skip_toast(now);
             self.ui_state.clear_draft_input();
             let _ = self.session.skip();
@@ -210,6 +247,7 @@ impl TuiApp {
         } else if command.starts_with(':') {
             self.ui_state.clear_failure_pulse();
             self.ui_state.clear_skip_toast();
+            self.ui_state.clear_format_toast();
             self.ui_state.clear_draft_input();
             vec![
                 "UNKNOWN COMMAND".to_string(),
@@ -220,6 +258,7 @@ impl TuiApp {
                 engine::SubmitResult::Correct => {
                     self.ui_state.clear_failure_pulse();
                     self.ui_state.clear_skip_toast();
+                    self.ui_state.clear_format_toast();
                     self.ui_state.start_reward_event(now);
                     self.ui_state.clear_draft_input();
                     self.ui_state.reset_problem_scroll();
@@ -234,6 +273,7 @@ impl TuiApp {
                 }
                 engine::SubmitResult::TryAgain => {
                     self.ui_state.clear_skip_toast();
+                    self.ui_state.clear_format_toast();
                     self.ui_state.start_failure_pulse(now);
                     let expected = self.active_exercise().expected_answer;
                     vec![
@@ -245,6 +285,7 @@ impl TuiApp {
                 engine::SubmitResult::NoActiveDrill => {
                     self.ui_state.clear_failure_pulse();
                     self.ui_state.clear_skip_toast();
+                    self.ui_state.clear_format_toast();
                     self.ui_state.clear_draft_input();
                     self.should_quit = true;
                     collect_summary_lines("QUIT", &self.session)
@@ -261,6 +302,7 @@ impl TuiApp {
 
         self.ui_state.clear_reward_event();
         self.ui_state.clear_failure_pulse();
+        self.ui_state.clear_format_toast();
         self.ui_state.start_skip_toast(now);
         self.ui_state.clear_draft_input();
         self.ui_state.reset_problem_scroll();
@@ -279,6 +321,7 @@ impl TuiApp {
         self.ui_state.clear_reward_event();
         self.ui_state.clear_failure_pulse();
         self.ui_state.clear_skip_toast();
+        self.ui_state.clear_format_toast();
         self.ui_state
             .set_status_lines(collect_summary_lines("QUIT", &self.session));
     }
@@ -301,6 +344,7 @@ mod tests {
         ClientAction, CursorPosition, FAILURE_PULSE_DURATION, REWARD_ATTACK_DURATION,
         REWARD_DURATION, REWARD_PLUS_ONE_BODY_DURATION,
     };
+    use crate::formatter::FormatResult;
     use crate::tui::input::classify_key_event;
     use crossterm::event::{KeyCode, KeyEvent};
 
@@ -536,6 +580,82 @@ mod tests {
                 .expect("expected second exercise")
                 .id,
             "002"
+        );
+    }
+
+    #[test]
+    fn format_success_replaces_editor_buffer_without_session_transition() {
+        let mut app = TuiApp::new();
+        let now = test_now();
+        type_text(&mut app, "score+=1;");
+        let before_expected = app.active_exercise().expected_answer.to_string();
+
+        app.apply_format_result(now, FormatResult::Formatted("score += 1;".to_string()));
+
+        let frame = app.frame_at(now);
+        assert_eq!(app.input(), "score += 1;");
+        assert_eq!(frame.game_window.workbox.cursor.line, 0);
+        assert_eq!(frame.game_window.workbox.cursor.column, "score += 1;".len());
+        assert_eq!(app.session().passed(), 0);
+        assert_eq!(app.session().skipped(), 0);
+        assert_eq!(app.session().attempts(), 0);
+        assert_eq!(app.active_exercise().id, "001");
+        assert_eq!(app.active_exercise().expected_answer, before_expected);
+        assert!(!frame.reward_active);
+        assert!(!frame.failure_active);
+        assert!(!frame.skip_active);
+        assert!(frame.format_active);
+        assert!(
+            frame
+                .format
+                .kind
+                .expect("expected format kind")
+                .is_success()
+        );
+    }
+
+    #[test]
+    fn format_failure_preserves_editor_buffer_and_session_state() {
+        let mut app = TuiApp::new();
+        let now = test_now();
+        type_text(&mut app, "let = ;");
+        app.handle_action(ClientAction::MoveCursorLeft);
+        let before_cursor = app.frame().game_window.workbox.cursor;
+
+        app.apply_format_result(now, FormatResult::Failed("parse error".to_string()));
+
+        let frame = app.frame_at(now);
+        assert_eq!(app.input(), "let = ;");
+        assert_eq!(frame.game_window.workbox.cursor, before_cursor);
+        assert_eq!(app.session().passed(), 0);
+        assert_eq!(app.session().skipped(), 0);
+        assert_eq!(app.session().attempts(), 0);
+        assert_eq!(app.active_exercise().id, "001");
+        assert!(!frame.reward_active);
+        assert!(!frame.failure_active);
+        assert!(!frame.skip_active);
+        assert!(frame.format_active);
+        assert_eq!(
+            frame.format.kind.expect("expected format kind").message(),
+            "format failed"
+        );
+    }
+
+    #[test]
+    fn format_unavailable_preserves_editor_buffer() {
+        let mut app = TuiApp::new();
+        let now = test_now();
+        type_text(&mut app, "fn main(){}");
+
+        app.apply_format_result(now, FormatResult::Unavailable);
+
+        let frame = app.frame_at(now);
+        assert_eq!(app.input(), "fn main(){}");
+        assert_eq!(app.session().passed(), 0);
+        assert!(frame.format_active);
+        assert_eq!(
+            frame.format.kind.expect("expected format kind").message(),
+            "rustfmt unavailable"
         );
     }
 

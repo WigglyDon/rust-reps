@@ -1,5 +1,6 @@
 use std::io::{self, Stdout};
 
+use crossterm::cursor::{SetCursorStyle, Show};
 use crossterm::event::{DisableMouseCapture, EnableMouseCapture};
 use crossterm::execute;
 use crossterm::terminal::{
@@ -20,7 +21,8 @@ impl TuiTerminal {
             io::stdout(),
             EnterAlternateScreen,
             EnableMouseCapture,
-            crossterm::cursor::Hide
+            SetCursorStyle::SteadyBar,
+            Show
         )?;
         let mut terminal = Terminal::new(CrosstermBackend::new(io::stdout()))?;
         terminal.clear()?;
@@ -39,7 +41,8 @@ impl TuiTerminal {
             io::stdout(),
             DisableMouseCapture,
             LeaveAlternateScreen,
-            crossterm::cursor::Show
+            SetCursorStyle::DefaultUserShape,
+            Show
         )?;
         disable_raw_mode()?;
         self.activated = false;
@@ -57,7 +60,8 @@ impl Drop for TuiTerminal {
             io::stdout(),
             DisableMouseCapture,
             LeaveAlternateScreen,
-            crossterm::cursor::Show
+            SetCursorStyle::DefaultUserShape,
+            Show
         );
         let _ = disable_raw_mode();
         self.activated = false;

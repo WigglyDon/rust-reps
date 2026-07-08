@@ -4,6 +4,7 @@ mod cli;
 mod client;
 mod curriculum;
 mod engine;
+mod formatter;
 mod lab;
 mod practice;
 mod presentation;

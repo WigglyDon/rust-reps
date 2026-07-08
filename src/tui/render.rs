@@ -8,17 +8,17 @@ use crate::{
         app::TuiApp,
         input::MousePane,
         theme::{
-            base_style, border_sweep_style, caret_feedback_style, code_token_style,
-            control_hint_style, editor_canvas_style, editor_gutter_feedback_style,
-            editor_line_style, footer_counter_style, plus_one_style, primary_action_style,
-            problem_header_style, status_tone_style, surface_style,
+            base_style, border_sweep_style, code_token_style, control_hint_style,
+            editor_canvas_style, editor_gutter_feedback_style, editor_line_style,
+            footer_counter_style, plus_one_style, primary_action_style, problem_header_style,
+            status_tone_style, surface_style,
         },
     },
 };
 use ratatui::{
     Frame,
     buffer::Buffer,
-    layout::{Alignment, Constraint, Direction, Layout, Margin, Rect},
+    layout::{Constraint, Direction, Layout, Margin, Position, Rect},
     text::{Line, Span, Text},
     widgets::{Block, Paragraph},
 };
@@ -26,7 +26,9 @@ use ratatui::{
 const FEEDBACK_CHROME_HEIGHT: u16 = 0;
 const EDITOR_PANEL_PERCENT: u16 = 56;
 const COMMAND_RAIL_HEIGHT: u16 = 1;
+const TOP_COUNTER_HEIGHT: u16 = 1;
 const MIN_GUTTER_WIDTH: usize = 2;
+const FORMAT_ACTION_HINT: &str = "F1 format";
 const PRIMARY_ACTION_HINT: &str = "F5 submit";
 const SKIP_ACTION_HINT: &str = "F7 skip";
 const QUIT_ACTION_HINT: &str = "Esc quit";
@@ -100,6 +102,7 @@ fn render_client_frame(frame: &mut Frame<'_>, client_frame: &ClientFrame) {
             .workbox
             .overflow(visible_editor_rows(layout.editor.height)),
     );
+    render_editor_controls(frame, layout.controls);
 
     if !feedback_lines.is_empty() {
         frame.render_widget(
@@ -119,13 +122,20 @@ pub(crate) fn input_layout(area: Rect, app: &TuiApp, now: std::time::Instant) ->
 #[cfg(test)]
 fn layout_chunks(area: Rect, feedback_height: u16) -> std::rc::Rc<[Rect]> {
     let layout = shell_layout(area, feedback_height);
-    vec![layout.problem, layout.editor, layout.feedback, layout.rail].into()
+    vec![
+        layout.problem,
+        layout.editor,
+        layout.controls,
+        layout.feedback,
+        layout.rail,
+    ]
+    .into()
 }
 
 fn shell_layout(area: Rect, feedback_height: u16) -> ShellLayout {
     let body = shell_body(area);
     let reserved_panes = body.height.min(2);
-    let rail_height = COMMAND_RAIL_HEIGHT.min(body.height.saturating_sub(reserved_panes));
+    let rail_height = TOP_COUNTER_HEIGHT.min(body.height.saturating_sub(reserved_panes));
     let feedback_height =
         feedback_height.min(body.height.saturating_sub(rail_height + reserved_panes));
     let panel_height = body.height.saturating_sub(rail_height + feedback_height);
@@ -139,11 +149,26 @@ fn shell_layout(area: Rect, feedback_height: u16) -> ShellLayout {
         ])
         .split(body);
     let panels = panel_layout(vertical[1]);
+    let controls_height = COMMAND_RAIL_HEIGHT.min(panels[0].height.saturating_sub(1));
+    let editor = Rect::new(
+        panels[0].x,
+        panels[0].y,
+        panels[0].width,
+        panels[0].height.saturating_sub(controls_height),
+    );
+    let controls = Rect::new(
+        panels[0].x,
+        panels[0].bottom().saturating_sub(controls_height),
+        panels[0].width,
+        controls_height,
+    );
+    let rail = Rect::new(body.x, body.y, panels[0].width, rail_height);
     ShellLayout {
-        editor: panels[0],
+        editor,
         problem: panels[1],
+        controls,
         feedback: vertical[2],
-        rail: vertical[0],
+        rail,
     }
 }
 
@@ -171,6 +196,7 @@ fn panel_layout(area: Rect) -> [Rect; 2] {
 pub(crate) struct ShellLayout {
     pub problem: Rect,
     pub editor: Rect,
+    pub controls: Rect,
     pub feedback: Rect,
     pub rail: Rect,
 }
@@ -480,9 +506,7 @@ fn render_editor_cursor(frame: &mut Frame<'_>, area: Rect, client_frame: &Client
         return;
     };
 
-    frame.buffer_mut()[(x, y)]
-        .set_symbol("▏")
-        .set_style(caret_feedback_style(client_frame.failure));
+    frame.set_cursor_position(Position::new(x, y));
 }
 
 fn visible_cursor_anchor(area: Rect, client_frame: &ClientFrame) -> Option<EditorAnchor> {
@@ -648,6 +672,24 @@ fn render_editor_toasts(frame: &mut Frame<'_>, area: Rect, client_frame: &Client
             status_tone_style(StatusTone::Warning),
         );
     }
+    if client_frame.format.active {
+        let Some(kind) = client_frame.format.kind else {
+            return;
+        };
+        let style = if kind.is_success() {
+            status_tone_style(StatusTone::Pass)
+        } else {
+            status_tone_style(StatusTone::Warning)
+        };
+        render_editor_toast(
+            frame,
+            area,
+            client_frame,
+            client_frame.format.anchor,
+            kind.message(),
+            style,
+        );
+    }
 }
 
 fn render_editor_toast(
@@ -738,14 +780,22 @@ fn render_top_banner(frame: &mut Frame<'_>, area: Rect, client_frame: &ClientFra
         horizontal: 1,
     });
     frame.render_widget(
-        Paragraph::new(Line::from(command_spans()))
-            .style(base_style())
-            .alignment(Alignment::Right),
-        rail,
-    );
-    frame.render_widget(
         Paragraph::new(Line::from(counter_spans(client_frame))).style(base_style()),
         rail,
+    );
+}
+
+fn render_editor_controls(frame: &mut Frame<'_>, area: Rect) {
+    if area.height == 0 {
+        return;
+    }
+
+    frame.render_widget(
+        Paragraph::new(Line::from(command_spans())).style(base_style()),
+        area.inner(Margin {
+            vertical: 0,
+            horizontal: if area.width > 4 { 1 } else { 0 },
+        }),
     );
 }
 
@@ -807,15 +857,13 @@ fn editor_line_spans(
 
 #[cfg(test)]
 fn bottom_chrome_lines(client_frame: &ClientFrame) -> Vec<Line<'static>> {
-    vec![Line::from(command_rail_spans(client_frame))]
+    let _ = client_frame;
+    vec![Line::from(command_rail_spans())]
 }
 
 #[cfg(test)]
-fn command_rail_spans(client_frame: &ClientFrame) -> Vec<Span<'static>> {
-    let mut spans = counter_spans(client_frame);
-    spans.push(Span::styled(" · ", control_hint_style()));
-    spans.extend(command_spans());
-    spans
+fn command_rail_spans() -> Vec<Span<'static>> {
+    command_spans()
 }
 
 fn counter_spans(client_frame: &ClientFrame) -> Vec<Span<'static>> {
@@ -827,6 +875,8 @@ fn counter_spans(client_frame: &ClientFrame) -> Vec<Span<'static>> {
 
 fn command_spans() -> Vec<Span<'static>> {
     vec![
+        Span::styled(FORMAT_ACTION_HINT, control_hint_style()),
+        Span::styled(" · ", control_hint_style()),
         Span::styled(PRIMARY_ACTION_HINT, primary_action_style()),
         Span::styled(" · ", control_hint_style()),
         Span::styled(SKIP_ACTION_HINT, control_hint_style()),
@@ -943,22 +993,23 @@ mod tests {
     use std::time::{Duration, Instant};
 
     use super::{
-        COMMAND_RAIL_HEIGHT, FEEDBACK_CHROME_HEIGHT, PRIMARY_ACTION_HINT, QUIT_ACTION_HINT,
-        SKIP_ACTION_HINT, SNAPSHOT_PROBLEM_HEIGHT, SNAPSHOT_WORKBOX_HEIGHT,
-        border_sweep_cell_progress, bottom_chrome_alignment, bottom_chrome_lines,
-        editor_anchor_position, editor_cursor_at, editor_horizontal_overflow,
+        COMMAND_RAIL_HEIGHT, FEEDBACK_CHROME_HEIGHT, FORMAT_ACTION_HINT, PRIMARY_ACTION_HINT,
+        QUIT_ACTION_HINT, SKIP_ACTION_HINT, SNAPSHOT_PROBLEM_HEIGHT, SNAPSHOT_WORKBOX_HEIGHT,
+        TOP_COUNTER_HEIGHT, border_sweep_cell_progress, bottom_chrome_alignment,
+        bottom_chrome_lines, editor_anchor_position, editor_cursor_at, editor_horizontal_overflow,
         feedback_chrome_lines, feedback_height, gutter_width, layout_chunks, line_text,
-        problem_display_line, problem_lines, render_editor_cursor,
-        render_editor_horizontal_indicators, render_snapshot, render_snapshot_with_workbox_height,
-        render_top_banner, reward_sweep_intensity_at, reward_toast_anchor, shell_layout,
-        usize_to_u16, viewport_indicator_cells, visible_editor_rows, workbox_lines,
-        workbox_lines_for_area, workbox_lines_for_width,
+        problem_display_line, problem_lines, render_client_frame, render_editor_controls,
+        render_editor_cursor, render_editor_horizontal_indicators, render_snapshot,
+        render_snapshot_with_workbox_height, render_top_banner, reward_sweep_intensity_at,
+        reward_toast_anchor, shell_layout, usize_to_u16, viewport_indicator_cells,
+        visible_editor_rows, workbox_lines, workbox_lines_for_area, workbox_lines_for_width,
     };
     use crate::{
         client::{
-            ClientAction, CursorPosition, EditorAnchor, ProblemDisplayLine, ProblemViewport,
-            REWARD_ATTACK_DURATION, REWARD_DURATION, REWARD_PLUS_ONE_BODY_DURATION,
-            REWARD_PLUS_ONE_DURATION, RewardFrame, StatusTone, ViewportOverflow,
+            ClientAction, CursorPosition, EditorAnchor, FormatFrame, FormatNoticeKind,
+            ProblemDisplayLine, ProblemViewport, REWARD_ATTACK_DURATION, REWARD_DURATION,
+            REWARD_PLUS_ONE_BODY_DURATION, REWARD_PLUS_ONE_DURATION, RewardFrame, StatusTone,
+            ViewportOverflow,
         },
         engine, lab,
         tui::{
@@ -971,7 +1022,7 @@ mod tests {
     use ratatui::{
         Terminal,
         backend::TestBackend,
-        layout::{Alignment, Rect},
+        layout::{Alignment, Position, Rect},
         style::{Color, Modifier},
         text::Text,
         widgets::Paragraph,
@@ -1030,6 +1081,41 @@ mod tests {
             .map(|x| buffer[(x, 0)].symbol())
             .collect::<Vec<_>>()
             .concat()
+    }
+
+    fn render_editor_controls_line(width: u16) -> String {
+        let backend = TestBackend::new(width, 1);
+        let mut terminal = Terminal::new(backend).expect("expected test terminal");
+        terminal
+            .draw(|frame| render_editor_controls(frame, Rect::new(0, 0, width, 1)))
+            .expect("expected controls render");
+        let buffer = terminal.backend().buffer();
+        (0..width)
+            .map(|x| buffer[(x, 0)].symbol())
+            .collect::<Vec<_>>()
+            .concat()
+    }
+
+    fn render_frame_text(
+        client_frame: &crate::client::ClientFrame,
+        width: u16,
+        height: u16,
+    ) -> String {
+        let backend = TestBackend::new(width, height);
+        let mut terminal = Terminal::new(backend).expect("expected test terminal");
+        terminal
+            .draw(|frame| render_client_frame(frame, client_frame))
+            .expect("expected frame render");
+        let buffer = terminal.backend().buffer();
+        (0..height)
+            .map(|y| {
+                (0..width)
+                    .map(|x| buffer[(x, y)].symbol())
+                    .collect::<Vec<_>>()
+                    .concat()
+            })
+            .collect::<Vec<_>>()
+            .join("\n")
     }
 
     fn render_editor_buffer_line(client_frame: &crate::client::ClientFrame, area: Rect) -> String {
@@ -1118,14 +1204,22 @@ mod tests {
         let layout = shell_layout(Rect::new(0, 0, 100, 32), FEEDBACK_CHROME_HEIGHT);
 
         assert_eq!(layout.problem.y, layout.editor.y);
-        assert_eq!(layout.problem.height, layout.editor.height);
+        assert_eq!(
+            layout.problem.height,
+            layout.editor.height + layout.controls.height
+        );
         assert!(layout.editor.width > 45);
         assert!(layout.problem.width > 30);
         assert!(layout.editor.width > layout.problem.width);
         assert!(layout.editor.right() < layout.problem.left());
-        assert_eq!(layout.rail.height, COMMAND_RAIL_HEIGHT);
+        assert_eq!(layout.rail.height, TOP_COUNTER_HEIGHT);
         assert!(layout.rail.bottom() <= layout.editor.top());
         assert!(layout.rail.bottom() <= layout.problem.top());
+        assert_eq!(layout.controls.height, COMMAND_RAIL_HEIGHT);
+        assert_eq!(layout.controls.left(), layout.editor.left());
+        assert_eq!(layout.controls.right(), layout.editor.right());
+        assert_eq!(layout.controls.top(), layout.editor.bottom());
+        assert_eq!(layout.controls.bottom(), layout.problem.bottom());
         assert!(layout.feedback.top() >= layout.problem.bottom());
     }
 
@@ -1133,12 +1227,15 @@ mod tests {
     fn top_banner_replaces_bottom_footer_strip() {
         let layout = shell_layout(Rect::new(0, 0, 100, 32), FEEDBACK_CHROME_HEIGHT);
 
-        assert_eq!(layout.rail.height, COMMAND_RAIL_HEIGHT);
+        assert_eq!(layout.rail.height, TOP_COUNTER_HEIGHT);
         assert!(layout.rail.top() < layout.editor.top());
         assert_eq!(layout.rail.bottom(), layout.editor.top());
         assert_eq!(layout.feedback.height, 0);
-        assert_eq!(layout.editor.bottom(), layout.feedback.top());
+        assert_eq!(layout.controls.bottom(), layout.feedback.top());
         assert_eq!(layout.problem.bottom(), layout.feedback.top());
+        assert_eq!(layout.controls.height, COMMAND_RAIL_HEIGHT);
+        assert_eq!(layout.controls.left(), layout.editor.left());
+        assert_eq!(layout.controls.right(), layout.editor.right());
     }
 
     #[test]
@@ -1218,7 +1315,8 @@ mod tests {
     fn small_terminal_layout_keeps_rail_reserved_and_panels_non_overlapping() {
         let layout = shell_layout(Rect::new(0, 0, 34, 12), FEEDBACK_CHROME_HEIGHT);
 
-        assert_eq!(layout.rail.height, COMMAND_RAIL_HEIGHT);
+        assert_eq!(layout.rail.height, TOP_COUNTER_HEIGHT);
+        assert!(layout.controls.height <= COMMAND_RAIL_HEIGHT);
         assert!(layout.problem.width > 0);
         assert!(layout.editor.width > 0);
         assert!(layout.editor.right() <= layout.problem.left());
@@ -1624,11 +1722,11 @@ mod tests {
         assert_eq!(
             snapshot.bottom_chrome,
             vec![format!(
-                "● 0 · {PRIMARY_ACTION_HINT} · {SKIP_ACTION_HINT} · {QUIT_ACTION_HINT}"
+                "{FORMAT_ACTION_HINT} · {PRIMARY_ACTION_HINT} · {SKIP_ACTION_HINT} · {QUIT_ACTION_HINT}"
             )]
         );
         assert_eq!(bottom_chrome_alignment(), Alignment::Left);
-        assert!(snapshot.bottom_chrome[0].starts_with("● 0"));
+        assert!(snapshot.bottom_chrome[0].starts_with(FORMAT_ACTION_HINT));
         assert!(
             !snapshot
                 .bottom_chrome
@@ -1641,23 +1739,63 @@ mod tests {
     }
 
     #[test]
-    fn top_banner_keeps_counter_left_and_controls_right_anchored() {
+    fn top_banner_keeps_only_counter_at_editor_left() {
         let app = TuiApp::new();
         let line = render_top_banner_line(&app.frame(), 72);
-        let f5 = line.find(PRIMARY_ACTION_HINT).expect("missing F5 submit");
-        let f7 = line.find(SKIP_ACTION_HINT).expect("missing F7 skip");
-        let esc = line.find(QUIT_ACTION_HINT).expect("missing Esc quit");
 
         assert!(line.trim_start().starts_with("● 0"));
-        assert_eq!(line[..f5].trim(), "● 0");
-        assert!(f5 > 32, "controls should be right anchored: {line}");
-        assert!(f5 < f7);
-        assert!(f7 < esc);
-        assert_eq!(line.trim_end().rfind(QUIT_ACTION_HINT), Some(esc));
+        assert_eq!(line.trim(), "● 0");
+        assert!(!line.contains(FORMAT_ACTION_HINT));
+        assert!(!line.contains(PRIMARY_ACTION_HINT));
+        assert!(!line.contains(SKIP_ACTION_HINT));
+        assert!(!line.contains(QUIT_ACTION_HINT));
         assert!(!line.contains("F6 skip"));
         assert!(!line.contains("wheel"));
         assert!(!line.contains("PageUp"));
         assert!(!line.contains("PageDown"));
+    }
+
+    #[test]
+    fn editor_local_controls_render_under_editor_in_order() {
+        let controls = render_editor_controls_line(80);
+        let f1 = controls
+            .find(FORMAT_ACTION_HINT)
+            .expect("missing F1 format");
+        let f5 = controls
+            .find(PRIMARY_ACTION_HINT)
+            .expect("missing F5 submit");
+        let f7 = controls.find(SKIP_ACTION_HINT).expect("missing F7 skip");
+        let esc = controls.find(QUIT_ACTION_HINT).expect("missing Esc quit");
+
+        assert!(f1 < f5);
+        assert!(f5 < f7);
+        assert!(f7 < esc);
+        assert_eq!(controls.trim_end().rfind(QUIT_ACTION_HINT), Some(esc));
+        assert!(!controls.contains("F6 skip"));
+        assert!(!controls.contains("wheel"));
+        assert!(!controls.contains("PageUp"));
+        assert!(!controls.contains("PageDown"));
+    }
+
+    #[test]
+    fn format_feedback_renders_locally_without_result_block() {
+        let mut frame = TuiApp::new().frame();
+        frame.format = FormatFrame {
+            active: true,
+            intensity: 100,
+            kind: Some(FormatNoticeKind::Formatted),
+            anchor: Some(EditorAnchor { row: 0, column: 4 }),
+        };
+        frame.format_active = true;
+
+        let rendered = render_frame_text(&frame, 96, 24);
+        let snapshot = render_snapshot(&frame);
+
+        assert!(rendered.contains("formatted"));
+        assert!(snapshot.feedback.is_empty());
+        assert!(snapshot.bottom_chrome[0].contains(FORMAT_ACTION_HINT));
+        assert!(!snapshot.bottom_chrome[0].contains("formatted"));
+        assert!(!snapshot.bottom_chrome[0].contains("format failed"));
     }
 
     #[test]
@@ -1666,12 +1804,14 @@ mod tests {
         let snapshot = render_snapshot(&app.frame());
         let rail = snapshot.bottom_chrome.join("\n");
 
-        for expected in ["● 0", "F5 submit", "F7 skip", "Esc quit"] {
+        for expected in ["F1 format", "F5 submit", "F7 skip", "Esc quit"] {
             assert!(rail.contains(expected), "missing {expected}");
         }
+        let f1 = rail.find("F1 format").expect("missing F1 format");
         let f5 = rail.find("F5 submit").expect("missing F5 submit");
         let skip = rail.find("F7 skip").expect("missing F7 skip");
         let esc = rail.find("Esc quit").expect("missing Esc quit");
+        assert!(f1 < f5);
         assert!(f5 < skip);
         assert!(skip < esc);
         assert_eq!(rail.trim_end().rfind("Esc quit"), Some(esc));
@@ -1693,7 +1833,7 @@ mod tests {
             }
         }
         assert!(snapshot.bottom_chrome.iter().any(|line| line
-            == &format!("● 0 · {PRIMARY_ACTION_HINT} · {SKIP_ACTION_HINT} · {QUIT_ACTION_HINT}")));
+            == &format!("{FORMAT_ACTION_HINT} · {PRIMARY_ACTION_HINT} · {SKIP_ACTION_HINT} · {QUIT_ACTION_HINT}")));
     }
 
     #[test]
@@ -1704,15 +1844,16 @@ mod tests {
         let reward_line = lines.first().expect("expected bottom rail line");
 
         assert_eq!(lines.len(), usize::from(COMMAND_RAIL_HEIGHT));
-        assert_eq!(reward_line.spans[0].content.as_ref(), "● 0");
+        assert_eq!(reward_line.spans[0].content.as_ref(), FORMAT_ACTION_HINT);
+        assert_eq!(reward_line.spans[1].content.as_ref(), " · ");
+        assert_eq!(reward_line.spans[2].content.as_ref(), PRIMARY_ACTION_HINT);
         assert!(
-            reward_line.spans[0]
+            reward_line.spans[2]
                 .style
                 .add_modifier
                 .contains(Modifier::BOLD)
         );
         assert_eq!(reward_line.spans[1].content.as_ref(), " · ");
-        assert_eq!(reward_line.spans[2].content.as_ref(), PRIMARY_ACTION_HINT);
         assert_eq!(reward_line.spans[3].content.as_ref(), " · ");
         assert_eq!(reward_line.spans[4].content.as_ref(), SKIP_ACTION_HINT);
         assert_eq!(reward_line.spans[5].content.as_ref(), " · ");
@@ -1741,8 +1882,9 @@ mod tests {
         );
         assert!(frame.reward.show_plus_one);
         assert_eq!(frame.reward.plus_one_intensity, 100);
-        assert_eq!(line.spans[0].content.as_ref(), "● 1");
+        assert_eq!(line.spans[0].content.as_ref(), FORMAT_ACTION_HINT);
         assert!(!line_text(line).contains("+1"));
+        assert!(!line_text(line).contains("● 1"));
         assert!(!line_text(line).contains("reps"));
     }
 
@@ -2045,12 +2187,16 @@ mod tests {
         assert_eq!(idle_layout, wrong_layout);
         assert_eq!(wrong_layout, success_layout);
         assert_eq!(idle_layout.problem.y, idle_layout.editor.y);
-        assert_eq!(idle_layout.problem.height, idle_layout.editor.height);
+        assert_eq!(
+            idle_layout.problem.height,
+            idle_layout.editor.height + idle_layout.controls.height
+        );
         assert!(idle_layout.editor.right() < idle_layout.problem.left());
         assert!(idle_layout.problem.height > SNAPSHOT_PROBLEM_HEIGHT);
         assert!(idle_layout.editor.height > SNAPSHOT_WORKBOX_HEIGHT);
         assert_eq!(idle_layout.feedback.height, FEEDBACK_CHROME_HEIGHT);
-        assert_eq!(idle_layout.rail.height, COMMAND_RAIL_HEIGHT);
+        assert_eq!(idle_layout.rail.height, TOP_COUNTER_HEIGHT);
+        assert_eq!(idle_layout.controls.height, COMMAND_RAIL_HEIGHT);
         assert!(idle_layout.rail.bottom() <= idle_layout.editor.top());
         assert!(idle_layout.rail.bottom() <= idle_layout.problem.top());
         assert!(idle_layout.feedback.top() >= idle_layout.problem.bottom());
@@ -2058,8 +2204,9 @@ mod tests {
         let chunks = layout_chunks(area, idle_height);
         assert_eq!(chunks[0], idle_layout.problem);
         assert_eq!(chunks[1], idle_layout.editor);
-        assert_eq!(chunks[2], idle_layout.feedback);
-        assert_eq!(chunks[3], idle_layout.rail);
+        assert_eq!(chunks[2], idle_layout.controls);
+        assert_eq!(chunks[3], idle_layout.feedback);
+        assert_eq!(chunks[4], idle_layout.rail);
     }
 
     #[test]
@@ -2343,13 +2490,31 @@ mod tests {
         let mut app = TuiApp::new();
         type_text(&mut app, "abc");
         app.handle_action(ClientAction::MoveCursorLeft);
-        let frame = app.frame();
-        let snapshot = render_snapshot(&frame);
-        let rendered = render_editor_buffer_line(&frame, Rect::new(0, 0, 16, 4));
+        let client_frame = app.frame();
+        let snapshot = render_snapshot(&client_frame);
+        let area = Rect::new(0, 0, 16, 4);
+        let rendered = render_editor_buffer_line(&client_frame, area);
+        let backend = TestBackend::new(area.width, area.height);
+        let mut terminal = Terminal::new(backend).expect("expected test terminal");
+        terminal
+            .draw(|draw_frame| {
+                draw_frame.render_widget(
+                    Paragraph::new(Text::from(workbox_lines_for_area(&client_frame, area)))
+                        .style(editor_canvas_style()),
+                    area,
+                );
+                render_editor_cursor(draw_frame, area, &client_frame);
+            })
+            .expect("expected editor render");
+        terminal
+            .backend_mut()
+            .assert_cursor_position(Position::new(usize_to_u16(gutter_width(1) + 3 + 2), 1));
 
         assert!(snapshot.game.iter().any(|line| line == " 1 │ abc"));
-        assert!(rendered.contains(" 1 │ ab▏"));
+        assert!(rendered.contains(" 1 │ abc"));
+        assert!(!rendered.contains('▏'));
         assert!(!rendered.contains(" 1 │ ab c"));
+        assert_eq!(app.input(), "abc");
     }
 
     #[test]

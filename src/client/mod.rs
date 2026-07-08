@@ -25,6 +25,7 @@ pub enum ClientAction {
     ScrollProblemDown,
     ScrollEditorUp,
     ScrollEditorDown,
+    Format,
     Submit,
     Skip,
     Quit,
@@ -74,6 +75,7 @@ pub const REWARD_GAME_GLOW_DELAY: Duration = Duration::from_millis(80);
 pub const REWARD_GAME_GLOW_MAX_INTENSITY: u8 = 58;
 pub const FAILURE_PULSE_DURATION: Duration = Duration::from_millis(520);
 pub const SKIP_TOAST_DURATION: Duration = Duration::from_millis(900);
+pub const FORMAT_TOAST_DURATION: Duration = Duration::from_millis(900);
 pub const PROBLEM_WHEEL_SCROLL_LINES: usize = 1;
 pub const PROBLEM_SCROLL_LINES: usize = 4;
 pub const DEFAULT_PROBLEM_WRAP_WIDTH: usize = 80;
@@ -326,6 +328,48 @@ pub struct SkipFrame {
     pub anchor: Option<EditorAnchor>,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FormatNoticeKind {
+    Formatted,
+    Unavailable,
+    Failed,
+    TimedOut,
+}
+
+impl FormatNoticeKind {
+    pub fn message(self) -> &'static str {
+        match self {
+            Self::Formatted => "formatted",
+            Self::Unavailable => "rustfmt unavailable",
+            Self::Failed => "format failed",
+            Self::TimedOut => "format timed out",
+        }
+    }
+
+    pub fn is_success(self) -> bool {
+        matches!(self, Self::Formatted)
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct FormatFrame {
+    pub active: bool,
+    pub intensity: u8,
+    pub kind: Option<FormatNoticeKind>,
+    pub anchor: Option<EditorAnchor>,
+}
+
+impl FormatFrame {
+    fn idle() -> Self {
+        Self {
+            active: false,
+            intensity: 0,
+            kind: None,
+            anchor: None,
+        }
+    }
+}
+
 impl SkipFrame {
     fn idle() -> Self {
         Self {
@@ -444,6 +488,60 @@ struct SkipToast {
     started_at: Option<Instant>,
     duration: Duration,
     anchor: Option<EditorAnchor>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct FormatToast {
+    started_at: Option<Instant>,
+    duration: Duration,
+    kind: Option<FormatNoticeKind>,
+    anchor: Option<EditorAnchor>,
+}
+
+impl FormatToast {
+    fn new() -> Self {
+        Self {
+            started_at: None,
+            duration: FORMAT_TOAST_DURATION,
+            kind: None,
+            anchor: None,
+        }
+    }
+
+    fn start(&mut self, now: Instant, kind: FormatNoticeKind, anchor: EditorAnchor) {
+        self.started_at = Some(now);
+        self.kind = Some(kind);
+        self.anchor = Some(anchor);
+    }
+
+    fn clear(&mut self) {
+        self.started_at = None;
+        self.kind = None;
+        self.anchor = None;
+    }
+
+    fn settle(&mut self, now: Instant) {
+        if !self.frame_at(now).active {
+            self.clear();
+        }
+    }
+
+    fn frame_at(self, now: Instant) -> FormatFrame {
+        let Some(started_at) = self.started_at else {
+            return FormatFrame::idle();
+        };
+        let elapsed = now.saturating_duration_since(started_at);
+        if elapsed >= self.duration {
+            return FormatFrame::idle();
+        }
+
+        FormatFrame {
+            active: true,
+            intensity: skip_toast_intensity_at(elapsed),
+            kind: self.kind,
+            anchor: self.anchor,
+        }
+    }
 }
 
 impl SkipToast {
@@ -614,6 +712,7 @@ pub struct ClientUiState {
     reward_animation: RewardAnimation,
     failure_pulse: FailurePulse,
     skip_toast: SkipToast,
+    format_toast: FormatToast,
 }
 
 impl ClientUiState {
@@ -627,6 +726,7 @@ impl ClientUiState {
             reward_animation: RewardAnimation::new(),
             failure_pulse: FailurePulse::new(),
             skip_toast: SkipToast::new(),
+            format_toast: FormatToast::new(),
         }
     }
 
@@ -680,6 +780,14 @@ impl ClientUiState {
 
     pub fn skip_active_at(&self, now: Instant) -> bool {
         self.skip_frame_at(now).active
+    }
+
+    pub fn format_frame_at(&self, now: Instant) -> FormatFrame {
+        self.format_toast.frame_at(now)
+    }
+
+    pub fn format_active_at(&self, now: Instant) -> bool {
+        self.format_frame_at(now).active
     }
 
     pub fn apply_action(&mut self, action: ClientAction) {
@@ -752,6 +860,7 @@ impl ClientUiState {
                 self.editor.apply_action(EditorAction::ScrollViewportDown);
                 self.show_cursor();
             }
+            ClientAction::Format => {}
             ClientAction::CursorTick => {
                 self.cursor_visible = !self.cursor_visible;
             }
@@ -769,6 +878,12 @@ impl ClientUiState {
     pub fn clear_draft_input(&mut self) {
         self.show_cursor();
         self.editor.clear();
+    }
+
+    pub fn replace_draft_input(&mut self, text: &str) {
+        self.show_cursor();
+        self.editor
+            .apply_action(EditorAction::SetText(text.to_string()));
     }
 
     pub fn set_status_lines(&mut self, status_lines: Vec<String>) {
@@ -821,6 +936,19 @@ impl ClientUiState {
     pub fn settle_skip_toast(&mut self, now: Instant) {
         self.skip_toast.settle(now);
     }
+
+    pub fn start_format_toast(&mut self, now: Instant, kind: FormatNoticeKind) {
+        self.format_toast
+            .start(now, kind, editor_anchor_from_view(&self.editor.view()));
+    }
+
+    pub fn clear_format_toast(&mut self) {
+        self.format_toast.clear();
+    }
+
+    pub fn settle_format_toast(&mut self, now: Instant) {
+        self.format_toast.settle(now);
+    }
 }
 
 fn editor_anchor_from_view(view: &EditorView) -> EditorAnchor {
@@ -858,6 +986,8 @@ pub struct ClientFrame {
     pub failure_active: bool,
     pub skip: SkipFrame,
     pub skip_active: bool,
+    pub format: FormatFrame,
+    pub format_active: bool,
     pub help_chrome: HelpChromeFrame,
 }
 
@@ -975,6 +1105,7 @@ pub fn project_client_frame_for_layout(
     let reward = ui_state.reward_frame_at(now);
     let failure = ui_state.failure_frame_at(now);
     let skip = ui_state.skip_frame_at(now);
+    let format = ui_state.format_frame_at(now);
     let problem_lines =
         problem_display_lines("do this:", exercise.prompt.as_ref(), problem_wrap_width);
     let problem_viewport = ui_state.problem_viewport().clamped(problem_lines.len());
@@ -1008,6 +1139,8 @@ pub fn project_client_frame_for_layout(
         failure_active: failure.active,
         skip,
         skip_active: skip.active,
+        format,
+        format_active: format.active,
         help_chrome: HelpChromeFrame {
             open: ui_state.help_open(),
             lines: help_lines(ui_state.help_open()),

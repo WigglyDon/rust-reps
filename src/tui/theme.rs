@@ -22,6 +22,7 @@ pub(crate) struct RustRepsDark {
     pub(crate) success: Color,
     pub(crate) error: Color,
     pub(crate) warning_unknown: Color,
+    #[allow(dead_code)]
     pub(crate) caret: Color,
     pub(crate) counter_faded: Color,
     pub(crate) reward_plus_one: Color,
@@ -198,6 +199,7 @@ pub(crate) fn footer_counter_style() -> Style {
         .add_modifier(Modifier::BOLD)
 }
 
+#[allow(dead_code)]
 pub(crate) fn caret_feedback_style(failure: FailureFrame) -> Style {
     let intensity = if failure.active {
         failure.intensity.min(90)

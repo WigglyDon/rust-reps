@@ -20,7 +20,7 @@ pub fn classify_key_event(key: KeyEvent) -> ClientAction {
         KeyCode::Enter if key.modifiers.is_empty() => ClientAction::InsertNewline,
         KeyCode::F(5) => ClientAction::Submit,
         KeyCode::F(7) => ClientAction::Skip,
-        KeyCode::F(1) => ClientAction::Ignore,
+        KeyCode::F(1) => ClientAction::Format,
         KeyCode::Backspace => ClientAction::Backspace,
         KeyCode::Delete => ClientAction::DeleteForward,
         KeyCode::Left => ClientAction::MoveCursorLeft,
@@ -181,9 +181,9 @@ mod tests {
     }
 
     #[test]
-    fn f1_is_ignored_without_default_help_overlay() {
+    fn f1_classifies_as_format() {
         let intent = classify_key_event(KeyEvent::from(KeyCode::F(1)));
-        assert_eq!(intent, ClientAction::Ignore);
+        assert_eq!(intent, ClientAction::Format);
     }
 
     #[test]
