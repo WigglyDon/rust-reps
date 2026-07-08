@@ -2,7 +2,8 @@
 
 Rust Reps is a terminal-first Rust practice game.
 It teaches one-line Rust reps through exact-match typing in plain terminal output.
-The catalog is small and placeholder right now.
+The normal catalog is small and placeholder right now, but each rep carries static
+metadata for future deterministic catalog work.
 
 ## Player Mode
 
@@ -142,6 +143,12 @@ Exact answers are literal and deterministic:
 - `011` expects `if score > 0 {}`
 - `012` expects `while score < 10 {}`
 
+Each normal catalog rep also has static metadata: short ID, canonical ID, system,
+track, semantic frame, surface frame, operation, concepts, constraints, XP,
+answer rule, and transition. XP is stored metadata only and is not displayed.
+Current normal reps use the `ExactTrimFinalNewline` answer rule and no state
+transition.
+
 ## Developer Mode
 
 ```sh
@@ -200,4 +207,5 @@ rust-reps --version
 - No persistence
 - No random mode
 - No compilation validation
+- No validator/check/lint behavior
 - Plain practice remains available through `plain` and piped stdin.

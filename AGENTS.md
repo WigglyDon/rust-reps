@@ -61,8 +61,8 @@
 - Empty line ending does not bypass exactness.
 
 ## Module Ownership
-- `curriculum`: curriculum data schema (`DrillSpec`, enums) and static drill data.
-- `catalog`: public catalog API, rendering, and curriculum validation tests.
+- `curriculum`: curriculum data schema (`DrillSpec`, metadata enums) and static drill data.
+- `catalog`: public catalog API, rendering, metadata invariants, and curriculum validation tests.
 - `main`: process orchestration and interactive default decision only.
 - `answer`: answer normalization/comparison helpers.
 - `cli`: launch command selection, usage/help/list/version, CLI/tool errors.
@@ -73,6 +73,16 @@
 - `tui`: terminal adapter/projection, theme/color mapping, fullscreen rendering, key input loop, and terminal lifecycle only.
 - `tests` / `scripts/proof.sh`: executable behavior evidence.
 - `README`: describe proven behavior only.
+
+## Catalog Metadata
+- Normal curriculum reps carry static metadata:
+  - short ID, canonical ID, system, track, semantic frame, surface frame,
+    operation, concepts, constraints, XP, answer rule, and transition.
+- Current normal reps use `ExactTrimFinalNewline` and transition `None`.
+- XP is metadata only; do not display it in current player UI.
+- Lab packets are synthetic stress data and must stay out of normal catalog/list output.
+- Metadata describes current exact-copy behavior; it must not add validation,
+  compilation, linting, persistence, scheduling, or runtime generation.
 
 ## Forbidden Scope (without explicit approval)
 - No additional crates beyond this packet's explicit approval.

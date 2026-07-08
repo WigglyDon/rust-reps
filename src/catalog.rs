@@ -12,6 +12,19 @@ impl fmt::Display for Drill {
             self.stage,
             self.task_type,
             self.difficulty,
+            self.metadata.canonical_id,
+            self.metadata.system,
+            self.metadata.track,
+            self.metadata.semantic_frame,
+            self.metadata.surface_frame,
+            self.metadata.operation,
+            self.metadata.operation.as_str(),
+            self.metadata.concepts,
+            self.metadata.constraints,
+            self.metadata.xp,
+            self.metadata.answer_rule,
+            self.metadata.transition,
+            crate::curriculum::Operation::ALL,
             self.prompt,
             self.expected,
             self.validator,
@@ -33,7 +46,10 @@ pub fn find_drill(id: &str) -> Option<&'static Drill> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::curriculum::{DRILL_SHARDS, TaskType, Validator};
+    use crate::curriculum::{
+        AnswerRule, DRILL_SHARDS, Operation, StateTransition, TaskType, Validator,
+    };
+    use crate::lab;
     use std::collections::HashSet;
 
     #[test]
@@ -77,6 +93,24 @@ mod tests {
     }
 
     #[test]
+    fn canonical_ids_are_unique() {
+        let mut canonical_ids = HashSet::new();
+        for drill in drills() {
+            let canonical_id = drill.metadata.canonical_id;
+            assert!(
+                !canonical_id.is_empty(),
+                "drill {} canonical id must not be empty",
+                drill.id
+            );
+            assert!(
+                canonical_ids.insert(canonical_id),
+                "expected canonical ids to be unique, found duplicate {}",
+                canonical_id
+            );
+        }
+    }
+
+    #[test]
     fn drill_ids_are_three_ascii_digits() {
         for drill in drills() {
             assert_eq!(drill.id.len(), 3, "expected drill id to be 3 characters");
@@ -95,6 +129,108 @@ mod tests {
             let current = drills()[i].id;
             assert!(previous < current, "expected drills sorted ascending by id");
         }
+    }
+
+    #[test]
+    fn metadata_required_fields_are_present() {
+        for drill in drills() {
+            let metadata = drill.metadata;
+            assert!(
+                !metadata.system.is_empty(),
+                "drill {} system must not be empty",
+                drill.id
+            );
+            assert!(
+                !metadata.track.is_empty(),
+                "drill {} track must not be empty",
+                drill.id
+            );
+            assert!(
+                !metadata.semantic_frame.is_empty(),
+                "drill {} semantic frame must not be empty",
+                drill.id
+            );
+            assert!(
+                !metadata.surface_frame.is_empty(),
+                "drill {} surface frame must not be empty",
+                drill.id
+            );
+            assert!(
+                !metadata.concepts.is_empty(),
+                "drill {} must have at least one concept",
+                drill.id
+            );
+            assert!(
+                !metadata.constraints.is_empty(),
+                "drill {} must have at least one constraint",
+                drill.id
+            );
+            assert!(metadata.xp > 0, "drill {} xp must be positive", drill.id);
+        }
+    }
+
+    #[test]
+    fn metadata_rules_match_current_exact_rep_contract() {
+        for drill in drills() {
+            assert_eq!(drill.metadata.operation, Operation::Copy);
+            assert_eq!(
+                drill.metadata.answer_rule,
+                AnswerRule::ExactTrimFinalNewline
+            );
+            assert_eq!(drill.metadata.transition, StateTransition::None);
+        }
+    }
+
+    #[test]
+    fn canonical_id_shape_matches_static_metadata_v1() {
+        for drill in drills() {
+            let canonical_id = drill.metadata.canonical_id;
+            let operation = drill.metadata.operation.as_str();
+            assert!(
+                canonical_id.starts_with(&format!(
+                    "{}.{}.",
+                    drill.metadata.system, drill.metadata.surface_frame
+                )),
+                "drill {} canonical id {} should start with system.surface_frame",
+                drill.id,
+                canonical_id
+            );
+            assert!(
+                canonical_id.contains(&format!(".v1.{}.", operation)),
+                "drill {} canonical id {} should include template version and operation",
+                drill.id,
+                canonical_id
+            );
+            assert!(
+                canonical_id.ends_with(&format!(".0{}", drill.id)),
+                "drill {} canonical id {} should end with a stable seed number",
+                drill.id,
+                canonical_id
+            );
+        }
+    }
+
+    #[test]
+    fn operation_catalog_keeps_declared_v1_operations_inspectable() {
+        let operation_names: Vec<&str> = Operation::ALL
+            .iter()
+            .map(|operation| operation.as_str())
+            .collect();
+
+        assert_eq!(
+            operation_names,
+            vec![
+                "copy",
+                "recognize",
+                "fill",
+                "read",
+                "produce",
+                "repair",
+                "transform",
+                "compose",
+                "explain",
+            ]
+        );
     }
 
     #[test]
@@ -196,15 +332,37 @@ mod tests {
     fn lookup_first_middle_and_last_drill_ids() {
         let first = find_drill("001").unwrap();
         assert_eq!(first.id, "001");
+        assert_eq!(
+            first.metadata.canonical_id,
+            "rust.function.main.v1.copy.0001"
+        );
         assert_eq!(first.expected, "fn main() {}");
 
         let middle = find_drill("006").unwrap();
         assert_eq!(middle.id, "006");
+        assert_eq!(
+            middle.metadata.canonical_id,
+            "rust.assignment.add_assign.v1.copy.0006"
+        );
         assert_eq!(middle.expected, "score += 1;");
 
         let last = find_drill("012").unwrap();
         assert_eq!(last.id, "012");
+        assert_eq!(
+            last.metadata.canonical_id,
+            "rust.control.while_empty.v1.copy.0012"
+        );
         assert_eq!(last.expected, "while score < 10 {}");
+    }
+
+    #[test]
+    fn every_short_one_shot_id_still_resolves() {
+        for id in [
+            "001", "002", "003", "004", "005", "006", "007", "008", "009", "010", "011", "012",
+        ] {
+            let drill = find_drill(id).expect("expected short id to resolve");
+            assert_eq!(drill.id, id);
+        }
     }
 
     #[test]
@@ -221,5 +379,14 @@ mod tests {
             ids
         };
         assert_eq!(ids_from_catalog, sorted_ids);
+    }
+
+    #[test]
+    fn lab_packets_stay_outside_normal_catalog() {
+        let lab_packet = lab::exercise_packet_at(0);
+
+        assert!(lab_packet.id.starts_with("LAB-"));
+        assert!(find_drill(lab_packet.id.as_ref()).is_none());
+        assert!(drills().iter().all(|drill| !drill.id.starts_with("LAB-")));
     }
 }

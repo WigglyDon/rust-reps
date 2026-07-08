@@ -1,12 +1,58 @@
-use crate::curriculum::{RepSpec, Stage, TaskType, Track, Validator};
+use crate::curriculum::{
+    AnswerRule, Operation, RepMetadata, RepSpec, Stage, StateTransition, TaskType, Track, Validator,
+};
 
 const SKILL_CORE_SYNTAX: &str = "core_syntax";
+const SYSTEM_RUST: &str = "rust";
+const TRACK_SYNTAX_BASICS: &str = "syntax_basics";
 const NO_PREREQUISITES: &[&str] = &[];
 const NO_TAGS: &[&str] = &[];
+const EXACT_COPY_CONSTRAINTS: &[&str] = &["exact_copy", "trim_one_final_line_ending"];
+const CONCEPT_ENTRY_POINT: &[&str] = &["entry_point", "function"];
+const CONCEPT_MACRO_CALL: &[&str] = &["macro_call", "string_literal"];
+const CONCEPT_BINDING_INTEGER: &[&str] = &["binding", "integer_literal"];
+const CONCEPT_BINDING_STRING: &[&str] = &["binding", "string_literal"];
+const CONCEPT_MUTABLE_BINDING: &[&str] = &["mutable_binding", "integer_literal"];
+const CONCEPT_ASSIGNMENT: &[&str] = &["assignment", "add_assign"];
+const CONCEPT_BOOLEAN: &[&str] = &["binding", "boolean_literal"];
+const CONCEPT_TYPE_ANNOTATION: &[&str] = &["binding", "type_annotation"];
+const CONCEPT_ARRAY: &[&str] = &["array_literal", "binding"];
+const CONCEPT_FUNCTION_RETURN: &[&str] = &["function", "return_expression"];
+const CONCEPT_IF: &[&str] = &["if_expression", "block"];
+const CONCEPT_WHILE: &[&str] = &["while_loop", "block"];
+
+const fn copy_metadata(
+    canonical_id: &'static str,
+    semantic_frame: &'static str,
+    surface_frame: &'static str,
+    concepts: &'static [&'static str],
+    xp: u32,
+) -> RepMetadata {
+    RepMetadata {
+        canonical_id,
+        system: SYSTEM_RUST,
+        track: TRACK_SYNTAX_BASICS,
+        semantic_frame,
+        surface_frame,
+        operation: Operation::Copy,
+        concepts,
+        constraints: EXACT_COPY_CONSTRAINTS,
+        xp,
+        answer_rule: AnswerRule::ExactTrimFinalNewline,
+        transition: StateTransition::None,
+    }
+}
 
 pub const REPS: &[RepSpec] = &[
     RepSpec {
         id: "001",
+        metadata: copy_metadata(
+            "rust.function.main.v1.copy.0001",
+            "entry_point",
+            "function.main",
+            CONCEPT_ENTRY_POINT,
+            10,
+        ),
         track: Track::RustSyntax,
         skill: SKILL_CORE_SYNTAX,
         stage: Stage::Copy,
@@ -20,6 +66,13 @@ pub const REPS: &[RepSpec] = &[
     },
     RepSpec {
         id: "002",
+        metadata: copy_metadata(
+            "rust.macro.println.v1.copy.0002",
+            "write_output",
+            "macro.println",
+            CONCEPT_MACRO_CALL,
+            10,
+        ),
         track: Track::RustSyntax,
         skill: SKILL_CORE_SYNTAX,
         stage: Stage::Copy,
@@ -33,6 +86,13 @@ pub const REPS: &[RepSpec] = &[
     },
     RepSpec {
         id: "003",
+        metadata: copy_metadata(
+            "rust.binding.integer.v1.copy.0003",
+            "bind_value",
+            "binding.integer",
+            CONCEPT_BINDING_INTEGER,
+            20,
+        ),
         track: Track::RustSyntax,
         skill: SKILL_CORE_SYNTAX,
         stage: Stage::Copy,
@@ -46,6 +106,13 @@ pub const REPS: &[RepSpec] = &[
     },
     RepSpec {
         id: "004",
+        metadata: copy_metadata(
+            "rust.binding.string.v1.copy.0004",
+            "bind_text",
+            "binding.string",
+            CONCEPT_BINDING_STRING,
+            20,
+        ),
         track: Track::RustSyntax,
         skill: SKILL_CORE_SYNTAX,
         stage: Stage::Copy,
@@ -59,6 +126,13 @@ pub const REPS: &[RepSpec] = &[
     },
     RepSpec {
         id: "005",
+        metadata: copy_metadata(
+            "rust.binding.mutable.v1.copy.0005",
+            "bind_mutable_value",
+            "binding.mutable",
+            CONCEPT_MUTABLE_BINDING,
+            20,
+        ),
         track: Track::RustSyntax,
         skill: SKILL_CORE_SYNTAX,
         stage: Stage::Copy,
@@ -72,6 +146,13 @@ pub const REPS: &[RepSpec] = &[
     },
     RepSpec {
         id: "006",
+        metadata: copy_metadata(
+            "rust.assignment.add_assign.v1.copy.0006",
+            "update_value",
+            "assignment.add_assign",
+            CONCEPT_ASSIGNMENT,
+            20,
+        ),
         track: Track::RustSyntax,
         skill: SKILL_CORE_SYNTAX,
         stage: Stage::Copy,
@@ -85,6 +166,13 @@ pub const REPS: &[RepSpec] = &[
     },
     RepSpec {
         id: "007",
+        metadata: copy_metadata(
+            "rust.binding.boolean.v1.copy.0007",
+            "bind_boolean",
+            "binding.boolean",
+            CONCEPT_BOOLEAN,
+            30,
+        ),
         track: Track::RustSyntax,
         skill: SKILL_CORE_SYNTAX,
         stage: Stage::Copy,
@@ -98,6 +186,13 @@ pub const REPS: &[RepSpec] = &[
     },
     RepSpec {
         id: "008",
+        metadata: copy_metadata(
+            "rust.binding.type_annotation.v1.copy.0008",
+            "annotate_type",
+            "binding.type_annotation",
+            CONCEPT_TYPE_ANNOTATION,
+            30,
+        ),
         track: Track::RustSyntax,
         skill: SKILL_CORE_SYNTAX,
         stage: Stage::Copy,
@@ -111,6 +206,13 @@ pub const REPS: &[RepSpec] = &[
     },
     RepSpec {
         id: "009",
+        metadata: copy_metadata(
+            "rust.binding.array.v1.copy.0009",
+            "bind_array",
+            "binding.array",
+            CONCEPT_ARRAY,
+            30,
+        ),
         track: Track::RustSyntax,
         skill: SKILL_CORE_SYNTAX,
         stage: Stage::Copy,
@@ -124,6 +226,13 @@ pub const REPS: &[RepSpec] = &[
     },
     RepSpec {
         id: "010",
+        metadata: copy_metadata(
+            "rust.function.return_expression.v1.copy.0010",
+            "return_value",
+            "function.return_expression",
+            CONCEPT_FUNCTION_RETURN,
+            40,
+        ),
         track: Track::RustSyntax,
         skill: SKILL_CORE_SYNTAX,
         stage: Stage::Copy,
@@ -137,6 +246,13 @@ pub const REPS: &[RepSpec] = &[
     },
     RepSpec {
         id: "011",
+        metadata: copy_metadata(
+            "rust.control.if_empty.v1.copy.0011",
+            "conditional_block",
+            "control.if_empty",
+            CONCEPT_IF,
+            40,
+        ),
         track: Track::RustSyntax,
         skill: SKILL_CORE_SYNTAX,
         stage: Stage::Copy,
@@ -150,6 +266,13 @@ pub const REPS: &[RepSpec] = &[
     },
     RepSpec {
         id: "012",
+        metadata: copy_metadata(
+            "rust.control.while_empty.v1.copy.0012",
+            "loop_block",
+            "control.while_empty",
+            CONCEPT_WHILE,
+            40,
+        ),
         track: Track::RustSyntax,
         skill: SKILL_CORE_SYNTAX,
         stage: Stage::Copy,
