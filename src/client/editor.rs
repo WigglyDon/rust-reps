@@ -215,12 +215,32 @@ impl EditorBuffer {
 
     pub fn insert_newline(&mut self) {
         self.clamp_cursor();
-        let line = &mut self.lines[self.cursor.line];
-        let byte_index = byte_index_at_char_column(line, self.cursor.column);
-        let remainder = line.split_off(byte_index);
-        self.lines.insert(self.cursor.line + 1, remainder);
-        self.cursor.line += 1;
-        self.cursor.column = 0;
+        let line_index = self.cursor.line;
+        let byte_index = byte_index_at_char_column(&self.lines[line_index], self.cursor.column);
+        let before_cursor = self.lines[line_index][..byte_index].to_string();
+        let after_cursor = self.lines[line_index][byte_index..].to_string();
+        let base_indent = leading_spaces(&self.lines[line_index]);
+
+        if before_cursor.trim_end().ends_with('{') && after_cursor.trim().is_empty() {
+            let inner_indent = format!("{base_indent}    ");
+            let should_insert_closing_brace = !self.next_meaningful_line_is_closing_brace();
+            self.lines[line_index] = before_cursor;
+            self.lines.insert(line_index + 1, inner_indent.clone());
+            if should_insert_closing_brace {
+                self.lines
+                    .insert(line_index + 2, format!("{base_indent}}}"));
+            }
+            self.cursor.line = line_index + 1;
+            self.cursor.column = char_count(&inner_indent);
+            self.ensure_cursor_visible();
+            return;
+        }
+
+        self.lines[line_index] = before_cursor;
+        self.lines
+            .insert(line_index + 1, format!("{base_indent}{after_cursor}"));
+        self.cursor.line = line_index + 1;
+        self.cursor.column = char_count(&base_indent);
         self.ensure_cursor_visible();
     }
 
@@ -408,6 +428,14 @@ impl EditorBuffer {
         self.viewport.first_line = self.viewport.first_line.min(max_first_line);
         self.viewport.first_column = self.viewport.first_column.min(max_first_column);
     }
+
+    fn next_meaningful_line_is_closing_brace(&self) -> bool {
+        self.lines
+            .iter()
+            .skip(self.cursor.line + 1)
+            .find(|line| !line.trim().is_empty())
+            .is_some_and(|line| line.trim() == "}")
+    }
 }
 
 impl Default for EditorBuffer {
@@ -425,6 +453,10 @@ fn byte_index_at_char_column(text: &str, column: usize) -> usize {
 
 fn char_count(text: &str) -> usize {
     text.chars().count()
+}
+
+fn leading_spaces(text: &str) -> String {
+    text.chars().take_while(|ch| *ch == ' ').collect()
 }
 
 #[cfg(test)]
@@ -574,6 +606,103 @@ mod tests {
         assert_eq!(editor.text(), "let\nscore");
         assert_eq!(editor.lines(), &["let".to_string(), "score".to_string()]);
         assert_eq!(editor.cursor(), CursorPosition { line: 1, column: 5 });
+    }
+
+    #[test]
+    fn smart_newline_after_open_brace_indents_and_inserts_closing_brace() {
+        let mut editor = EditorBuffer::new();
+        editor.insert_string("fn main() {");
+
+        editor.insert_newline();
+
+        assert_eq!(editor.text(), "fn main() {\n    \n}");
+        assert_eq!(
+            editor.lines(),
+            &[
+                "fn main() {".to_string(),
+                "    ".to_string(),
+                "}".to_string()
+            ]
+        );
+        assert_eq!(editor.cursor(), CursorPosition { line: 1, column: 4 });
+    }
+
+    #[test]
+    fn smart_newline_after_indented_open_brace_uses_nested_space_indent() {
+        let mut editor = EditorBuffer::new();
+        editor.insert_string("    if true {");
+
+        editor.insert_newline();
+
+        assert_eq!(editor.text(), "    if true {\n        \n    }");
+        assert_eq!(editor.cursor(), CursorPosition { line: 1, column: 8 });
+        assert_eq!(editor.lines()[2], "    }");
+    }
+
+    #[test]
+    fn smart_newline_after_normal_line_copies_current_indentation() {
+        let mut editor = EditorBuffer::new();
+        editor.insert_string("    let score = 0;");
+
+        editor.insert_newline();
+
+        assert_eq!(editor.text(), "    let score = 0;\n    ");
+        assert_eq!(editor.cursor(), CursorPosition { line: 1, column: 4 });
+    }
+
+    #[test]
+    fn smart_newline_in_middle_splits_right_text_with_current_indentation() {
+        let mut editor = EditorBuffer::new();
+        editor.insert_string("    let score");
+        editor.set_cursor(CursorPosition { line: 0, column: 8 });
+
+        editor.insert_newline();
+
+        assert_eq!(editor.text(), "    let \n    score");
+        assert_eq!(editor.cursor(), CursorPosition { line: 1, column: 4 });
+    }
+
+    #[test]
+    fn smart_newline_before_non_whitespace_right_text_does_not_insert_closing_brace() {
+        let mut editor = EditorBuffer::new();
+        editor.insert_string("fn main() { body");
+        editor.set_cursor(CursorPosition {
+            line: 0,
+            column: "fn main() {".chars().count(),
+        });
+
+        editor.insert_newline();
+
+        assert_eq!(editor.text(), "fn main() {\n body");
+        assert_eq!(editor.lines().len(), 2);
+    }
+
+    #[test]
+    fn smart_newline_does_not_duplicate_existing_closing_brace() {
+        let mut editor = EditorBuffer::new();
+        editor.set_text("fn main() {\n}");
+        editor.set_cursor(CursorPosition {
+            line: 0,
+            column: "fn main() {".chars().count(),
+        });
+
+        editor.insert_newline();
+
+        assert_eq!(editor.text(), "fn main() {\n    \n}");
+        assert_eq!(editor.lines().len(), 3);
+        assert_eq!(editor.cursor(), CursorPosition { line: 1, column: 4 });
+    }
+
+    #[test]
+    fn smart_newline_preserves_blank_line_space_indent_without_tabs() {
+        let mut editor = EditorBuffer::new();
+        editor.insert_string("    ");
+
+        editor.insert_newline();
+
+        assert_eq!(editor.text(), "    \n    ");
+        assert_eq!(editor.cursor(), CursorPosition { line: 1, column: 4 });
+        assert!(!editor.text().contains('\t'));
     }
 
     #[test]

@@ -638,17 +638,6 @@ fn editor_horizontal_overflow(
 }
 
 fn render_editor_toasts(frame: &mut Frame<'_>, area: Rect, client_frame: &ClientFrame) {
-    if client_frame.reward.show_plus_one {
-        render_editor_toast(
-            frame,
-            area,
-            client_frame,
-            client_frame.reward.anchor.map(reward_toast_anchor),
-            "+1",
-            plus_one_style(client_frame.reward),
-            ToastPlacement::CursorLocal,
-        );
-    }
     if client_frame.failure.active {
         render_editor_toast(
             frame,
@@ -694,7 +683,6 @@ fn render_editor_toasts(frame: &mut Frame<'_>, area: Rect, client_frame: &Client
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum ToastPlacement {
-    CursorLocal,
     AfterVisibleLine,
 }
 
@@ -731,13 +719,6 @@ fn render_editor_toast(
     for ch in text.chars().take(text_width) {
         buffer[(x, y)].set_symbol(&ch.to_string()).set_style(style);
         x = x.saturating_add(1);
-    }
-}
-
-fn reward_toast_anchor(anchor: EditorAnchor) -> EditorAnchor {
-    EditorAnchor {
-        row: anchor.row,
-        column: anchor.column.saturating_add(1),
     }
 }
 
@@ -911,10 +892,15 @@ fn command_rail_spans() -> Vec<Span<'static>> {
 }
 
 fn counter_spans(client_frame: &ClientFrame) -> Vec<Span<'static>> {
-    vec![Span::styled(
+    let mut spans = vec![Span::styled(
         format!("● {}", client_frame.completed_reps_this_run),
         footer_counter_style(),
-    )]
+    )];
+    if client_frame.reward.show_plus_one {
+        spans.push(Span::styled(" ", footer_counter_style()));
+        spans.push(Span::styled("+1", plus_one_style(client_frame.reward)));
+    }
+    spans
 }
 
 fn command_spans() -> Vec<Span<'static>> {
@@ -1040,13 +1026,13 @@ mod tests {
         COMMAND_RAIL_HEIGHT, FEEDBACK_CHROME_HEIGHT, FORMAT_ACTION_HINT, PRIMARY_ACTION_HINT,
         QUIT_ACTION_HINT, SKIP_ACTION_HINT, SNAPSHOT_PROBLEM_HEIGHT, SNAPSHOT_WORKBOX_HEIGHT,
         TOP_COUNTER_HEIGHT, border_sweep_cell_progress, bottom_chrome_alignment,
-        bottom_chrome_lines, editor_anchor_position, editor_cursor_at, editor_horizontal_overflow,
-        feedback_chrome_lines, feedback_height, gutter_width, layout_chunks, line_text,
-        problem_display_line, problem_lines, render_client_frame, render_editor_controls,
-        render_editor_cursor, render_editor_horizontal_indicators, render_snapshot,
-        render_snapshot_with_workbox_height, render_top_banner, reward_sweep_intensity_at,
-        reward_toast_anchor, shell_layout, usize_to_u16, viewport_indicator_cells,
-        visible_editor_rows, workbox_lines, workbox_lines_for_area, workbox_lines_for_width,
+        bottom_chrome_lines, editor_cursor_at, editor_horizontal_overflow, feedback_chrome_lines,
+        feedback_height, gutter_width, layout_chunks, line_text, problem_display_line,
+        problem_lines, render_client_frame, render_editor_controls, render_editor_cursor,
+        render_editor_horizontal_indicators, render_snapshot, render_snapshot_with_workbox_height,
+        render_top_banner, reward_sweep_intensity_at, shell_layout, usize_to_u16,
+        viewport_indicator_cells, visible_editor_rows, workbox_lines, workbox_lines_for_area,
+        workbox_lines_for_width,
     };
     use crate::{
         client::{
@@ -1089,6 +1075,10 @@ mod tests {
                 app.handle_action(ClientAction::TypeChar(ch));
             }
         }
+    }
+
+    fn load_text(app: &mut TuiApp, text: &str) {
+        app.replace_input_for_test(text);
     }
 
     fn reward_frame(
@@ -1737,7 +1727,7 @@ mod tests {
         let mut app = TuiApp::with_session(engine::Session::lab_at(
             lab::MULTILINE_SOLUTION_FAMILY_INDEX,
         ));
-        type_text(&mut app, lab::MULTILINE_SOLUTION_EXPECTED);
+        load_text(&mut app, lab::MULTILINE_SOLUTION_EXPECTED);
 
         let snapshot = render_snapshot_with_workbox_height(&app.frame(), 8);
 
@@ -1989,7 +1979,7 @@ mod tests {
     }
 
     #[test]
-    fn success_reward_anchors_plus_one_at_editor_cursor_not_rail() {
+    fn success_reward_renders_plus_one_adjacent_to_counter_not_editor() {
         let mut app = TuiApp::new();
         let now = test_now();
         for ch in "fn main() {}".chars() {
@@ -1997,23 +1987,20 @@ mod tests {
         }
         app.handle_action_at(ClientAction::Submit, now);
         let frame = app.frame_at(now + REWARD_ATTACK_DURATION);
-        let lines = bottom_chrome_lines(&frame);
-        let line = lines.first().expect("expected bottom rail line");
+        let banner = render_top_banner_line(&frame, 40);
+        let rendered = render_frame_text(&frame, 96, 24);
 
-        assert_eq!(
-            frame.reward.anchor,
-            Some(EditorAnchor { row: 0, column: 12 })
-        );
+        assert_eq!(frame.reward.anchor, None);
         assert!(frame.reward.show_plus_one);
         assert_eq!(frame.reward.plus_one_intensity, 100);
-        assert_eq!(line.spans[0].content.as_ref(), FORMAT_ACTION_HINT);
-        assert!(!line_text(line).contains("+1"));
-        assert!(!line_text(line).contains("● 1"));
-        assert!(!line_text(line).contains("reps"));
+        assert!(banner.contains("● 1 +1"));
+        assert!(banner.find("+1").expect("expected +1") > banner.find("● 1").unwrap());
+        assert!(!rendered.contains(" 1 │ +1"));
+        assert!(!rendered.contains("fn main() {}+1"));
     }
 
     #[test]
-    fn reward_plus_one_renders_same_line_beside_captured_cursor_anchor() {
+    fn reward_plus_one_uses_counter_row_and_not_bottom_controls() {
         let mut app = TuiApp::new();
         let now = test_now();
         for ch in "fn main() {}".chars() {
@@ -2021,51 +2008,28 @@ mod tests {
         }
         app.handle_action_at(ClientAction::Submit, now);
         let frame = app.frame_at(now + REWARD_ATTACK_DURATION);
-        let area = Rect::new(10, 4, 36, 8);
-        let anchor = frame.reward.anchor.expect("expected reward anchor");
+        let controls = line_text(&bottom_chrome_lines(&frame)[0]);
+        let banner = render_top_banner_line(&frame, 40);
 
-        assert_eq!(anchor, EditorAnchor { row: 0, column: 12 });
-        assert_eq!(
-            reward_toast_anchor(anchor),
-            EditorAnchor { row: 0, column: 13 }
-        );
-        let cursor_position =
-            editor_anchor_position(area, &frame, anchor, 1).expect("expected cursor position");
-        let reward_position = editor_anchor_position(area, &frame, reward_toast_anchor(anchor), 2)
-            .expect("expected reward position");
-        assert_eq!(reward_position.1, cursor_position.1);
-        assert!(reward_position.0 > cursor_position.0);
-        assert_eq!(reward_position.0.saturating_sub(cursor_position.0), 1);
+        assert!(banner.trim_start().starts_with("● 1 +1"));
+        assert!(!controls.contains("+1"));
+        assert!(controls.contains(PRIMARY_ACTION_HINT));
     }
 
     #[test]
-    fn reward_plus_one_uses_small_cursor_offset_not_centered_position() {
-        let frame = TuiApp::new().frame();
-        let area = Rect::new(0, 0, 60, 5);
-        let anchor = EditorAnchor { row: 0, column: 1 };
-        let cursor_position =
-            editor_anchor_position(area, &frame, anchor, 1).expect("expected cursor position");
-        let reward_position = editor_anchor_position(area, &frame, reward_toast_anchor(anchor), 2)
-            .expect("expected reward position");
+    fn reward_plus_one_expires_from_counter_row() {
+        let mut app = TuiApp::new();
+        let now = test_now();
+        for ch in "fn main() {}".chars() {
+            app.handle_action(ClientAction::TypeChar(ch));
+        }
+        app.handle_action_at(ClientAction::Submit, now);
 
-        assert_eq!(reward_position.1, cursor_position.1);
-        assert_eq!(reward_position.0.saturating_sub(cursor_position.0), 1);
-        assert!(reward_position.0 < area.width / 2);
-    }
+        let active = render_top_banner_line(&app.frame_at(now + REWARD_ATTACK_DURATION), 40);
+        let expired = render_top_banner_line(&app.frame_at(now + REWARD_PLUS_ONE_DURATION), 40);
 
-    #[test]
-    fn reward_plus_one_anchor_clamps_on_same_line_near_right_edge() {
-        let frame = TuiApp::new().frame();
-        let area = Rect::new(0, 0, 20, 3);
-        let anchor = EditorAnchor { row: 0, column: 99 };
-        let cursor_position =
-            editor_anchor_position(area, &frame, anchor, 1).expect("expected cursor position");
-        let reward_position = editor_anchor_position(area, &frame, reward_toast_anchor(anchor), 2)
-            .expect("expected reward position");
-
-        assert_eq!(reward_position.1, cursor_position.1);
-        assert_eq!(reward_position, (17, 1));
-        assert!(reward_position.0 <= cursor_position.0);
+        assert!(active.contains("● 1 +1"));
+        assert_eq!(expired.trim(), "● 1");
     }
 
     #[test]
@@ -2079,16 +2043,14 @@ mod tests {
         let frame = app.frame_at(now);
         let lines = bottom_chrome_lines(&frame);
         let line = lines.first().expect("expected bottom rail line");
-        assert_eq!(
-            frame.reward.anchor,
-            Some(EditorAnchor { row: 0, column: 12 })
-        );
+        assert_eq!(frame.reward.anchor, None);
         assert_eq!(frame.reward.plus_one_intensity, 0);
         assert!(!line_text(line).contains("+1"));
 
         let frame = app.frame_at(now + REWARD_ATTACK_DURATION);
         assert_eq!(frame.reward.plus_one_intensity, 100);
         assert!(frame.reward.show_plus_one);
+        assert!(render_top_banner_line(&frame, 40).contains("● 1 +1"));
 
         let frame =
             app.frame_at(now + REWARD_ATTACK_DURATION + (REWARD_PLUS_ONE_BODY_DURATION / 2));
@@ -2103,6 +2065,7 @@ mod tests {
         assert!(frame.reward.active);
         assert_eq!(frame.reward.plus_one_intensity, 0);
         assert!(!frame.reward.show_plus_one);
+        assert_eq!(render_top_banner_line(&frame, 40).trim(), "● 1");
 
         let frame = app.frame_at(now + REWARD_DURATION);
         let lines = bottom_chrome_lines(&frame);
@@ -2126,6 +2089,7 @@ mod tests {
 
         assert!(frame.reward.active);
         assert!(!frame.reward.show_plus_one);
+        assert_eq!(render_top_banner_line(&frame, 40).trim(), "● 1");
         assert!(!line_text(line).contains("+1"));
         assert!(line_text(line).contains(PRIMARY_ACTION_HINT));
         assert!(!line_text(line).contains("reps"));
@@ -2168,6 +2132,12 @@ mod tests {
         assert!(!success_line.contains("+1"));
         assert!(!wrong_line.contains("+1"));
         assert!(!skip_line.contains("+1"));
+        assert!(
+            render_top_banner_line(&success_app.frame_at(now + REWARD_ATTACK_DURATION), 40)
+                .contains("+1")
+        );
+        assert!(!render_top_banner_line(&wrong_app.frame(), 40).contains("+1"));
+        assert!(!render_top_banner_line(&skip_app.frame(), 40).contains("+1"));
         assert!(!idle_line.contains("reps"));
         assert!(!success_line.contains("reps"));
         assert!(!wrong_line.contains("reps"));
@@ -2359,6 +2329,7 @@ mod tests {
         assert!(frame.failure.active);
         assert!(!frame.reward.show_plus_one);
         assert!(!frame.skip.active);
+        assert!(!render_top_banner_line(&frame, 40).contains("+1"));
         assert!(
             !snapshot
                 .bottom_chrome
@@ -2391,6 +2362,7 @@ mod tests {
 
         assert!(skip_app.frame().skip.active);
         assert!(!skip_app.frame().reward.show_plus_one);
+        assert!(!render_top_banner_line(&skip_app.frame(), 40).contains("+1"));
         assert!(
             !skip_snapshot
                 .bottom_chrome
@@ -2799,7 +2771,7 @@ mod tests {
     }
 
     #[test]
-    fn render_snapshot_hides_pass_and_keeps_reward_editor_local_after_success() {
+    fn render_snapshot_hides_pass_and_keeps_reward_counter_local_after_success() {
         let mut app = TuiApp::new();
         let now = test_now();
         for ch in "fn main() {}".chars() {
@@ -2818,16 +2790,14 @@ mod tests {
         );
         assert!(snapshot.game.iter().any(|line| line == " 1 │ "));
         assert!(frame.reward.show_plus_one);
-        assert_eq!(
-            frame.reward.anchor,
-            Some(EditorAnchor { row: 0, column: 12 })
-        );
+        assert_eq!(frame.reward.anchor, None);
         assert!(
             !snapshot
                 .bottom_chrome
                 .iter()
                 .any(|line| line.contains("+1"))
         );
+        assert!(render_top_banner_line(&frame, 40).contains("+1"));
         assert!(
             !snapshot
                 .bottom_chrome

@@ -447,9 +447,9 @@ impl RewardAnimation {
         }
     }
 
-    fn start(&mut self, now: Instant, anchor: EditorAnchor) {
+    fn start(&mut self, now: Instant) {
         self.started_at = Some(now);
-        self.anchor = Some(anchor);
+        self.anchor = None;
     }
 
     fn clear(&mut self) {
@@ -899,8 +899,7 @@ impl ClientUiState {
     }
 
     pub fn start_reward_event(&mut self, now: Instant) {
-        self.reward_animation
-            .start(now, editor_anchor_from_view(&self.editor.view()));
+        self.reward_animation.start(now);
     }
 
     pub fn clear_reward_event(&mut self) {
@@ -2139,7 +2138,7 @@ mod tests {
     }
 
     #[test]
-    fn reward_anchor_is_captured_before_editor_clear() {
+    fn reward_event_is_counter_local_not_editor_anchored() {
         let mut ui_state = ClientUiState::new();
         let now = test_now();
         for ch in "fn main() {}".chars() {
@@ -2151,10 +2150,7 @@ mod tests {
 
         let frame = ui_state.reward_frame_at(now + REWARD_ATTACK_DURATION);
         assert_eq!(ui_state.editor_view().text, "");
-        assert_eq!(
-            frame.anchor,
-            Some(super::EditorAnchor { row: 0, column: 12 })
-        );
+        assert_eq!(frame.anchor, None);
         assert!(frame.show_plus_one);
     }
 
@@ -2933,6 +2929,30 @@ mod tests {
         assert_eq!(view.text, "a\nb");
         assert_eq!(view.lines, vec!["a".to_string(), "b".to_string()]);
         assert_eq!(view.cursor, CursorPosition { line: 1, column: 1 });
+    }
+
+    #[test]
+    fn smart_newline_changes_only_editor_state_not_engine_truth() {
+        let session = engine::Session::new();
+        let mut ui_state = ClientUiState::new();
+        for ch in "fn main() {".chars() {
+            ui_state.apply_action(ClientAction::TypeChar(ch));
+        }
+
+        ui_state.apply_action(ClientAction::InsertNewline);
+
+        let view = ui_state.editor_view();
+        assert_eq!(view.text, "fn main() {\n    \n}");
+        assert_eq!(view.cursor, CursorPosition { line: 1, column: 4 });
+        assert_eq!(session.passed(), 0);
+        assert_eq!(session.attempts(), 0);
+        assert_eq!(
+            session
+                .current_exercise()
+                .expect("expected current exercise")
+                .id,
+            "001"
+        );
     }
 
     #[test]

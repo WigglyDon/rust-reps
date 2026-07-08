@@ -38,6 +38,11 @@ impl TuiApp {
         self.ui_state.editor_view().text
     }
 
+    #[cfg(test)]
+    pub fn replace_input_for_test(&mut self, text: &str) {
+        self.ui_state.replace_draft_input(text);
+    }
+
     pub fn should_quit(&self) -> bool {
         self.should_quit
     }
@@ -372,6 +377,10 @@ mod tests {
         }
     }
 
+    fn load_text(app: &mut TuiApp, text: &str) {
+        app.replace_input_for_test(text);
+    }
+
     #[test]
     fn new_session_starts_without_reward_event() {
         let app = TuiApp::new();
@@ -660,6 +669,38 @@ mod tests {
     }
 
     #[test]
+    fn smart_enter_works_without_formatter_availability() {
+        let mut app = TuiApp::new();
+        let now = test_now();
+        type_text(&mut app, "fn main() {");
+
+        app.apply_format_result(now, FormatResult::Unavailable);
+        app.handle_action(ClientAction::InsertNewline);
+
+        let frame = app.frame();
+        assert_eq!(app.input(), "fn main() {\n    \n}");
+        assert_eq!(
+            frame.game_window.workbox.cursor,
+            CursorPosition { line: 1, column: 4 }
+        );
+        assert_eq!(app.session().passed(), 0);
+        assert_eq!(app.session().attempts(), 0);
+    }
+
+    #[test]
+    fn smart_enter_buffer_still_submits_with_exact_answer_rules() {
+        let mut app = TuiApp::new();
+        type_text(&mut app, "fn main() {");
+        app.handle_action(ClientAction::InsertNewline);
+
+        app.handle_action(ClientAction::Submit);
+
+        assert_eq!(app.session().passed(), 0);
+        assert_eq!(app.session().attempts(), 1);
+        assert_eq!(app.input(), "fn main() {\n    \n}");
+    }
+
+    #[test]
     fn f6_does_not_skip_as_a_hidden_alias() {
         let mut app = TuiApp::new();
         let now = test_now();
@@ -742,7 +783,7 @@ mod tests {
         let mut app = lab_app();
         let now = test_now();
         advance_lab_to_family(&mut app, crate::lab::MULTILINE_SOLUTION_FAMILY_INDEX);
-        type_text(&mut app, crate::lab::MULTILINE_SOLUTION_EXPECTED);
+        load_text(&mut app, crate::lab::MULTILINE_SOLUTION_EXPECTED);
 
         app.handle_action_at(ClientAction::Submit, now);
 
@@ -764,7 +805,7 @@ mod tests {
     fn lab_correct_multiline_answer_with_one_final_newline_passes() {
         let mut app = lab_app();
         advance_lab_to_family(&mut app, crate::lab::MULTILINE_SOLUTION_FAMILY_INDEX);
-        type_text(&mut app, crate::lab::MULTILINE_SOLUTION_EXPECTED);
+        load_text(&mut app, crate::lab::MULTILINE_SOLUTION_EXPECTED);
         app.handle_action(ClientAction::InsertNewline);
 
         app.handle_action(ClientAction::Submit);
@@ -778,7 +819,7 @@ mod tests {
     fn lab_extra_blank_line_is_wrong_and_preserves_buffer() {
         let mut app = lab_app();
         advance_lab_to_family(&mut app, crate::lab::MULTILINE_SOLUTION_FAMILY_INDEX);
-        type_text(&mut app, crate::lab::MULTILINE_SOLUTION_EXPECTED);
+        load_text(&mut app, crate::lab::MULTILINE_SOLUTION_EXPECTED);
         app.handle_action(ClientAction::InsertNewline);
         app.handle_action(ClientAction::InsertNewline);
 
@@ -811,7 +852,7 @@ mod tests {
     fn lab_wrong_multiline_answer_preserves_editor_buffer() {
         let mut app = lab_app();
         advance_lab_to_family(&mut app, crate::lab::MULTILINE_SOLUTION_FAMILY_INDEX);
-        type_text(&mut app, "fn add_one(x: i32) -> i32 {\n    x\n}");
+        load_text(&mut app, "fn add_one(x: i32) -> i32 {\n    x\n}");
         let before_cursor = app.frame().game_window.workbox.cursor;
 
         app.handle_action(ClientAction::Submit);
