@@ -707,7 +707,6 @@ pub struct ClientUiState {
     editor: EditorBuffer,
     problem_viewport: ProblemViewport,
     cursor_visible: bool,
-    help_open: bool,
     status_lines: Vec<String>,
     reward_animation: RewardAnimation,
     failure_pulse: FailurePulse,
@@ -721,7 +720,6 @@ impl ClientUiState {
             editor: EditorBuffer::new(),
             problem_viewport: ProblemViewport::new(),
             cursor_visible: true,
-            help_open: false,
             status_lines: Vec::new(),
             reward_animation: RewardAnimation::new(),
             failure_pulse: FailurePulse::new(),
@@ -744,10 +742,6 @@ impl ClientUiState {
 
     pub fn cursor_visible(&self) -> bool {
         self.cursor_visible
-    }
-
-    pub fn help_open(&self) -> bool {
-        self.help_open
     }
 
     pub fn problem_viewport(&self) -> ProblemViewport {
@@ -987,7 +981,6 @@ pub struct ClientFrame {
     pub skip_active: bool,
     pub format: FormatFrame,
     pub format_active: bool,
-    pub help_chrome: HelpChromeFrame,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -998,9 +991,7 @@ pub struct GameWindowFrame {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ProblemView {
-    pub instruction: String,
     pub prompt: String,
-    pub prompt_tokens: Vec<CodeToken>,
     pub lines: Vec<ProblemDisplayLine>,
     pub viewport: ProblemViewport,
 }
@@ -1027,7 +1018,6 @@ pub struct WorkboxView {
     pub lines: Vec<String>,
     pub cursor: CursorPosition,
     pub viewport: EditorViewport,
-    pub input_tokens: Vec<CodeToken>,
     pub line_tokens: Vec<Vec<CodeToken>>,
     pub cursor_visible: bool,
 }
@@ -1063,12 +1053,6 @@ pub enum StatusTone {
     UnknownCommand,
     Warning,
     Plain,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct HelpChromeFrame {
-    pub open: bool,
-    pub lines: Vec<String>,
 }
 
 #[cfg(test)]
@@ -1112,14 +1096,11 @@ pub fn project_client_frame_for_layout(
     ClientFrame {
         game_window: GameWindowFrame {
             problem: ProblemView {
-                instruction: "do this:".to_string(),
                 prompt: exercise.prompt.to_string(),
-                prompt_tokens: tokenize_rust_line(exercise.prompt.as_ref()),
                 lines: problem_lines,
                 viewport: problem_viewport,
             },
             workbox: WorkboxView {
-                input_tokens: tokenize_rust_line(&input),
                 input,
                 lines: editor_view.lines,
                 cursor: editor_view.cursor,
@@ -1140,10 +1121,6 @@ pub fn project_client_frame_for_layout(
         skip_active: skip.active,
         format,
         format_active: format.active,
-        help_chrome: HelpChromeFrame {
-            open: ui_state.help_open(),
-            lines: help_lines(ui_state.help_open()),
-        },
     }
 }
 
@@ -1664,11 +1641,6 @@ fn is_type_name(identifier: &str) -> bool {
     )
 }
 
-fn help_lines(open: bool) -> Vec<String> {
-    let _ = open;
-    Vec::new()
-}
-
 #[cfg(test)]
 mod tests {
     use std::time::{Duration, Instant};
@@ -1897,12 +1869,7 @@ mod tests {
 
         let frame = project_client_frame(&session, &ui_state);
 
-        assert_eq!(frame.game_window.problem.instruction, "do this:");
         assert_eq!(frame.game_window.problem.prompt, "fn main() {}");
-        assert_eq!(
-            token_text(&frame.game_window.problem.prompt_tokens),
-            "fn main() {}"
-        );
         assert_eq!(frame.game_window.problem.viewport.scroll_offset, 0);
         assert_eq!(
             frame
@@ -1963,9 +1930,7 @@ mod tests {
     #[test]
     fn visible_problem_lines_and_overflow_are_derived_from_viewport() {
         let problem = ProblemView {
-            instruction: "do this:".to_string(),
             prompt: "line 1".to_string(),
-            prompt_tokens: Vec::new(),
             lines: (1..=8)
                 .map(|index| ProblemDisplayLine::plain(format!("line {index}")))
                 .collect(),

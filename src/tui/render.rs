@@ -8,10 +8,9 @@ use crate::{
         app::TuiApp,
         input::MousePane,
         theme::{
-            base_style, border_sweep_style, code_token_style, control_hint_style,
-            editor_canvas_style, editor_gutter_feedback_style, editor_line_style,
-            footer_counter_style, plus_one_style, primary_action_style, problem_header_style,
-            status_tone_style, surface_style,
+            base_style, border_sweep_style, code_token_style, control_hint_style, counter_style,
+            editor_canvas_style, editor_gutter_feedback_style, editor_line_style, plus_one_style,
+            primary_action_style, problem_header_style, status_tone_style, surface_style,
         },
     },
 };
@@ -879,7 +878,7 @@ fn editor_line_spans(
 }
 
 #[cfg(test)]
-fn bottom_chrome_lines(client_frame: &ClientFrame) -> Vec<Line<'static>> {
+fn command_chrome_lines(client_frame: &ClientFrame) -> Vec<Line<'static>> {
     let _ = client_frame;
     vec![Line::from(command_rail_spans())]
 }
@@ -892,10 +891,10 @@ fn command_rail_spans() -> Vec<Span<'static>> {
 fn counter_spans(client_frame: &ClientFrame) -> Vec<Span<'static>> {
     let mut spans = vec![Span::styled(
         format!("● {}", client_frame.completed_reps_this_run),
-        footer_counter_style(),
+        counter_style(),
     )];
     if client_frame.reward.show_plus_one {
-        spans.push(Span::styled(" ", footer_counter_style()));
+        spans.push(Span::styled(" ", counter_style()));
         spans.push(Span::styled("+1", plus_one_style(client_frame.reward)));
     }
     spans
@@ -967,7 +966,7 @@ fn tokens_for_columns(
 }
 
 #[cfg(test)]
-fn bottom_chrome_alignment() -> ratatui::layout::Alignment {
+fn command_chrome_alignment() -> ratatui::layout::Alignment {
     ratatui::layout::Alignment::Left
 }
 
@@ -975,7 +974,7 @@ fn bottom_chrome_alignment() -> ratatui::layout::Alignment {
 struct RenderSnapshot {
     game: Vec<String>,
     feedback: Vec<String>,
-    bottom_chrome: Vec<String>,
+    command_chrome: Vec<String>,
 }
 
 #[cfg(test)]
@@ -1001,7 +1000,7 @@ fn render_snapshot_with_workbox_height(
             .iter()
             .map(line_text)
             .collect(),
-        bottom_chrome: bottom_chrome_lines(client_frame)
+        command_chrome: command_chrome_lines(client_frame)
             .iter()
             .map(line_text)
             .collect(),
@@ -1023,8 +1022,8 @@ mod tests {
     use super::{
         COMMAND_RAIL_HEIGHT, FEEDBACK_CHROME_HEIGHT, FORMAT_ACTION_HINT, PRIMARY_ACTION_HINT,
         QUIT_ACTION_HINT, SKIP_ACTION_HINT, SNAPSHOT_PROBLEM_HEIGHT, SNAPSHOT_WORKBOX_HEIGHT,
-        TOP_COUNTER_HEIGHT, border_sweep_cell_progress, bottom_chrome_alignment,
-        bottom_chrome_lines, editor_cursor_at, editor_horizontal_overflow, feedback_chrome_lines,
+        TOP_COUNTER_HEIGHT, border_sweep_cell_progress, command_chrome_alignment,
+        command_chrome_lines, editor_cursor_at, editor_horizontal_overflow, feedback_chrome_lines,
         feedback_height, gutter_width, layout_chunks, line_text, problem_display_line,
         problem_lines, render_client_frame, render_editor_controls, render_editor_cursor,
         render_editor_horizontal_indicators, render_snapshot, render_snapshot_with_workbox_height,
@@ -1043,8 +1042,8 @@ mod tests {
         tui::{
             TuiApp,
             theme::{
-                RUST_REPS_DARK, base_style, border_style, editor_canvas_style,
-                footer_counter_style, plus_one_style, status_tone_style, surface_style,
+                RUST_REPS_DARK, base_style, border_style, counter_style, editor_canvas_style,
+                plus_one_style, status_tone_style, surface_style,
             },
         },
     };
@@ -1233,16 +1232,16 @@ mod tests {
             .position(|line| line == " 1 │ ")
             .expect("expected editor gutter");
         let rail_position = snapshot
-            .bottom_chrome
+            .command_chrome
             .iter()
             .position(|line| line.contains(PRIMARY_ACTION_HINT))
-            .expect("expected command rail primary action");
+            .expect("expected command strip primary action");
 
         assert!(problem_position < editor_position);
         assert_eq!(rail_position, 0);
         assert!(
             snapshot
-                .bottom_chrome
+                .command_chrome
                 .iter()
                 .any(|line| line.contains(SKIP_ACTION_HINT) && line.contains(QUIT_ACTION_HINT))
         );
@@ -1271,7 +1270,7 @@ mod tests {
     }
 
     #[test]
-    fn top_banner_replaces_bottom_footer_strip() {
+    fn top_counter_replaces_global_bottom_strip() {
         let layout = shell_layout(Rect::new(0, 0, 100, 32), FEEDBACK_CHROME_HEIGHT);
 
         assert_eq!(layout.rail.height, TOP_COUNTER_HEIGHT);
@@ -1687,11 +1686,11 @@ mod tests {
                 .collect::<Vec<_>>()
         );
         assert_eq!(
-            bottom_chrome_lines(&top_frame)
+            command_chrome_lines(&top_frame)
                 .iter()
                 .map(line_text)
                 .collect::<Vec<_>>(),
-            bottom_chrome_lines(&scrolled_frame)
+            command_chrome_lines(&scrolled_frame)
                 .iter()
                 .map(line_text)
                 .collect::<Vec<_>>()
@@ -1700,7 +1699,10 @@ mod tests {
         let top_snapshot = render_snapshot(&top_frame);
         let scrolled_snapshot = render_snapshot(&scrolled_frame);
         assert_eq!(top_snapshot.game.len(), scrolled_snapshot.game.len());
-        assert_eq!(top_snapshot.bottom_chrome, scrolled_snapshot.bottom_chrome);
+        assert_eq!(
+            top_snapshot.command_chrome,
+            scrolled_snapshot.command_chrome
+        );
     }
 
     #[test]
@@ -1732,7 +1734,10 @@ mod tests {
         );
         assert!(!scrolled_snapshot.game.iter().any(|line| line == "task:"));
         assert_eq!(top_snapshot.game.len(), scrolled_snapshot.game.len());
-        assert_eq!(top_snapshot.bottom_chrome, scrolled_snapshot.bottom_chrome);
+        assert_eq!(
+            top_snapshot.command_chrome,
+            scrolled_snapshot.command_chrome
+        );
         assert!(scrolled_snapshot.game.iter().any(|line| line == " 1 │ "));
     }
 
@@ -1755,7 +1760,7 @@ mod tests {
         assert!(snapshot.game.iter().any(|line| line == " 3 │ }"));
         assert!(
             snapshot
-                .bottom_chrome
+                .command_chrome
                 .iter()
                 .any(|line| line.contains(PRIMARY_ACTION_HINT))
         );
@@ -1768,20 +1773,25 @@ mod tests {
         let frame = app.frame();
         let snapshot = render_snapshot(&frame);
         assert_eq!(
-            snapshot.bottom_chrome,
+            snapshot.command_chrome,
             vec![format!(
                 "{FORMAT_ACTION_HINT} · {PRIMARY_ACTION_HINT} · {SKIP_ACTION_HINT} · {QUIT_ACTION_HINT}"
             )]
         );
-        assert_eq!(bottom_chrome_alignment(), Alignment::Left);
-        assert!(snapshot.bottom_chrome[0].starts_with(FORMAT_ACTION_HINT));
+        assert_eq!(command_chrome_alignment(), Alignment::Left);
+        assert!(snapshot.command_chrome[0].starts_with(FORMAT_ACTION_HINT));
         assert!(
             !snapshot
-                .bottom_chrome
+                .command_chrome
                 .iter()
                 .any(|line| line.contains("reps"))
         );
-        assert!(!snapshot.bottom_chrome.iter().any(|line| line.contains('✓')));
+        assert!(
+            !snapshot
+                .command_chrome
+                .iter()
+                .any(|line| line.contains('✓'))
+        );
         assert!(!snapshot.game.iter().any(|line| line.contains("Passed")));
         assert!(!snapshot.feedback.iter().any(|line| line.contains("Passed")));
     }
@@ -1808,7 +1818,7 @@ mod tests {
         let app = TuiApp::new();
         let backgrounds = render_top_banner_backgrounds(&app.frame(), 24);
 
-        assert_eq!(footer_counter_style().bg, Some(RUST_REPS_DARK.surface));
+        assert_eq!(counter_style().bg, Some(RUST_REPS_DARK.surface));
         assert!(
             backgrounds
                 .iter()
@@ -1843,10 +1853,7 @@ mod tests {
         let app = TuiApp::new();
         let rendered = render_frame_text(&app.frame(), 80, 20);
 
-        assert_eq!(
-            footer_counter_style().fg,
-            Some(RUST_REPS_DARK.reward_plus_one)
-        );
+        assert_eq!(counter_style().fg, Some(RUST_REPS_DARK.reward_plus_one));
         assert!(rendered.contains('┏'));
         assert!(rendered.contains('┓'));
         assert!(rendered.contains('┗'));
@@ -1910,9 +1917,9 @@ mod tests {
 
         assert!(rendered.contains("formatted"));
         assert!(snapshot.feedback.is_empty());
-        assert!(snapshot.bottom_chrome[0].contains(FORMAT_ACTION_HINT));
-        assert!(!snapshot.bottom_chrome[0].contains("formatted"));
-        assert!(!snapshot.bottom_chrome[0].contains("format failed"));
+        assert!(snapshot.command_chrome[0].contains(FORMAT_ACTION_HINT));
+        assert!(!snapshot.command_chrome[0].contains("formatted"));
+        assert!(!snapshot.command_chrome[0].contains("format failed"));
     }
 
     #[test]
@@ -1962,10 +1969,10 @@ mod tests {
     }
 
     #[test]
-    fn bottom_chrome_shows_minimal_control_hints_without_dashboard_stats() {
+    fn command_chrome_shows_minimal_control_hints_without_dashboard_stats() {
         let app = TuiApp::new();
         let snapshot = render_snapshot(&app.frame());
-        let rail = snapshot.bottom_chrome.join("\n");
+        let rail = snapshot.command_chrome.join("\n");
 
         for expected in ["F1 format", "F5 submit", "F7 skip", "Esc quit"] {
             assert!(rail.contains(expected), "missing {expected}");
@@ -1987,15 +1994,15 @@ mod tests {
         assert!(!rail.contains("PageUp"));
         assert!(!rail.contains("PageDown"));
 
-        for line in &snapshot.bottom_chrome {
+        for line in &snapshot.command_chrome {
             for forbidden in ["Passed", "Skipped", "Attempts", "READY", "%", "/12", "reps"] {
                 assert!(
                     !line.contains(forbidden),
-                    "bottom rail should not contain {forbidden}"
+                    "command row should not contain {forbidden}"
                 );
             }
         }
-        assert!(snapshot.bottom_chrome.iter().any(|line| line
+        assert!(snapshot.command_chrome.iter().any(|line| line
             == &format!("{FORMAT_ACTION_HINT} · {PRIMARY_ACTION_HINT} · {SKIP_ACTION_HINT} · {QUIT_ACTION_HINT}")));
     }
 
@@ -2003,8 +2010,8 @@ mod tests {
     fn command_rail_groups_primary_skip_and_quit_controls() {
         let app = TuiApp::new();
         let frame = app.frame();
-        let lines = bottom_chrome_lines(&frame);
-        let reward_line = lines.first().expect("expected bottom rail line");
+        let lines = command_chrome_lines(&frame);
+        let reward_line = lines.first().expect("expected command row line");
 
         assert_eq!(lines.len(), usize::from(COMMAND_RAIL_HEIGHT));
         assert_eq!(reward_line.spans[0].content.as_ref(), FORMAT_ACTION_HINT);
@@ -2057,7 +2064,7 @@ mod tests {
         }
         app.handle_action_at(ClientAction::Submit, now);
         let frame = app.frame_at(now + REWARD_ATTACK_DURATION);
-        let controls = line_text(&bottom_chrome_lines(&frame)[0]);
+        let controls = line_text(&command_chrome_lines(&frame)[0]);
         let banner = render_top_banner_line(&frame, 40);
 
         assert!(banner.trim_start().starts_with("● 1 +1"));
@@ -2090,8 +2097,8 @@ mod tests {
         }
         app.handle_action_at(ClientAction::Submit, now);
         let frame = app.frame_at(now);
-        let lines = bottom_chrome_lines(&frame);
-        let line = lines.first().expect("expected bottom rail line");
+        let lines = command_chrome_lines(&frame);
+        let line = lines.first().expect("expected command row line");
         assert_eq!(frame.reward.anchor, None);
         assert_eq!(frame.reward.plus_one_intensity, 0);
         assert!(!line_text(line).contains("+1"));
@@ -2117,8 +2124,8 @@ mod tests {
         assert_eq!(render_top_banner_line(&frame, 40).trim(), "● 1");
 
         let frame = app.frame_at(now + REWARD_DURATION);
-        let lines = bottom_chrome_lines(&frame);
-        let line = lines.first().expect("expected bottom rail line");
+        let lines = command_chrome_lines(&frame);
+        let line = lines.first().expect("expected command row line");
         assert!(!frame.reward.show_plus_one);
         assert!(!line_text(line).contains("+1"));
         assert!(line_text(line).contains(PRIMARY_ACTION_HINT));
@@ -2133,8 +2140,8 @@ mod tests {
         }
         app.handle_action_at(ClientAction::Submit, now);
         let frame = app.frame_at(now + REWARD_PLUS_ONE_DURATION);
-        let lines = bottom_chrome_lines(&frame);
-        let line = lines.first().expect("expected bottom rail line");
+        let lines = command_chrome_lines(&frame);
+        let line = lines.first().expect("expected command row line");
 
         assert!(frame.reward.active);
         assert!(!frame.reward.show_plus_one);
@@ -2162,11 +2169,12 @@ mod tests {
         let mut skip_app = TuiApp::new();
         skip_app.handle_action(ClientAction::Skip);
 
-        let idle_line = line_text(&bottom_chrome_lines(&TuiApp::new().frame())[0]);
-        let success_line =
-            line_text(&bottom_chrome_lines(&success_app.frame_at(now + REWARD_ATTACK_DURATION))[0]);
-        let wrong_line = line_text(&bottom_chrome_lines(&wrong_app.frame())[0]);
-        let skip_line = line_text(&bottom_chrome_lines(&skip_app.frame())[0]);
+        let idle_line = line_text(&command_chrome_lines(&TuiApp::new().frame())[0]);
+        let success_line = line_text(
+            &command_chrome_lines(&success_app.frame_at(now + REWARD_ATTACK_DURATION))[0],
+        );
+        let wrong_line = line_text(&command_chrome_lines(&wrong_app.frame())[0]);
+        let skip_line = line_text(&command_chrome_lines(&skip_app.frame())[0]);
 
         let primary_position = idle_line
             .find(PRIMARY_ACTION_HINT)
@@ -2381,19 +2389,19 @@ mod tests {
         assert!(!render_top_banner_line(&frame, 40).contains("+1"));
         assert!(
             !snapshot
-                .bottom_chrome
+                .command_chrome
                 .iter()
                 .any(|line| line.contains("+1"))
         );
         assert!(
             !snapshot
-                .bottom_chrome
+                .command_chrome
                 .iter()
                 .any(|line| line.contains("reps"))
         );
         assert!(
             !snapshot
-                .bottom_chrome
+                .command_chrome
                 .iter()
                 .any(|line| line.contains("PASS"))
         );
@@ -2414,26 +2422,26 @@ mod tests {
         assert!(!render_top_banner_line(&skip_app.frame(), 40).contains("+1"));
         assert!(
             !skip_snapshot
-                .bottom_chrome
+                .command_chrome
                 .iter()
                 .any(|line| line.contains("+1"))
         );
         assert!(
             !skip_snapshot
-                .bottom_chrome
+                .command_chrome
                 .iter()
                 .any(|line| line.contains("reps"))
         );
         assert!(!quit_app.frame().skip.active);
         assert!(
             !quit_snapshot
-                .bottom_chrome
+                .command_chrome
                 .iter()
                 .any(|line| line.contains("+1"))
         );
         assert!(
             !quit_snapshot
-                .bottom_chrome
+                .command_chrome
                 .iter()
                 .any(|line| line.contains("reps"))
         );
@@ -2460,7 +2468,7 @@ mod tests {
     }
 
     #[test]
-    fn wrong_answer_feedback_uses_local_failure_state_without_footer_text() {
+    fn wrong_answer_feedback_uses_local_failure_state_without_global_result_text() {
         let mut app = TuiApp::new();
         for ch in "wrong".chars() {
             app.handle_action(ClientAction::TypeChar(ch));
@@ -2514,7 +2522,7 @@ mod tests {
     }
 
     #[test]
-    fn footer_does_not_allocate_status_feedback_block() {
+    fn command_area_does_not_allocate_status_feedback_block() {
         let mut app = TuiApp::new();
         for ch in "wrong".chars() {
             app.handle_action(ClientAction::TypeChar(ch));
@@ -2747,20 +2755,20 @@ mod tests {
         );
         assert!(
             !default_snapshot
-                .bottom_chrome
+                .command_chrome
                 .iter()
                 .any(|line| line.contains("? help"))
         );
         assert!(
             !default_snapshot
-                .bottom_chrome
+                .command_chrome
                 .iter()
                 .any(|line| line.contains("Enter newline"))
         );
     }
 
     #[test]
-    fn render_snapshot_keeps_wrong_answer_local_without_footer_result_block() {
+    fn render_snapshot_keeps_wrong_answer_local_without_global_result_block() {
         let mut app = TuiApp::new();
         for ch in "wrong".chars() {
             app.handle_action(ClientAction::TypeChar(ch));
@@ -2774,20 +2782,20 @@ mod tests {
         assert!(!snapshot.game.iter().any(|line| line == "TRY AGAIN"));
         assert!(
             !snapshot
-                .bottom_chrome
+                .command_chrome
                 .iter()
                 .any(|line| line.contains("+1"))
         );
         assert!(
             !snapshot
-                .bottom_chrome
+                .command_chrome
                 .iter()
                 .any(|line| line.contains("PASS"))
         );
     }
 
     #[test]
-    fn unknown_command_keeps_status_data_without_footer_result_block() {
+    fn unknown_command_keeps_status_data_without_global_result_block() {
         let mut app = TuiApp::new();
         for ch in ":unknown".chars() {
             app.handle_action(ClientAction::TypeChar(ch));
@@ -2842,14 +2850,14 @@ mod tests {
         assert_eq!(frame.reward.anchor, None);
         assert!(
             !snapshot
-                .bottom_chrome
+                .command_chrome
                 .iter()
                 .any(|line| line.contains("+1"))
         );
         assert!(render_top_banner_line(&frame, 40).contains("+1"));
         assert!(
             !snapshot
-                .bottom_chrome
+                .command_chrome
                 .iter()
                 .any(|line| line.contains("reps"))
         );

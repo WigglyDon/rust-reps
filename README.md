@@ -41,22 +41,34 @@ Use it to test wrapped problem scrolling, multiline editor viewport behavior, sy
 ### Fullscreen TUI
 
 `rust-reps` starts fullscreen terminal mode in an interactive terminal.
-It uses the same drill and answer truth as plain mode, but renders a simple game window:
+It uses the same drill and answer truth as plain mode, but renders a terminal editor shell:
 
-- top half: problem
-- bottom half: workbox
-- status and summary outside the game window
+- left tablet: Rust editor/workbox
+- right tablet: task/problem reference
+- top-left over the editor: compact green completed-rep counter
+- below the editor: `F1 format · F5 submit · F7 skip · Esc quit`
 
 Keys:
 - type normal characters to build input
-- `Backspace` deletes
-- `Enter` inserts a newline
+- `{`, `(`, `[`, and `"` insert matching pairs and place the cursor between them
+- generated closing delimiters are skipped over instead of duplicated
+- `Backspace` deletes both delimiters for an empty generated pair
+- `Enter` inserts a newline, copies indentation, and expands simple `{}` blocks
+- `Delete` forward-deletes
+- arrows, `Home`, and `End` move the cursor
+- mouse click moves the editor cursor
+- mouse wheel scrolls the editor or task pane under the pointer
 - `F5` submits
+- `F7` skips
+- `F1` formats the editor buffer with `rustfmt` when available
 - `Ctrl-Enter` submits only when the terminal reports it distinctly
 - `Shift-Enter` inserts a newline when the terminal reports it distinctly
 - `Esc` or `Ctrl-C` quits
-- `F7` skips
 - `Tab` is currently ignored
+
+F1 format is an editor helper only. It invokes the `rustfmt` executable directly, never Clippy,
+Cargo, or `rustc`. When `rustfmt` is unavailable, fails, or times out, Rust Reps leaves the
+editor buffer unchanged and shows local feedback.
 
 Plain mode remains available with `rust-reps plain` and for piped stdin.
 

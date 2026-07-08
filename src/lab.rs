@@ -90,7 +90,7 @@ fn long_wrapped_problem(number: usize) -> (String, String) {
             "task:\n\
              Build the smallest Rust entry point for lab case {number} while this sentence stays \
              intentionally long enough to force deterministic wrapping inside a narrow terminal \
-             problem pane without moving the editor or command rail.\n\
+             problem pane without moving the editor or command strip.\n\
              \n\
              requirements:\n\
              - keep the answer tiny\n\
@@ -110,7 +110,7 @@ fn long_wrapped_problem(number: usize) -> (String, String) {
              edge cases:\n\
              - long wrapped prose\n\
              - narrow terminal widths\n\
-             - reward rail stability\n\
+             - counter and command strip stability\n\
              \n\
              answer shape:\n\
              fn main() {{}}"
@@ -390,11 +390,13 @@ mod tests {
 
     #[test]
     fn lab_prompts_do_not_teach_page_scroll_copy() {
+        let stale_reward_rail = ["reward", "rail"].join(" ");
         for index in 0..STRESS_FAMILY_COUNT {
             let packet = exercise_packet_at(index);
 
             assert!(!packet.prompt.contains("PageDown"));
             assert!(!packet.prompt.contains("PageUp"));
+            assert!(!packet.prompt.contains(&stale_reward_rail));
         }
     }
 

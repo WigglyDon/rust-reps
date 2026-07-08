@@ -20,6 +20,23 @@
 - `rust-reps 001` runs one-shot drill 001.
 - `rust-reps lab` starts fullscreen client stress lab in an interactive terminal.
 - Piped `rust-reps lab` prints a CLI error and exits nonzero.
+- Current TUI shell:
+  - editor tablet on the left, task/problem tablet on the right.
+  - compact green completed-rep counter top-left over the editor.
+  - `+1` appears beside that counter on correct submit.
+  - editor-local controls: `F1 format · F5 submit · F7 skip · Esc quit`.
+  - no `F6` skip alias.
+- Current TUI editor:
+  - smart pairs for `{}`, `()`, `[]`, and `""`.
+  - skip-over generated closing delimiters.
+  - Backspace removes empty generated pairs.
+  - smart Enter expands simple brace blocks with spaces, not tabs.
+  - `Delete` forward-deletes.
+  - mouse click moves the editor cursor.
+  - editor and task panes scroll independently.
+- `F1 format` invokes `rustfmt` directly as an optional editor helper.
+  It is not validation, linting, compilation, or answer normalization.
+  On unavailable/failure/timeout, the editor buffer remains unchanged.
 - Practice commands:
   - `:help`, `:status`, `:list`, `:skip`, `:q`, `:quit`.
   - `EOF` exits practice.
@@ -65,6 +82,7 @@
 - No hidden tests.
 - No drill additions.
 - No compilation validation feature.
+- No linter/checker/validator feature.
 - No broad refactors; proof behavior must stay exact.
 
 ## Approved Dependencies

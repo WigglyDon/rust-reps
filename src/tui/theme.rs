@@ -22,8 +22,6 @@ pub(crate) struct RustRepsDark {
     pub(crate) success: Color,
     pub(crate) error: Color,
     pub(crate) warning_unknown: Color,
-    #[allow(dead_code)]
-    pub(crate) caret: Color,
     pub(crate) counter_faded: Color,
     pub(crate) reward_plus_one: Color,
 }
@@ -48,7 +46,6 @@ pub(crate) const RUST_REPS_DARK: RustRepsDark = RustRepsDark {
     success: Color::Rgb(88, 224, 135),
     error: Color::Rgb(255, 92, 105),
     warning_unknown: Color::Rgb(235, 178, 86),
-    caret: Color::Rgb(116, 241, 157),
     counter_faded: Color::Rgb(45, 92, 62),
     reward_plus_one: Color::Rgb(158, 255, 187),
 };
@@ -192,28 +189,10 @@ pub(crate) fn primary_action_style() -> Style {
         .add_modifier(Modifier::BOLD)
 }
 
-pub(crate) fn footer_counter_style() -> Style {
+pub(crate) fn counter_style() -> Style {
     Style::default()
         .fg(RUST_REPS_DARK.reward_plus_one)
         .bg(RUST_REPS_DARK.surface)
-        .add_modifier(Modifier::BOLD)
-}
-
-#[allow(dead_code)]
-pub(crate) fn caret_feedback_style(failure: FailureFrame) -> Style {
-    let intensity = if failure.active {
-        failure.intensity.min(90)
-    } else {
-        0
-    };
-
-    Style::default()
-        .fg(blend_color(
-            RUST_REPS_DARK.caret,
-            RUST_REPS_DARK.error,
-            intensity,
-        ))
-        .bg(active_editor_background(failure))
         .add_modifier(Modifier::BOLD)
 }
 
@@ -301,9 +280,9 @@ fn blend_channel(from: u8, to: u8, intensity: u16) -> u8 {
 #[cfg(test)]
 mod tests {
     use super::{
-        RUST_REPS_DARK, border_style, caret_feedback_style, code_token_style,
-        editor_active_line_style, editor_canvas_style, editor_gutter_feedback_style,
-        editor_gutter_style, editor_line_style, plus_one_style, status_tone_style,
+        RUST_REPS_DARK, border_style, code_token_style, editor_active_line_style,
+        editor_canvas_style, editor_gutter_feedback_style, editor_gutter_style, editor_line_style,
+        plus_one_style, status_tone_style,
     };
     use crate::client::{CodeTokenKind, FailureFrame, RewardFrame, StatusTone};
     use ratatui::style::Color;
@@ -428,7 +407,7 @@ mod tests {
     }
 
     #[test]
-    fn failure_feedback_styles_tint_editor_caret_and_gutter_red() {
+    fn failure_feedback_styles_tint_editor_line_and_gutter_red() {
         let idle = FailureFrame {
             active: false,
             intensity: 0,
@@ -454,12 +433,11 @@ mod tests {
         );
         assert!(
             red_dominant(
-                caret_feedback_style(failure)
+                editor_gutter_feedback_style(true, failure)
                     .fg
-                    .expect("expected failure caret foreground")
+                    .expect("expected failure gutter foreground")
             ),
-            "failure caret should read as soft red"
+            "failure gutter should read as soft red"
         );
-        assert_eq!(caret_feedback_style(idle).fg, Some(RUST_REPS_DARK.caret));
     }
 }
