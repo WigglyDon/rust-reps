@@ -158,16 +158,19 @@ impl ToolResult {
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct FakeToolRunner {
     outcomes: VecDeque<ToolResult>,
+    requests: Vec<ToolRequest>,
 }
 
 impl FakeToolRunner {
     pub fn new(outcomes: Vec<ToolResult>) -> Self {
         Self {
             outcomes: outcomes.into(),
+            requests: Vec::new(),
         }
     }
 
-    pub fn run(&mut self, _request: &ToolRequest) -> ToolResult {
+    pub fn run(&mut self, request: &ToolRequest) -> ToolResult {
+        self.requests.push(request.clone());
         self.outcomes
             .pop_front()
             .unwrap_or(ToolResult::Failure(ToolFailure::NoConfiguredOutcome))
@@ -175,6 +178,10 @@ impl FakeToolRunner {
 
     pub fn is_empty(&self) -> bool {
         self.outcomes.is_empty()
+    }
+
+    pub fn requests(&self) -> &[ToolRequest] {
+        &self.requests
     }
 }
 
@@ -286,6 +293,33 @@ mod tests {
     }
 
     #[test]
+    fn fake_runner_records_requests_deterministically() {
+        let mut runner = FakeToolRunner::new(vec![
+            ToolResult::success("first", ""),
+            ToolResult::success("second", ""),
+        ]);
+        let first = ToolRequest::new(ToolKind::Formatter, "first").with_stdin("submitted");
+        let second = ToolRequest::new(ToolKind::Formatter, "second").with_stdin("expected");
+
+        let _ = runner.run(&first);
+        let _ = runner.run(&second);
+
+        assert_eq!(runner.requests(), &[first, second]);
+    }
+
+    #[test]
+    fn missing_fake_outcome_still_records_request() {
+        let mut runner = FakeToolRunner::new(Vec::new());
+        let request = ToolRequest::new(ToolKind::Formatter, "missing").with_stdin("input");
+
+        assert_eq!(
+            runner.run(&request),
+            ToolResult::Failure(ToolFailure::NoConfiguredOutcome)
+        );
+        assert_eq!(runner.requests(), &[request]);
+    }
+
+    #[test]
     fn fake_runner_reports_no_configured_outcome_deterministically() {
         let mut runner = FakeToolRunner::new(Vec::new());
 
@@ -323,14 +357,15 @@ mod tests {
     }
 
     #[test]
-    fn product_modules_do_not_reference_fake_tool_runner() {
+    fn runtime_product_modules_do_not_reference_fake_tool_runner() {
         let product_sources = [
-            include_str!("validators.rs"),
             include_str!("engine/mod.rs"),
             include_str!("practice.rs"),
             include_str!("formatter.rs"),
             include_str!("lab.rs"),
             include_str!("cli.rs"),
+            include_str!("client/mod.rs"),
+            include_str!("tui/app.rs"),
         ];
 
         for source in product_sources {

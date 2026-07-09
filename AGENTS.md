@@ -65,10 +65,11 @@
 - `catalog`: public catalog API, rendering, metadata invariants, and curriculum validation tests.
 - `main`: process orchestration and interactive default decision only.
 - `answer`: answer normalization/comparison helpers.
-- `validators`: exact-only validation dispatch seam; currently routes
-  `ExactTrimFinalNewline` to `answer` and owns no tool execution.
-  `RustfmtExact` is an inert future marker only: no reps use it, no validation
-  behavior exists for it, and unsupported execution fails closed.
+- `validators`: product validation dispatch seam; currently routes only
+  `ExactTrimFinalNewline` to `answer` at runtime.
+  `RustfmtExact` remains unused by current reps and normal dispatch still fails
+  closed for it. A fake-runner RustfmtExact evaluator exists only as
+  scaffold/test-only code; it does not execute tools and is not product truth.
 - `tool_runner`: fake-only local tool request/result scaffold for future validators;
   owns no process execution and is not connected to product paths.
 - `cli`: launch command selection, usage/help/list/version, CLI/tool errors.
