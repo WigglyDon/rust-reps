@@ -67,6 +67,8 @@
 - `answer`: answer normalization/comparison helpers.
 - `validators`: exact-only validation dispatch seam; currently routes
   `ExactTrimFinalNewline` to `answer` and owns no tool execution.
+  `RustfmtExact` is an inert future marker only: no reps use it, no validation
+  behavior exists for it, and unsupported execution fails closed.
 - `tool_runner`: fake-only local tool request/result scaffold for future validators;
   owns no process execution and is not connected to product paths.
 - `cli`: launch command selection, usage/help/list/version, CLI/tool errors.

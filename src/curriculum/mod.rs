@@ -18,6 +18,8 @@ pub enum TaskType {
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum Validator {
     Exact,
+    #[allow(dead_code)]
+    RustfmtExact,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -64,6 +66,7 @@ impl Operation {
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum AnswerRule {
     ExactTrimFinalNewline,
+    RustfmtExact,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]

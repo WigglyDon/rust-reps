@@ -3,6 +3,7 @@ use crate::{answer, curriculum};
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ValidatorKind {
     Exact,
+    RustfmtExact,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -23,6 +24,13 @@ impl ValidatorSpec {
         )
     }
 
+    pub const fn rustfmt_exact() -> Self {
+        Self::new(
+            ValidatorKind::RustfmtExact,
+            curriculum::AnswerRule::RustfmtExact,
+        )
+    }
+
     pub fn from_catalog(
         validator: curriculum::Validator,
         answer_rule: curriculum::AnswerRule,
@@ -30,6 +38,13 @@ impl ValidatorSpec {
         match (validator, answer_rule) {
             (curriculum::Validator::Exact, curriculum::AnswerRule::ExactTrimFinalNewline) => {
                 Self::exact_trim_final_newline()
+            }
+            (curriculum::Validator::RustfmtExact, curriculum::AnswerRule::RustfmtExact) => {
+                Self::rustfmt_exact()
+            }
+            (curriculum::Validator::Exact, _) => Self::new(ValidatorKind::Exact, answer_rule),
+            (curriculum::Validator::RustfmtExact, _) => {
+                Self::new(ValidatorKind::RustfmtExact, answer_rule)
             }
         }
     }
@@ -54,6 +69,7 @@ impl<'a> ValidationInput<'a> {
 pub enum ValidationOutcome {
     Correct,
     Wrong,
+    UnsupportedValidator,
 }
 
 pub fn validate(input: ValidationInput<'_>, spec: ValidatorSpec) -> ValidationOutcome {
@@ -65,6 +81,7 @@ pub fn validate(input: ValidationInput<'_>, spec: ValidatorSpec) -> ValidationOu
                 ValidationOutcome::Wrong
             }
         }
+        _ => ValidationOutcome::UnsupportedValidator,
     }
 }
 
@@ -86,6 +103,14 @@ mod tests {
 
         assert_eq!(spec.kind, ValidatorKind::Exact);
         assert_eq!(spec.answer_rule, AnswerRule::ExactTrimFinalNewline);
+    }
+
+    #[test]
+    fn catalog_rustfmt_exact_rule_maps_to_inert_rustfmt_exact_spec() {
+        let spec = ValidatorSpec::from_catalog(Validator::RustfmtExact, AnswerRule::RustfmtExact);
+
+        assert_eq!(spec.kind, ValidatorKind::RustfmtExact);
+        assert_eq!(spec.answer_rule, AnswerRule::RustfmtExact);
     }
 
     #[test]
@@ -166,5 +191,61 @@ mod tests {
             validate_exact("wrong", "fn main() {}"),
             ValidationOutcome::Wrong
         );
+    }
+
+    #[test]
+    fn rustfmt_exact_is_representable_but_not_executable_yet() {
+        let outcome = validate(
+            ValidationInput::new("fn main() {}", "fn main() {}"),
+            ValidatorSpec::rustfmt_exact(),
+        );
+
+        assert_eq!(outcome, ValidationOutcome::UnsupportedValidator);
+    }
+
+    #[test]
+    fn unsupported_rustfmt_exact_is_not_classified_as_wrong() {
+        let outcome = validate(
+            ValidationInput::new("wrong", "fn main() {}"),
+            ValidatorSpec::rustfmt_exact(),
+        );
+
+        assert_ne!(outcome, ValidationOutcome::Wrong);
+        assert_eq!(outcome, ValidationOutcome::UnsupportedValidator);
+    }
+
+    #[test]
+    fn mismatched_answer_rule_fails_closed() {
+        let spec = ValidatorSpec::from_catalog(Validator::Exact, AnswerRule::RustfmtExact);
+
+        assert_eq!(spec.kind, ValidatorKind::Exact);
+        assert_eq!(spec.answer_rule, AnswerRule::RustfmtExact);
+        assert_eq!(
+            validate(ValidationInput::new("fn main() {}", "fn main() {}"), spec),
+            ValidationOutcome::UnsupportedValidator
+        );
+    }
+
+    #[test]
+    fn validators_module_stays_disconnected_from_tool_execution() {
+        let source = include_str!("validators.rs")
+            .split("#[cfg(test)]")
+            .next()
+            .expect("expected production validator source");
+
+        for forbidden in [
+            format!("{}{}", "tool", "_runner"),
+            format!("{}{}", "format", "ter"),
+            format!("{}{}", "std::", "process"),
+            format!("{}{}{}", "Com", "mand", "::new"),
+            format!("{}{}", "car", "go"),
+            format!("{}{}", "rust", "c"),
+            format!("{}{}", "clip", "py"),
+        ] {
+            assert!(
+                !source.contains(&forbidden),
+                "validators production source must not reference {forbidden}"
+            );
+        }
     }
 }

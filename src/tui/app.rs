@@ -287,6 +287,12 @@ impl TuiApp {
                         expected.to_string(),
                     ]
                 }
+                engine::SubmitResult::UnsupportedValidator => {
+                    self.ui_state.clear_skip_toast();
+                    self.ui_state.clear_format_toast();
+                    self.ui_state.start_failure_pulse(now);
+                    vec!["unsupported validator configuration".to_string()]
+                }
                 engine::SubmitResult::NoActiveDrill => {
                     self.ui_state.clear_failure_pulse();
                     self.ui_state.clear_skip_toast();

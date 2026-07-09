@@ -18,18 +18,21 @@ impl ExerciseKind {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ExerciseValidator {
     Exact,
+    RustfmtExact,
 }
 
 impl ExerciseValidator {
     fn from_validator(validator: curriculum::Validator) -> Self {
         match validator {
             curriculum::Validator::Exact => Self::Exact,
+            curriculum::Validator::RustfmtExact => Self::RustfmtExact,
         }
     }
 
     fn validator_kind(self) -> validators::ValidatorKind {
         match self {
             Self::Exact => validators::ValidatorKind::Exact,
+            Self::RustfmtExact => validators::ValidatorKind::RustfmtExact,
         }
     }
 }
@@ -37,18 +40,21 @@ impl ExerciseValidator {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ExerciseAnswerRule {
     ExactTrimFinalNewline,
+    RustfmtExact,
 }
 
 impl ExerciseAnswerRule {
     fn from_answer_rule(answer_rule: curriculum::AnswerRule) -> Self {
         match answer_rule {
             curriculum::AnswerRule::ExactTrimFinalNewline => Self::ExactTrimFinalNewline,
+            curriculum::AnswerRule::RustfmtExact => Self::RustfmtExact,
         }
     }
 
     fn answer_rule(self) -> curriculum::AnswerRule {
         match self {
             Self::ExactTrimFinalNewline => curriculum::AnswerRule::ExactTrimFinalNewline,
+            Self::RustfmtExact => curriculum::AnswerRule::RustfmtExact,
         }
     }
 }
@@ -79,6 +85,7 @@ impl ExercisePacket {
 pub enum SubmitResult {
     Correct,
     TryAgain,
+    UnsupportedValidator,
     NoActiveDrill,
 }
 
@@ -219,18 +226,25 @@ impl Session {
             return SubmitResult::NoActiveDrill;
         };
 
-        self.attempts += 1;
         let outcome = validators::validate(
             validators::ValidationInput::new(input, exercise.expected_answer.as_ref()),
             exercise.validator_spec(),
         );
-        if outcome == validators::ValidationOutcome::Correct {
-            self.passed += 1;
-            self.index = self.index.saturating_add(1);
-            return SubmitResult::Correct;
+        match outcome {
+            validators::ValidationOutcome::Correct => {
+                self.attempts += 1;
+                self.passed += 1;
+                self.index = self.index.saturating_add(1);
+                SubmitResult::Correct
+            }
+            validators::ValidationOutcome::Wrong => {
+                self.attempts += 1;
+                SubmitResult::TryAgain
+            }
+            validators::ValidationOutcome::UnsupportedValidator => {
+                SubmitResult::UnsupportedValidator
+            }
         }
-
-        SubmitResult::TryAgain
     }
 
     pub fn skip(&mut self) -> SkipResult {
@@ -274,7 +288,7 @@ mod tests {
     use super::{
         ExerciseAnswerRule, ExerciseKind, ExerciseValidator, Session, SkipResult, SubmitResult,
     };
-    use crate::lab;
+    use crate::{curriculum, lab, validators};
 
     #[test]
     fn new_session_starts_at_exercise_001() {
@@ -575,6 +589,26 @@ mod tests {
             exercise.answer_rule,
             ExerciseAnswerRule::ExactTrimFinalNewline
         );
+    }
+
+    #[test]
+    fn future_rustfmt_exact_marker_maps_to_unsupported_validator_spec() {
+        let validator = ExerciseValidator::from_validator(curriculum::Validator::RustfmtExact);
+        let answer_rule =
+            ExerciseAnswerRule::from_answer_rule(curriculum::AnswerRule::RustfmtExact);
+        let spec =
+            validators::ValidatorSpec::new(validator.validator_kind(), answer_rule.answer_rule());
+
+        assert_eq!(validator, ExerciseValidator::RustfmtExact);
+        assert_eq!(answer_rule, ExerciseAnswerRule::RustfmtExact);
+        assert_eq!(
+            validators::validate(
+                validators::ValidationInput::new("fn main() {}", "fn main() {}"),
+                spec,
+            ),
+            validators::ValidationOutcome::UnsupportedValidator
+        );
+        assert_ne!(SubmitResult::UnsupportedValidator, SubmitResult::TryAgain);
     }
 
     #[test]

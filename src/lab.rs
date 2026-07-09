@@ -323,10 +323,12 @@ mod tests {
             assert!(!packet.expected_answer.trim().is_empty());
             assert_eq!(packet.kind, ExerciseKind::TypeExact);
             assert_eq!(packet.validator, ExerciseValidator::Exact);
+            assert_ne!(packet.validator, ExerciseValidator::RustfmtExact);
             assert_eq!(
                 packet.answer_rule,
                 ExerciseAnswerRule::ExactTrimFinalNewline
             );
+            assert_ne!(packet.answer_rule, ExerciseAnswerRule::RustfmtExact);
         }
     }
 

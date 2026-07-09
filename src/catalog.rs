@@ -177,6 +177,7 @@ mod tests {
                 drill.metadata.answer_rule,
                 AnswerRule::ExactTrimFinalNewline
             );
+            assert_ne!(drill.metadata.answer_rule, AnswerRule::RustfmtExact);
             assert_eq!(drill.metadata.transition, StateTransition::None);
         }
     }
@@ -318,8 +319,29 @@ mod tests {
     fn validator_is_supported_for_task_type() {
         for drill in drills() {
             match drill.task_type {
-                TaskType::TypeExact => assert_eq!(drill.validator, Validator::Exact),
+                TaskType::TypeExact => {
+                    assert_eq!(drill.validator, Validator::Exact);
+                    assert_ne!(drill.validator, Validator::RustfmtExact);
+                }
             }
+        }
+    }
+
+    #[test]
+    fn no_normal_curriculum_rep_uses_rustfmt_exact_marker_yet() {
+        for drill in drills() {
+            assert_eq!(
+                drill.metadata.answer_rule,
+                AnswerRule::ExactTrimFinalNewline,
+                "normal drill {} must stay exact-only",
+                drill.id
+            );
+            assert_eq!(
+                drill.validator,
+                Validator::Exact,
+                "normal drill {} must stay on exact validator",
+                drill.id
+            );
         }
     }
 

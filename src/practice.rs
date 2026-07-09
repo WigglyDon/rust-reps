@@ -11,6 +11,7 @@ pub enum PracticeEvent {
     UnknownCommand,
     Correct,
     TryAgain,
+    UnsupportedValidator,
     Quit,
 }
 
@@ -40,8 +41,14 @@ fn submit_practice_input(session: &mut engine::Session, input: &str) -> Practice
     match session.submit_answer(input) {
         engine::SubmitResult::Correct => PracticeEvent::Correct,
         engine::SubmitResult::TryAgain => PracticeEvent::TryAgain,
+        engine::SubmitResult::UnsupportedValidator => PracticeEvent::UnsupportedValidator,
         engine::SubmitResult::NoActiveDrill => PracticeEvent::Quit,
     }
+}
+
+fn unsupported_validator_or_exit() -> ! {
+    eprintln!("error: unsupported validator configuration");
+    std::process::exit(1);
 }
 
 fn flush_stdout_or_exit() {
@@ -90,10 +97,12 @@ pub fn run_one_shot_drill(drill: &catalog::Drill) {
         validators::ValidatorSpec::from_catalog(drill.validator, drill.metadata.answer_rule),
     );
 
-    if outcome == validators::ValidationOutcome::Correct {
-        presentation::print_answer_pass();
-    } else {
-        presentation::print_answer_try_again(drill.expected);
+    match outcome {
+        validators::ValidationOutcome::Correct => presentation::print_answer_pass(),
+        validators::ValidationOutcome::Wrong => {
+            presentation::print_answer_try_again(drill.expected)
+        }
+        validators::ValidationOutcome::UnsupportedValidator => unsupported_validator_or_exit(),
     }
 }
 
@@ -160,6 +169,7 @@ pub fn run_practice_session() {
                 presentation::print_answer_try_again(exercise.expected_answer.as_ref());
                 println!();
             }
+            PracticeEvent::UnsupportedValidator => unsupported_validator_or_exit(),
         }
     }
 
@@ -212,6 +222,14 @@ mod tests {
                 .id,
             "001"
         );
+    }
+
+    #[test]
+    fn unsupported_validator_event_is_distinct_from_wrong_answer() {
+        assert!(!matches!(
+            PracticeEvent::UnsupportedValidator,
+            PracticeEvent::TryAgain
+        ));
     }
 
     #[test]
