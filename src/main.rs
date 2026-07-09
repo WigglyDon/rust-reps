@@ -9,6 +9,7 @@ mod lab;
 mod practice;
 mod presentation;
 mod tui;
+mod validators;
 
 use std::env;
 use std::io::{self, IsTerminal};

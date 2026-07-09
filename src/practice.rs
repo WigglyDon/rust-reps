@@ -1,6 +1,6 @@
 use std::io::{self, Write};
 
-use crate::{answer, catalog, engine, presentation};
+use crate::{answer, catalog, engine, presentation, validators};
 
 #[derive(Clone, Copy)]
 pub enum PracticeEvent {
@@ -85,7 +85,12 @@ pub fn run_one_shot_drill(drill: &catalog::Drill) {
     let mut input = String::new();
     read_line_or_exit(&mut input);
 
-    if answer::check_answer(&input, drill.expected) {
+    let outcome = validators::validate(
+        validators::ValidationInput::new(&input, drill.expected),
+        validators::ValidatorSpec::from_catalog(drill.validator, drill.metadata.answer_rule),
+    );
+
+    if outcome == validators::ValidationOutcome::Correct {
         presentation::print_answer_pass();
     } else {
         presentation::print_answer_try_again(drill.expected);

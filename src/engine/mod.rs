@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use crate::{answer, catalog, curriculum, lab};
+use crate::{catalog, curriculum, lab, validators};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ExerciseKind {
@@ -26,6 +26,31 @@ impl ExerciseValidator {
             curriculum::Validator::Exact => Self::Exact,
         }
     }
+
+    fn validator_kind(self) -> validators::ValidatorKind {
+        match self {
+            Self::Exact => validators::ValidatorKind::Exact,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ExerciseAnswerRule {
+    ExactTrimFinalNewline,
+}
+
+impl ExerciseAnswerRule {
+    fn from_answer_rule(answer_rule: curriculum::AnswerRule) -> Self {
+        match answer_rule {
+            curriculum::AnswerRule::ExactTrimFinalNewline => Self::ExactTrimFinalNewline,
+        }
+    }
+
+    fn answer_rule(self) -> curriculum::AnswerRule {
+        match self {
+            Self::ExactTrimFinalNewline => curriculum::AnswerRule::ExactTrimFinalNewline,
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -38,6 +63,16 @@ pub struct ExercisePacket {
     pub instruction: Cow<'static, str>,
     pub kind: ExerciseKind,
     pub validator: ExerciseValidator,
+    pub answer_rule: ExerciseAnswerRule,
+}
+
+impl ExercisePacket {
+    fn validator_spec(&self) -> validators::ValidatorSpec {
+        validators::ValidatorSpec::new(
+            self.validator.validator_kind(),
+            self.answer_rule.answer_rule(),
+        )
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -185,7 +220,11 @@ impl Session {
         };
 
         self.attempts += 1;
-        if answer::check_answer(input, exercise.expected_answer.as_ref()) {
+        let outcome = validators::validate(
+            validators::ValidationInput::new(input, exercise.expected_answer.as_ref()),
+            exercise.validator_spec(),
+        );
+        if outcome == validators::ValidationOutcome::Correct {
             self.passed += 1;
             self.index = self.index.saturating_add(1);
             return SubmitResult::Correct;
@@ -226,12 +265,15 @@ fn catalog_exercise_packet_at(index: usize) -> Option<ExercisePacket> {
         instruction: Cow::Borrowed("Copy this line exactly:"),
         kind: ExerciseKind::from_task_type(drill.task_type),
         validator: ExerciseValidator::from_validator(drill.validator),
+        answer_rule: ExerciseAnswerRule::from_answer_rule(drill.metadata.answer_rule),
     })
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{ExerciseKind, ExerciseValidator, Session, SkipResult, SubmitResult};
+    use super::{
+        ExerciseAnswerRule, ExerciseKind, ExerciseValidator, Session, SkipResult, SubmitResult,
+    };
     use crate::lab;
 
     #[test]
@@ -529,6 +571,10 @@ mod tests {
         assert_eq!(exercise.instruction, "Copy this line exactly:");
         assert_eq!(exercise.kind, ExerciseKind::TypeExact);
         assert_eq!(exercise.validator, ExerciseValidator::Exact);
+        assert_eq!(
+            exercise.answer_rule,
+            ExerciseAnswerRule::ExactTrimFinalNewline
+        );
     }
 
     #[test]
@@ -588,7 +634,7 @@ mod tests {
     }
 
     #[test]
-    fn answer_exactness_comes_from_answer_module() {
+    fn submit_answer_uses_exact_validator_law() {
         let mut session = Session::new();
 
         assert_eq!(
@@ -597,11 +643,16 @@ mod tests {
         );
         assert_eq!(session.attempts(), 1);
         assert_eq!(
+            session.submit_answer("fn main() {}\n\n"),
+            SubmitResult::TryAgain
+        );
+        assert_eq!(session.attempts(), 2);
+        assert_eq!(
             session.submit_answer("fn main() {}\r\n"),
             SubmitResult::Correct
         );
         assert_eq!(session.passed(), 1);
-        assert_eq!(session.attempts(), 2);
+        assert_eq!(session.attempts(), 3);
     }
 
     #[test]

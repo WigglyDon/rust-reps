@@ -65,6 +65,8 @@
 - `catalog`: public catalog API, rendering, metadata invariants, and curriculum validation tests.
 - `main`: process orchestration and interactive default decision only.
 - `answer`: answer normalization/comparison helpers.
+- `validators`: exact-only validation dispatch seam; currently routes
+  `ExactTrimFinalNewline` to `answer` and owns no tool execution.
 - `cli`: launch command selection, usage/help/list/version, CLI/tool errors.
 - `engine`: pure game/session simulation, state transitions, and exercise-shaped packets.
 - `lab`: endless deterministic client/engine stress matrix for visible lab mode; not normal curriculum.
@@ -92,7 +94,7 @@
 - No hidden tests.
 - No drill additions.
 - No compilation validation feature.
-- No linter/checker/validator feature.
+- No non-exact validator, linter, checker, or compiler feature.
 - No broad refactors; proof behavior must stay exact.
 
 ## Approved Dependencies
