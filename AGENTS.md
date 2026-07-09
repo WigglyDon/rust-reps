@@ -67,6 +67,8 @@
 - `answer`: answer normalization/comparison helpers.
 - `validators`: exact-only validation dispatch seam; currently routes
   `ExactTrimFinalNewline` to `answer` and owns no tool execution.
+- `tool_runner`: fake-only local tool request/result scaffold for future validators;
+  owns no process execution and is not connected to product paths.
 - `cli`: launch command selection, usage/help/list/version, CLI/tool errors.
 - `engine`: pure game/session simulation, state transitions, and exercise-shaped packets.
 - `lab`: endless deterministic client/engine stress matrix for visible lab mode; not normal curriculum.

@@ -8,6 +8,7 @@ mod formatter;
 mod lab;
 mod practice;
 mod presentation;
+mod tool_runner;
 mod tui;
 mod validators;
 
