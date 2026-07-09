@@ -1,3 +1,5 @@
+mod expansion;
+
 use super::{AnswerRule, Operation, StateTransition};
 
 pub(crate) struct SemanticFrameSpec {

@@ -2,7 +2,7 @@
     not(test),
     expect(
         dead_code,
-        reason = "packet 1 procgen source is intentionally inert until a later expansion boundary"
+        reason = "procgen source and expansion are intentionally inert until a later catalog-admission boundary"
     )
 )]
 pub(crate) mod procgen;
