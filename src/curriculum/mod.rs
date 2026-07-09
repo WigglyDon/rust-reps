@@ -1,3 +1,11 @@
+#[cfg_attr(
+    not(test),
+    expect(
+        dead_code,
+        reason = "packet 1 procgen source is intentionally inert until a later expansion boundary"
+    )
+)]
+pub(crate) mod procgen;
 mod syntax_basics;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
