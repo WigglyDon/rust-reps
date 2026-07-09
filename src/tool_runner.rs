@@ -1,6 +1,17 @@
 #![allow(dead_code)]
 
-use std::collections::VecDeque;
+use std::{
+    collections::VecDeque,
+    io::{Read, Write},
+    process::{Command, Stdio},
+    thread,
+    time::{Duration, Instant},
+};
+
+const RUSTFMT_COMMAND: &str = "rustfmt";
+const REAL_TOOL_TIMEOUT_MS: u64 = 900;
+const REAL_TOOL_POLL_INTERVAL_MS: u64 = 10;
+const REAL_TOOL_OUTPUT_LIMIT_BYTES: usize = 64 * 1024;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ToolKind {
@@ -155,6 +166,10 @@ impl ToolResult {
     }
 }
 
+pub trait ToolRunner {
+    fn run(&mut self, request: &ToolRequest) -> ToolResult;
+}
+
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct FakeToolRunner {
     outcomes: VecDeque<ToolResult>,
@@ -185,18 +200,253 @@ impl FakeToolRunner {
     }
 }
 
+impl ToolRunner for FakeToolRunner {
+    fn run(&mut self, request: &ToolRequest) -> ToolResult {
+        FakeToolRunner::run(self, request)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct RealToolRunner {
+    formatter_command: &'static str,
+    timeout: Duration,
+    output_limit_bytes: usize,
+}
+
+impl RealToolRunner {
+    pub fn new() -> Self {
+        Self {
+            formatter_command: RUSTFMT_COMMAND,
+            timeout: Duration::from_millis(REAL_TOOL_TIMEOUT_MS),
+            output_limit_bytes: REAL_TOOL_OUTPUT_LIMIT_BYTES,
+        }
+    }
+
+    #[cfg(test)]
+    fn with_fixed_formatter_command_for_test(formatter_command: &'static str) -> Self {
+        Self {
+            formatter_command,
+            ..Self::new()
+        }
+    }
+
+    #[cfg(test)]
+    fn with_timeout_for_test(timeout: Duration) -> Self {
+        Self {
+            timeout,
+            ..Self::new()
+        }
+    }
+
+    #[cfg(test)]
+    fn with_output_limit_for_test(output_limit_bytes: usize) -> Self {
+        Self {
+            output_limit_bytes,
+            ..Self::new()
+        }
+    }
+
+    fn validate_request(&self, request: &ToolRequest) -> Result<(), ToolFailure> {
+        if request.tool != ToolKind::Formatter {
+            return Err(ToolFailure::InvalidInvocation {
+                reason: "real runner only supports formatter requests".to_string(),
+            });
+        }
+
+        if request.working_dir != ToolWorkingDir::None {
+            return Err(ToolFailure::InvalidInvocation {
+                reason: "real runner does not support custom working directories".to_string(),
+            });
+        }
+
+        if request.invocation.args.len() != 2
+            || request.invocation.args[0] != "--emit"
+            || request.invocation.args[1] != "stdout"
+        {
+            return Err(ToolFailure::InvalidInvocation {
+                reason: "real runner only supports rustfmt --emit stdout".to_string(),
+            });
+        }
+
+        Ok(())
+    }
+
+    fn run_request(&self, request: &ToolRequest) -> ToolResult {
+        if let Err(failure) = self.validate_request(request) {
+            return ToolResult::Failure(failure);
+        }
+
+        let mut child = match Command::new(self.formatter_command)
+            .arg("--emit")
+            .arg("stdout")
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+        {
+            Ok(child) => child,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                return ToolResult::Failure(ToolFailure::Unavailable { tool: request.tool });
+            }
+            Err(error) => {
+                return ToolResult::Failure(ToolFailure::SetupFailed {
+                    reason: error.to_string(),
+                });
+            }
+        };
+
+        if self.timeout.is_zero() {
+            stop_child(&mut child);
+            return ToolResult::Failure(ToolFailure::Timeout { tool: request.tool });
+        }
+
+        let Some(mut stdin) = child.stdin.take() else {
+            stop_child(&mut child);
+            return ToolResult::Failure(ToolFailure::SetupFailed {
+                reason: "failed to open rustfmt stdin".to_string(),
+            });
+        };
+
+        if let Err(error) = stdin.write_all(request.stdin.as_bytes()) {
+            stop_child(&mut child);
+            return ToolResult::Failure(ToolFailure::SetupFailed {
+                reason: error.to_string(),
+            });
+        }
+        drop(stdin);
+
+        let started_at = Instant::now();
+        loop {
+            match child.try_wait() {
+                Ok(Some(status)) => {
+                    let stdout = match read_limited(child.stdout.take(), self.output_limit_bytes) {
+                        Ok(output) => output,
+                        Err(failure) => return ToolResult::Failure(failure),
+                    };
+                    if stdout.truncated {
+                        return ToolResult::Failure(ToolFailure::OutputLimitExceeded {
+                            stream: ToolOutputStream::Stdout,
+                        });
+                    }
+
+                    let stderr = match read_limited(child.stderr.take(), self.output_limit_bytes) {
+                        Ok(output) => output,
+                        Err(failure) => return ToolResult::Failure(failure),
+                    };
+                    if stderr.truncated {
+                        return ToolResult::Failure(ToolFailure::OutputLimitExceeded {
+                            stream: ToolOutputStream::Stderr,
+                        });
+                    }
+
+                    let tool_status = if status.success() {
+                        ToolStatus::Success
+                    } else {
+                        ToolStatus::Nonzero(status.code().unwrap_or(-1))
+                    };
+
+                    return ToolResult::Output(ToolOutput {
+                        status: tool_status,
+                        stdout,
+                        stderr,
+                    });
+                }
+                Ok(None) if started_at.elapsed() >= self.timeout => {
+                    stop_child(&mut child);
+                    return ToolResult::Failure(ToolFailure::Timeout { tool: request.tool });
+                }
+                Ok(None) => {
+                    thread::sleep(Duration::from_millis(REAL_TOOL_POLL_INTERVAL_MS));
+                }
+                Err(error) => {
+                    stop_child(&mut child);
+                    return ToolResult::Failure(ToolFailure::SetupFailed {
+                        reason: error.to_string(),
+                    });
+                }
+            }
+        }
+    }
+}
+
+impl Default for RealToolRunner {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl ToolRunner for RealToolRunner {
+    fn run(&mut self, request: &ToolRequest) -> ToolResult {
+        self.run_request(request)
+    }
+}
+
+fn stop_child(child: &mut std::process::Child) {
+    let _ = child.kill();
+    let _ = child.wait();
+}
+
+fn read_limited<R: Read>(
+    pipe: Option<R>,
+    output_limit_bytes: usize,
+) -> Result<CapturedOutput, ToolFailure> {
+    let Some(mut pipe) = pipe else {
+        return Ok(CapturedOutput::new(""));
+    };
+
+    let mut bytes = Vec::new();
+    let mut buffer = [0; 4096];
+
+    loop {
+        let read = pipe
+            .read(&mut buffer)
+            .map_err(|error| ToolFailure::SetupFailed {
+                reason: error.to_string(),
+            })?;
+
+        if read == 0 {
+            break;
+        }
+
+        let remaining = output_limit_bytes.saturating_sub(bytes.len());
+        if read > remaining {
+            bytes.extend_from_slice(&buffer[..remaining]);
+            return Ok(captured_from_bytes(bytes, true));
+        }
+
+        bytes.extend_from_slice(&buffer[..read]);
+    }
+
+    Ok(captured_from_bytes(bytes, false))
+}
+
+fn captured_from_bytes(bytes: Vec<u8>, truncated: bool) -> CapturedOutput {
+    CapturedOutput {
+        text: String::from_utf8_lossy(&bytes).into_owned(),
+        truncated,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
-        CapturedOutput, FakeToolRunner, ToolFailure, ToolKind, ToolOutput, ToolOutputStream,
-        ToolRequest, ToolResult, ToolStatus, ToolWorkingDir,
+        CapturedOutput, FakeToolRunner, RealToolRunner, ToolFailure, ToolKind, ToolOutput,
+        ToolOutputStream, ToolRequest, ToolResult, ToolRunner, ToolStatus, ToolWorkingDir,
     };
+    use std::time::Duration;
 
     fn request() -> ToolRequest {
         ToolRequest::new(ToolKind::Formatter, "format")
             .with_arg("--check-shape")
             .with_stdin("fn main() {}")
             .with_working_dir(ToolWorkingDir::Isolated)
+    }
+
+    fn rustfmt_request(source: &str) -> ToolRequest {
+        ToolRequest::new(ToolKind::Formatter, "rustfmt")
+            .with_arg("--emit")
+            .with_arg("stdout")
+            .with_stdin(source)
     }
 
     #[test]
@@ -341,17 +591,133 @@ mod tests {
     }
 
     #[test]
-    fn fake_scaffold_source_does_not_contain_process_execution_calls() {
+    fn real_runner_uses_fixed_rustfmt_command_by_default() {
+        let runner = RealToolRunner::new();
+
+        assert_eq!(runner.formatter_command, "rustfmt");
+    }
+
+    #[test]
+    fn real_runner_rejects_non_formatter_requests() {
+        let mut runner = RealToolRunner::new();
+
+        for tool in [ToolKind::Compiler, ToolKind::Linter, ToolKind::TestHarness] {
+            assert!(matches!(
+                runner.run(
+                    &ToolRequest::new(tool, "not-rustfmt")
+                        .with_arg("--emit")
+                        .with_arg("stdout")
+                        .with_stdin("fn main() {}")
+                ),
+                ToolResult::Failure(ToolFailure::InvalidInvocation { .. })
+            ));
+        }
+    }
+
+    #[test]
+    fn real_runner_rejects_custom_working_directories() {
+        let mut runner = RealToolRunner::new();
+
+        assert!(matches!(
+            runner.run(&rustfmt_request("fn main() {}").with_working_dir(ToolWorkingDir::Isolated)),
+            ToolResult::Failure(ToolFailure::InvalidInvocation { .. })
+        ));
+    }
+
+    #[test]
+    fn real_runner_rejects_non_rustfmt_invocations() {
+        let mut runner = RealToolRunner::new();
+
+        assert!(matches!(
+            runner.run(&ToolRequest::new(ToolKind::Formatter, "format").with_stdin("fn main() {}")),
+            ToolResult::Failure(ToolFailure::InvalidInvocation { .. })
+        ));
+    }
+
+    #[test]
+    fn real_runner_reports_unavailable_fixed_formatter() {
+        let mut runner =
+            RealToolRunner::with_fixed_formatter_command_for_test("rust-reps-missing-rustfmt-tool");
+
+        assert_eq!(
+            runner.run(&rustfmt_request("fn main() {}")),
+            ToolResult::Failure(ToolFailure::Unavailable {
+                tool: ToolKind::Formatter
+            })
+        );
+    }
+
+    #[test]
+    fn real_runner_formats_valid_rust_when_rustfmt_is_available() {
+        let mut runner = RealToolRunner::new();
+
+        match runner.run(&rustfmt_request("fn main(){ }")) {
+            ToolResult::Failure(ToolFailure::Unavailable { .. }) => {}
+            ToolResult::Output(output) => {
+                assert_eq!(output.status, ToolStatus::Success);
+                assert_eq!(output.stdout.text, "fn main() {}\n");
+                assert!(!output.stdout.truncated);
+                assert!(!output.stderr.truncated);
+            }
+            other => panic!("expected rustfmt output or unavailable, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn real_runner_classifies_invalid_rust_as_nonzero_when_rustfmt_is_available() {
+        let mut runner = RealToolRunner::new();
+
+        match runner.run(&rustfmt_request("let = ;")) {
+            ToolResult::Failure(ToolFailure::Unavailable { .. }) => {}
+            ToolResult::Output(output) => {
+                assert!(matches!(output.status, ToolStatus::Nonzero(_)));
+                assert!(!output.stderr.text.is_empty());
+            }
+            other => panic!("expected rustfmt nonzero output or unavailable, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn real_runner_classifies_output_limit() {
+        let mut runner = RealToolRunner::with_output_limit_for_test(1);
+
+        match runner.run(&rustfmt_request("fn main() {}")) {
+            ToolResult::Failure(ToolFailure::Unavailable { .. }) => {}
+            ToolResult::Failure(ToolFailure::OutputLimitExceeded {
+                stream: ToolOutputStream::Stdout,
+            }) => {}
+            other => panic!("expected output-limit failure or unavailable, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn real_runner_classifies_timeout() {
+        let mut runner = RealToolRunner::with_timeout_for_test(Duration::ZERO);
+
+        match runner.run(&rustfmt_request("fn main() {}")) {
+            ToolResult::Failure(ToolFailure::Unavailable { .. }) => {}
+            ToolResult::Failure(ToolFailure::Timeout {
+                tool: ToolKind::Formatter,
+            }) => {}
+            other => panic!("expected timeout failure or unavailable, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn tool_runner_source_does_not_expose_unapproved_execution() {
         let source = include_str!("tool_runner.rs");
         let forbidden = [
-            format!("{}{}", "std::process::", "Command"),
-            format!("{}{}", "Command", "::new"),
+            format!("{}{}{}", "sh", " ", "-c"),
+            format!("{}{}", "ba", "sh"),
+            format!("{}{}", "car", "go"),
+            format!("{}{}", "rust", "c"),
+            format!("{}{}", "clip", "py"),
         ];
 
         for needle in forbidden {
             assert!(
                 !source.contains(&needle),
-                "fake scaffold must not contain {needle}"
+                "tool runner must not contain {needle}"
             );
         }
     }
@@ -370,6 +736,7 @@ mod tests {
 
         for source in product_sources {
             assert!(!source.contains("tool_runner"));
+            assert!(!source.contains("RealToolRunner"));
         }
     }
 }

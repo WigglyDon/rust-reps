@@ -138,9 +138,9 @@ pub enum RustfmtExactEvaluation {
 }
 
 #[allow(dead_code)]
-pub fn evaluate_rustfmt_exact_with_fake_runner(
+pub fn evaluate_rustfmt_exact_with_runner<R: tool_runner::ToolRunner>(
     input: ValidationInput<'_>,
-    runner: &mut tool_runner::FakeToolRunner,
+    runner: &mut R,
 ) -> RustfmtExactEvaluation {
     let submitted =
         match format_rustfmt_exact_phase(RustfmtExactPhase::Submitted, input.submitted, runner) {
@@ -161,10 +161,18 @@ pub fn evaluate_rustfmt_exact_with_fake_runner(
 }
 
 #[allow(dead_code)]
-fn format_rustfmt_exact_phase(
+pub fn evaluate_rustfmt_exact_with_fake_runner(
+    input: ValidationInput<'_>,
+    runner: &mut tool_runner::FakeToolRunner,
+) -> RustfmtExactEvaluation {
+    evaluate_rustfmt_exact_with_runner(input, runner)
+}
+
+#[allow(dead_code)]
+fn format_rustfmt_exact_phase<R: tool_runner::ToolRunner>(
     phase: RustfmtExactPhase,
     source: &str,
-    runner: &mut tool_runner::FakeToolRunner,
+    runner: &mut R,
 ) -> Result<String, RustfmtExactFailure> {
     let request = rustfmt_exact_request(phase, source);
     match runner.run(&request) {
@@ -255,12 +263,12 @@ mod tests {
     use super::{
         RustfmtExactEvaluation, RustfmtExactFailure, RustfmtExactPhase, ValidationInput,
         ValidationOutcome, ValidatorKind, ValidatorSpec, evaluate_rustfmt_exact_with_fake_runner,
-        validate,
+        evaluate_rustfmt_exact_with_runner, validate,
     };
     use crate::curriculum::{AnswerRule, Validator};
     use crate::tool_runner::{
-        CapturedOutput, FakeToolRunner, ToolFailure, ToolKind, ToolOutput, ToolOutputStream,
-        ToolRequest, ToolResult, ToolStatus,
+        CapturedOutput, FakeToolRunner, RealToolRunner, ToolFailure, ToolKind, ToolOutput,
+        ToolOutputStream, ToolRequest, ToolResult, ToolStatus,
     };
 
     fn validate_exact(submitted: &str, expected: &str) -> ValidationOutcome {
@@ -684,6 +692,74 @@ mod tests {
     }
 
     #[test]
+    fn real_rustfmt_exact_accepts_differently_formatted_valid_source_when_available() {
+        let mut runner = RealToolRunner::new();
+
+        let outcome = evaluate_rustfmt_exact_with_runner(
+            ValidationInput::new("fn main(){ }", "fn main() {}"),
+            &mut runner,
+        );
+
+        match outcome {
+            RustfmtExactEvaluation::Failure(RustfmtExactFailure::ToolUnavailable { .. }) => {}
+            other => assert_eq!(other, RustfmtExactEvaluation::Correct),
+        }
+    }
+
+    #[test]
+    fn real_rustfmt_exact_rejects_different_valid_source_when_available() {
+        let mut runner = RealToolRunner::new();
+
+        let outcome = evaluate_rustfmt_exact_with_runner(
+            ValidationInput::new("fn main() {}", "fn other() {}"),
+            &mut runner,
+        );
+
+        match outcome {
+            RustfmtExactEvaluation::Failure(RustfmtExactFailure::ToolUnavailable { .. }) => {}
+            other => assert_eq!(other, RustfmtExactEvaluation::Wrong),
+        }
+    }
+
+    #[test]
+    fn real_rustfmt_exact_invalid_submitted_source_is_non_wrong_failure() {
+        let mut runner = RealToolRunner::new();
+
+        let outcome = evaluate_rustfmt_exact_with_runner(
+            ValidationInput::new("let = ;", "fn main() {}"),
+            &mut runner,
+        );
+
+        match outcome {
+            RustfmtExactEvaluation::Failure(RustfmtExactFailure::ToolUnavailable { .. }) => {}
+            RustfmtExactEvaluation::Failure(RustfmtExactFailure::ToolNonzero {
+                phase: RustfmtExactPhase::Submitted,
+                ..
+            }) => {}
+            other => panic!("expected submitted non-wrong failure or unavailable, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn real_rustfmt_exact_invalid_expected_source_is_configuration_failure() {
+        let mut runner = RealToolRunner::new();
+
+        let outcome = evaluate_rustfmt_exact_with_runner(
+            ValidationInput::new("fn main() {}", "let = ;"),
+            &mut runner,
+        );
+
+        match outcome {
+            RustfmtExactEvaluation::Failure(RustfmtExactFailure::ToolUnavailable { .. }) => {}
+            RustfmtExactEvaluation::Failure(RustfmtExactFailure::ToolNonzero {
+                phase: RustfmtExactPhase::Expected,
+                ..
+            }) => {}
+            other => panic!("expected expected-side failure or unavailable, got {other:?}"),
+        }
+    }
+
+    #[test]
     fn product_validate_still_leaves_rustfmt_exact_unsupported() {
         let outcome = validate(
             ValidationInput::new("fn main() {}", "fn main() {}"),
@@ -694,18 +770,21 @@ mod tests {
     }
 
     #[test]
-    fn product_modules_do_not_call_fake_rustfmt_exact_evaluator() {
+    fn product_modules_do_not_call_rustfmt_exact_evaluator_or_real_runner() {
         let product_sources = [
             include_str!("engine/mod.rs"),
             include_str!("practice.rs"),
             include_str!("cli.rs"),
             include_str!("lab.rs"),
+            include_str!("formatter.rs"),
             include_str!("client/mod.rs"),
             include_str!("tui/app.rs"),
         ];
 
         for source in product_sources {
             assert!(!source.contains("evaluate_rustfmt_exact_with_fake_runner"));
+            assert!(!source.contains("evaluate_rustfmt_exact_with_runner"));
+            assert!(!source.contains("RealToolRunner"));
         }
     }
 

@@ -68,10 +68,12 @@
 - `validators`: product validation dispatch seam; currently routes only
   `ExactTrimFinalNewline` to `answer` at runtime.
   `RustfmtExact` remains unused by current reps and normal dispatch still fails
-  closed for it. A fake-runner RustfmtExact evaluator exists only as
-  scaffold/test-only code; it does not execute tools and is not product truth.
-- `tool_runner`: fake-only local tool request/result scaffold for future validators;
-  owns no process execution and is not connected to product paths.
+  closed for it. A RustfmtExact core evaluator exists for future integration;
+  it runs only when explicitly given a runner and is not product truth today.
+- `tool_runner`: local tool request/result boundary for future validators.
+  Real execution is limited to fixed `rustfmt --emit stdout` formatting
+  requests; no cargo/rustc/Clippy/test execution or arbitrary commands.
+  Product paths do not call the real runner today.
 - `cli`: launch command selection, usage/help/list/version, CLI/tool errors.
 - `engine`: pure game/session simulation, state transitions, and exercise-shaped packets.
 - `lab`: endless deterministic client/engine stress matrix for visible lab mode; not normal curriculum.
@@ -98,8 +100,8 @@
 - No random mode.
 - No hidden tests.
 - No drill additions.
-- No compilation validation feature.
-- No non-exact validator, linter, checker, or compiler feature.
+- No product-enabled compilation validation feature.
+- No product-enabled non-exact validator, linter, checker, or compiler feature.
 - No broad refactors; proof behavior must stay exact.
 
 ## Approved Dependencies
