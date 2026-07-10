@@ -26,6 +26,10 @@ Update triggers: Accepted-main change, lane transition, authority change, blocke
 - `USER_DECISION`: Cross-Lingual Guidance and Presentation Architecture V1 is
   accepted. Its first inert source-only boundary is integrated; no product
   behavior or authority changed.
+- `USER_DECISION`: one active implementation lane,
+  `pure-guidance-resolution-v1`, owns the second inert boundary: pure exact
+  instruction resolution plus one proof-only Ukrainian pack. Product behavior
+  and authority remain unchanged.
 
 ## Accepted Product State
 
@@ -66,26 +70,31 @@ adaptation; lab owns synthetic stress data only.
   formatter, validator, tool-runner, or presentation product caller admits
   expanded output or resolves guidance.
 - `LIVE_REPO_FACT`: no guidance resolver, Ukrainian pack, French curriculum,
-  guidance-language setting, interface-language setting, or fallback exists.
+  guidance-language setting, interface-language setting, or fallback exists on
+  the accepted base. The active lane may add only an inert pure resolver and an
+  unreviewed proof-only Ukrainian source pack.
 - `LIVE_REPO_FACT`: `engine::catalog_exercise_packet_at` hard-codes the Copy
   instruction, and `presentation::print_one_shot_prompt` prints `expected`
   instead of `prompt`. Non-Copy admission is blocked until a separately
   authorized, transcript-tested prompt propagation boundary addresses both.
-- `USER_DECISION`: Pure Guidance Resolution V1 is the next planned boundary and
-  remains inert until a fresh lane packet authorizes it. Catalog admission,
-  settings, fallback, and product callers remain unauthorized.
+- `USER_DECISION`: Pure Guidance Resolution V1 is authorized only as an inert
+  candidate. Catalog admission, settings, fallback, translation, and product
+  callers remain unauthorized.
 
 ## Lanes
 
-- Active implementation lanes: none.
+- Active implementation lane: [`pure-guidance-resolution-v1`](../lanes/pure-guidance-resolution-v1.md),
+  adding pure deterministic instruction resolution and one proof-only Ukrainian
+  pack with no product use.
 - Retired: [`static-guidance-schema-v1`](../lanes/static-guidance-schema-v1.md),
   accepted and integrated into local canonical master.
-- Planned but not active: Pure Guidance Resolution V1; Language-Agnostic
-  Capability Selector Architecture V1; Tiny Materialization And
-  Product-Integration Decision V1.
+- Planned but not active: Language-Agnostic Capability Selector Architecture
+  V1, design-only; Tiny Materialization And Product-Integration Decision V1.
 - Paused: new Ukrainian/French curriculum, validator integration, lab cleanup,
   product settings, interface localization, persistence, and scheduling.
 - No guidance language setting currently exists.
+- Ukrainian source in the active lane is proof-only and requires human
+  linguistic/product review before any product admission.
 - Parked donor/reference: clean legacy worktrees `curriculum-data-seam-v0` and
   `curriculum-sharding-v0`; neither is an active product lane.
 

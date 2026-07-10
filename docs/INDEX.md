@@ -41,6 +41,7 @@ documentation.
 ## Coordination And Process
 
 - Lane registry: [`lanes/lane-registry.md`](lanes/lane-registry.md)
+- Active pure guidance resolution lane: [`lanes/pure-guidance-resolution-v1.md`](lanes/pure-guidance-resolution-v1.md)
 - Retired static guidance schema lane record: [`lanes/static-guidance-schema-v1.md`](lanes/static-guidance-schema-v1.md)
 - Retired infrastructure lane record: [`lanes/master-infrastructure.md`](lanes/master-infrastructure.md)
 - Integration queue source: [`../ops/fleet/integration-queue.tsv`](../ops/fleet/integration-queue.tsv)

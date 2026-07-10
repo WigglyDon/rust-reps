@@ -11,11 +11,12 @@ Update triggers: Lane creation, pause, block, integration, retirement, respawn, 
 
 ## Active lanes
 
-None.
+| Lane ID | Page | Worktree | Branch | Status |
+| --- | --- | --- | --- | --- |
+| `pure-guidance-resolution-v1` | [`pure-guidance-resolution-v1.md`](pure-guidance-resolution-v1.md) | `/home/don/rust-reps-guidance-resolution-v1` | `lane/pure-guidance-resolution-v1` | active; implementation not yet accepted or integrated |
 
 ## Planned but not active
 
-- `USER_DECISION`: Pure Guidance Resolution V1.
 - `USER_DECISION`: Language-Agnostic Capability Selector Architecture V1,
   design-only.
 - `USER_DECISION`: Tiny Materialization And Product-Integration Decision V1.
