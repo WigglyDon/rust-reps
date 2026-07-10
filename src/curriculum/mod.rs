@@ -10,6 +10,14 @@ pub(crate) mod guidance;
     not(test),
     expect(
         dead_code,
+        reason = "capability and set-plan source are intentionally inert until a later pure planning boundary"
+    )
+)]
+pub(crate) mod planner;
+#[cfg_attr(
+    not(test),
+    expect(
+        dead_code,
         reason = "procgen source and expansion are intentionally inert until a later catalog-admission boundary"
     )
 )]

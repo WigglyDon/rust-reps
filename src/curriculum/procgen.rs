@@ -91,7 +91,14 @@ pub(crate) const SURFACE_FRAMES: &[SurfaceFrameSpec] = &[SurfaceFrameSpec {
     concepts: RUST_FUNCTION_CONCEPTS,
     constraints: RUST_FUNCTION_CONSTRAINTS,
     supported_contrasts: &[],
-    supported_operations: &[Operation::Copy],
+    // Conceptual support does not imply templates, materialization, catalog admission, or product support.
+    supported_operations: &[
+        Operation::Copy,
+        Operation::Fill,
+        Operation::Produce,
+        Operation::Repair,
+        Operation::Transform,
+    ],
 }];
 
 pub(crate) const SLOT_DOMAINS: &[SlotDomain] = &[
@@ -299,7 +306,16 @@ mod tests {
         }
 
         let frame = &SURFACE_FRAMES[0];
-        assert_eq!(frame.supported_operations, &[Operation::Copy]);
+        assert_eq!(
+            frame.supported_operations,
+            &[
+                Operation::Copy,
+                Operation::Fill,
+                Operation::Produce,
+                Operation::Repair,
+                Operation::Transform,
+            ]
+        );
         assert!(frame.supported_contrasts.is_empty());
         assert_eq!(
             frame.slots,
@@ -521,6 +537,7 @@ mod tests {
         assert_eq!(template.id, "copy-line");
         assert_eq!(template.version, 1);
         assert_eq!(template.track, "syntax_basics");
+        assert_eq!(template.operation, Operation::Copy);
         assert_eq!(template.instruction_key, "copy.exact_line");
         assert_eq!(
             template
