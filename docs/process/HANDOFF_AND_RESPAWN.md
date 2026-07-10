@@ -32,10 +32,23 @@ and preserve evidence.
 ## Complete Replacement Seed
 
 A respawn seed includes project identity, current Context-SHA, current goal,
-accepted base, latest candidate, worktree, branch, artifact references,
-unresolved risks, exact next action, authority state, prohibited authority,
-expected proof, stale-session identity, and deactivation instruction. It never
-infers private chat state. Missing required lane/base data is an explicit error.
+accepted base, latest candidate from the declared Worker Codex worktree,
+worktree, branch, clean/dirty state, artifact references, unresolved risks,
+exact next action, authority state, prohibited authority, expected proof,
+stale-session identity, deactivation instruction, `Restart-Goal: false`,
+no-push/no-deploy law, and donor/unknown-work preservation law. It never infers
+private chat state. Missing required lane/base data is an explicit error.
+
+The lane page declares the supervisor destination and expected reply type. The
+generated packet uses those literal values, replies to the lane's latest packet
+ID, and derives its state-specific packet ID from the lane, Context-SHA, and
+candidate HEAD. Duplicate lane fields are conflicts and fail generation.
+
+Before writing output, the generator verifies the complete packet through the
+packet verifier. It reads the candidate HEAD, branch, and status from the exact
+declared Worker Codex worktree. A missing worktree or branch mismatch fails. A
+dirty worker remains eligible for handoff, but the packet must report that state
+and require preservation and inspection before editing.
 
 The deterministic generator is:
 

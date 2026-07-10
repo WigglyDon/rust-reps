@@ -38,7 +38,10 @@ stale hashes/views, duplicate lane states, or missing evidence fields.
 lane ID, candidate HEAD, base, Context-SHA, artifact, targeted validation,
 full-verify status, overlap risk, dependency, authority impact, revalidation
 state, integration decision, and push state. Tabs are delimiters; embedded tabs
-or newlines are forbidden. The Markdown view is never hand-maintained.
+or newlines are forbidden. Every field is nonempty. Lane IDs contain only ASCII
+letters, digits, `_`, `-`, or `.`, and are unique. Candidate HEAD and base are
+exactly 40 lowercase hexadecimal characters; Context-SHA is exactly 64 lowercase
+hexadecimal characters. The Markdown view is never hand-maintained.
 
 The current queue may be empty while a lane awaits its own immutable final
 report; this avoids self-referential commit SHAs. The external report carries

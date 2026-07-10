@@ -95,6 +95,18 @@ pub(crate) fn command_verify(path: &Path, mode: OutputMode) -> AppResult<()> {
     }
 }
 
+pub(crate) fn validate_generated(text: &str) -> AppResult<()> {
+    let verification = verify_text(text);
+    if verification.passed() {
+        Ok(())
+    } else {
+        Err(format!(
+            "generated packet validation failed: {}",
+            verification.errors.join("; ")
+        ))
+    }
+}
+
 pub(crate) fn verify_file(path: &Path) -> PacketVerification {
     match fs::read_to_string(path) {
         Ok(text) => verify_text(&text),

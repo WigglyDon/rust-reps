@@ -1,4 +1,4 @@
-use std::{fs, path::Path};
+use std::{collections::BTreeSet, fs, path::Path};
 
 use crate::{AppResult, OutputMode};
 
@@ -79,12 +79,14 @@ fn read_queue(path: &Path) -> AppResult<Vec<QueueRow>> {
     }
 
     let mut rows = Vec::new();
+    let mut lane_ids = BTreeSet::new();
     for (index, line) in lines.enumerate() {
+        let line_number = index + 2;
         let fields = line.split('\t').map(str::to_owned).collect::<Vec<_>>();
         if fields.len() != HEADER.len() {
             return Err(format!(
                 "integration queue line {} has {} fields; expected {}",
-                index + 2,
+                line_number,
                 fields.len(),
                 HEADER.len()
             ));
@@ -92,12 +94,58 @@ fn read_queue(path: &Path) -> AppResult<Vec<QueueRow>> {
         if fields.iter().any(|field| field.is_empty()) {
             return Err(format!(
                 "integration queue line {} has an empty field",
-                index + 2
+                line_number
+            ));
+        }
+        if fields
+            .iter()
+            .any(|field| field.contains('\t') || field.contains('\n') || field.contains('\r'))
+        {
+            return Err(format!(
+                "integration queue line {line_number} contains an embedded delimiter"
+            ));
+        }
+        let lane_id = &fields[0];
+        if !valid_lane_id(lane_id) {
+            return Err(format!(
+                "integration queue line {line_number} has invalid lane ID: {lane_id}"
+            ));
+        }
+        if !lane_ids.insert(lane_id.clone()) {
+            return Err(format!("duplicate integration queue lane ID: {lane_id}"));
+        }
+        if !is_lower_hex(&fields[1], 40) {
+            return Err(format!(
+                "integration queue line {line_number} has invalid candidate HEAD"
+            ));
+        }
+        if !is_lower_hex(&fields[2], 40) {
+            return Err(format!(
+                "integration queue line {line_number} has invalid base"
+            ));
+        }
+        if !is_lower_hex(&fields[3], 64) {
+            return Err(format!(
+                "integration queue line {line_number} has invalid Context-SHA"
             ));
         }
         rows.push(QueueRow { fields });
     }
     Ok(rows)
+}
+
+fn valid_lane_id(value: &str) -> bool {
+    !value.is_empty()
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-' | b'.'))
+}
+
+fn is_lower_hex(value: &str, length: usize) -> bool {
+    value.len() == length
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
 }
 
 fn render(rows: &[QueueRow]) -> String {
@@ -125,6 +173,41 @@ mod tests {
     use super::*;
     use crate::test_support::TempDir;
 
+    fn queue_text(rows: &[String]) -> String {
+        let mut text = HEADER.join("\t");
+        text.push('\n');
+        for row in rows {
+            text.push_str(row);
+            text.push('\n');
+        }
+        text
+    }
+
+    fn valid_row(lane: &str) -> String {
+        [
+            lane.to_owned(),
+            "1".repeat(40),
+            "0".repeat(40),
+            "a".repeat(64),
+            "/tmp/lane.tar".to_owned(),
+            "unit-pass".to_owned(),
+            "full-pass".to_owned(),
+            "none".to_owned(),
+            "none".to_owned(),
+            "none".to_owned(),
+            "current".to_owned(),
+            "awaiting-review".to_owned(),
+            "not-pushed".to_owned(),
+        ]
+        .join("\t")
+    }
+
+    fn write_queue(temp: &TempDir, rows: &[String]) -> std::path::PathBuf {
+        let path = temp.path().join("queue.tsv");
+        fs::write(&path, queue_text(rows)).expect("write queue");
+        path
+    }
+
     #[test]
     fn valid_queue_renders_deterministic_markdown() {
         let path = Path::new("tools/fleet/tests/fixtures/queue-valid.tsv");
@@ -140,6 +223,75 @@ mod tests {
         assert!(read_queue(path)
             .expect_err("malformed queue fails")
             .contains("fields"));
+    }
+
+    #[test]
+    fn malformed_candidate_head_fails() {
+        let temp = TempDir::new("queue-candidate-head");
+        let row = valid_row("lane-a").replacen(&"1".repeat(40), "ABC", 1);
+        let error = read_queue(&write_queue(&temp, &[row])).expect_err("candidate must fail");
+        assert!(error.contains("candidate HEAD"));
+    }
+
+    #[test]
+    fn malformed_base_fails() {
+        let temp = TempDir::new("queue-base");
+        let row = valid_row("lane-a").replacen(&"0".repeat(40), &"G".repeat(40), 1);
+        let error = read_queue(&write_queue(&temp, &[row])).expect_err("base must fail");
+        assert!(error.contains("invalid base"));
+    }
+
+    #[test]
+    fn malformed_context_sha_fails() {
+        let temp = TempDir::new("queue-context");
+        let row = valid_row("lane-a").replacen(&"a".repeat(64), &"A".repeat(64), 1);
+        let error = read_queue(&write_queue(&temp, &[row])).expect_err("context must fail");
+        assert!(error.contains("Context-SHA"));
+    }
+
+    #[test]
+    fn duplicate_lane_id_fails() {
+        let temp = TempDir::new("queue-duplicate-lane");
+        let row = valid_row("lane-a");
+        let error = read_queue(&write_queue(&temp, &[row.clone(), row]))
+            .expect_err("duplicate lane must fail");
+        assert!(error.contains("duplicate integration queue lane ID: lane-a"));
+    }
+
+    #[test]
+    fn invalid_lane_id_fails() {
+        let temp = TempDir::new("queue-lane-id");
+        let error = read_queue(&write_queue(&temp, &[valid_row("lane/a")]))
+            .expect_err("invalid lane must fail");
+        assert!(error.contains("invalid lane ID"));
+    }
+
+    #[test]
+    fn empty_field_fails() {
+        let temp = TempDir::new("queue-empty-field");
+        let row = valid_row("lane-a").replace("/tmp/lane.tar", "");
+        let error = read_queue(&write_queue(&temp, &[row])).expect_err("empty field must fail");
+        assert!(error.contains("empty field"));
+    }
+
+    #[test]
+    fn embedded_tab_or_newline_cannot_form_a_valid_row() {
+        let tab_temp = TempDir::new("queue-embedded-tab");
+        let tab_row = valid_row("lane-a").replace("/tmp/lane.tar", "/tmp/lane\tbad");
+        let tab_error = read_queue(&write_queue(&tab_temp, &[tab_row])).expect_err("tab must fail");
+        assert!(tab_error.contains("fields"));
+
+        let newline_temp = TempDir::new("queue-embedded-newline");
+        let newline_row = valid_row("lane-a").replace("/tmp/lane.tar", "/tmp/lane\nbad");
+        let newline_error =
+            read_queue(&write_queue(&newline_temp, &[newline_row])).expect_err("newline must fail");
+        assert!(newline_error.contains("fields"));
+    }
+
+    #[test]
+    fn current_empty_source_is_valid() {
+        let rows = read_queue(Path::new(SOURCE)).expect("current empty queue");
+        assert!(rows.is_empty());
     }
 
     #[test]
