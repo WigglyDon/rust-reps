@@ -1,6 +1,9 @@
 use super::{SlotDomain, SlotSpec, TemplatePart, TemplateSpec};
 use crate::curriculum::{AnswerRule, Operation, StateTransition};
 
+#[cfg(test)]
+use super::DomainValueSpec;
+
 #[derive(Debug, Eq, PartialEq)]
 pub(super) struct SlotAssignment {
     pub(super) slot: String,
@@ -8,21 +11,23 @@ pub(super) struct SlotAssignment {
     pub(super) domain_version: u16,
     pub(super) value_id: String,
     pub(super) rendered: String,
+    pub(super) meaning_key: Option<String>,
 }
 
 #[derive(Debug, Eq, PartialEq)]
-pub(super) struct ExpandedRep {
+pub(super) struct ExpandedTask {
     // Inert procgen provenance only. This is not an admitted RepMetadata canonical ID.
     pub(super) generated_id: String,
 
     pub(super) template_id: String,
     pub(super) template_version: u16,
-    pub(super) seed: u64,
-    pub(super) prompt_variant: u16,
+    pub(super) content_seed: u64,
+    pub(super) stimulus_variant: u16,
     pub(super) contrast_id: Option<String>,
+    pub(super) instruction_key: String,
 
     pub(super) assignments: Vec<SlotAssignment>,
-    pub(super) prompt: String,
+    pub(super) stimulus: String,
     pub(super) expected: String,
 
     pub(super) system: String,
@@ -74,7 +79,7 @@ pub(super) fn expand_template(
     template: &TemplateSpec,
     domains: &[SlotDomain],
     seed: u64,
-) -> Result<ExpandedRep, ExpansionError> {
+) -> Result<ExpandedTask, ExpansionError> {
     validate_identity_source(template)?;
     validate_unique_template_slots(template.slots)?;
 
@@ -103,7 +108,7 @@ pub(super) fn expand_template(
         remaining /= radix;
         let value_index =
             usize::try_from(value_index).map_err(|_| ExpansionError::CardinalityOverflow)?;
-        let Some(&(value_id, rendered)) = domain.values.get(value_index) else {
+        let Some(value) = domain.values.get(value_index) else {
             return Err(ExpansionError::CardinalityOverflow);
         };
 
@@ -111,24 +116,26 @@ pub(super) fn expand_template(
             slot: slot.name.to_owned(),
             domain_id: domain.id.to_owned(),
             domain_version: domain.version,
-            value_id: value_id.to_owned(),
-            rendered: rendered.to_owned(),
+            value_id: value.id.to_owned(),
+            rendered: value.rendered.to_owned(),
+            meaning_key: value.meaning_key.map(str::to_owned),
         });
     }
 
-    let prompt = render_parts(template.prompt, template.slots, &assignments)?;
+    let stimulus = render_parts(template.stimulus, template.slots, &assignments)?;
     let expected = render_parts(template.expected, template.slots, &assignments)?;
     let generated_id = build_generated_id(template, seed);
 
-    Ok(ExpandedRep {
+    Ok(ExpandedTask {
         generated_id,
         template_id: template.id.to_owned(),
         template_version: template.version,
-        seed,
-        prompt_variant: 0,
+        content_seed: seed,
+        stimulus_variant: 0,
         contrast_id: template.contrast_id.map(str::to_owned),
+        instruction_key: template.instruction_key.to_owned(),
         assignments,
-        prompt,
+        stimulus,
         expected,
         system: template.system.to_owned(),
         track: template.track.to_owned(),
@@ -331,12 +338,39 @@ mod tests {
         SlotDomain {
             id: "test.a",
             version: 1,
-            values: &[("a0", "A0"), ("a1", "A1")],
+            values: &[
+                DomainValueSpec {
+                    id: "a0",
+                    rendered: "A0",
+                    meaning_key: Some("test.a0"),
+                },
+                DomainValueSpec {
+                    id: "a1",
+                    rendered: "A1",
+                    meaning_key: None,
+                },
+            ],
         },
         SlotDomain {
             id: "test.b",
             version: 1,
-            values: &[("b0", "B0"), ("b1", "B1"), ("b2", "B2")],
+            values: &[
+                DomainValueSpec {
+                    id: "b0",
+                    rendered: "B0",
+                    meaning_key: None,
+                },
+                DomainValueSpec {
+                    id: "b1",
+                    rendered: "B1",
+                    meaning_key: None,
+                },
+                DomainValueSpec {
+                    id: "b2",
+                    rendered: "B2",
+                    meaning_key: None,
+                },
+            ],
         },
     ];
     const MULTI_TEMPLATE: TemplateSpec = TemplateSpec {
@@ -347,8 +381,9 @@ mod tests {
         semantic_frame: "test.mixed",
         surface_frame: "mixed",
         operation: Operation::Copy,
+        instruction_key: "test.mixed",
         slots: MULTI_SLOTS,
-        prompt: MULTI_PARTS,
+        stimulus: MULTI_PARTS,
         expected: MULTI_PARTS,
         contrast_id: Some("fixed.contrast"),
         concepts: &[],
@@ -367,8 +402,9 @@ mod tests {
         semantic_frame: "test.literal",
         surface_frame: "literal",
         operation: Operation::Copy,
+        instruction_key: "test.literal",
         slots: &[],
-        prompt: ZERO_PARTS,
+        stimulus: ZERO_PARTS,
         expected: ZERO_PARTS,
         contrast_id: None,
         concepts: &[],
@@ -388,7 +424,18 @@ mod tests {
     const DUPLICATE_OUTPUT_DOMAINS: &[SlotDomain] = &[SlotDomain {
         id: "test.duplicate_output",
         version: 1,
-        values: &[("first", "same"), ("second", "same")],
+        values: &[
+            DomainValueSpec {
+                id: "first",
+                rendered: "same",
+                meaning_key: None,
+            },
+            DomainValueSpec {
+                id: "second",
+                rendered: "same",
+                meaning_key: None,
+            },
+        ],
     }];
     const DUPLICATE_OUTPUT_TEMPLATE: TemplateSpec = TemplateSpec {
         id: "duplicate-output",
@@ -398,8 +445,9 @@ mod tests {
         semantic_frame: "test.duplicate_output",
         surface_frame: "duplicate_output",
         operation: Operation::Copy,
+        instruction_key: "test.duplicate_output",
         slots: DUPLICATE_OUTPUT_SLOTS,
-        prompt: DUPLICATE_OUTPUT_PARTS,
+        stimulus: DUPLICATE_OUTPUT_PARTS,
         expected: DUPLICATE_OUTPUT_PARTS,
         contrast_id: None,
         concepts: &[],
@@ -409,10 +457,10 @@ mod tests {
         xp: 1,
     };
 
-    fn duplicate_output_signature(reps: &[ExpandedRep]) -> Option<(usize, usize)> {
+    fn duplicate_output_signature(reps: &[ExpandedTask]) -> Option<(usize, usize)> {
         for (index, rep) in reps.iter().enumerate() {
             for (earlier_index, earlier) in reps[..index].iter().enumerate() {
-                if rep.prompt == earlier.prompt
+                if rep.stimulus == earlier.stimulus
                     && rep.expected == earlier.expected
                     && rep.operation == earlier.operation
                 {
@@ -430,13 +478,14 @@ mod tests {
 
         assert_eq!(
             expanded,
-            ExpandedRep {
+            ExpandedTask {
                 generated_id: "gen:rust:function.return_literal:copy-line:v1:copy:s0".to_owned(),
                 template_id: "copy-line".to_owned(),
                 template_version: 1,
-                seed: 0,
-                prompt_variant: 0,
+                content_seed: 0,
+                stimulus_variant: 0,
                 contrast_id: None,
+                instruction_key: "copy.exact_line".to_owned(),
                 assignments: vec![
                     SlotAssignment {
                         slot: "NAME".to_owned(),
@@ -444,6 +493,7 @@ mod tests {
                         domain_version: 1,
                         value_id: "five".to_owned(),
                         rendered: "five".to_owned(),
+                        meaning_key: None,
                     },
                     SlotAssignment {
                         slot: "TYPE".to_owned(),
@@ -451,6 +501,7 @@ mod tests {
                         domain_version: 1,
                         value_id: "i32".to_owned(),
                         rendered: "i32".to_owned(),
+                        meaning_key: None,
                     },
                     SlotAssignment {
                         slot: "VALUE".to_owned(),
@@ -458,9 +509,10 @@ mod tests {
                         domain_version: 1,
                         value_id: "five".to_owned(),
                         rendered: "5".to_owned(),
+                        meaning_key: None,
                     },
                 ],
-                prompt: "fn five() -> i32 { 5 }".to_owned(),
+                stimulus: "fn five() -> i32 { 5 }".to_owned(),
                 expected: "fn five() -> i32 { 5 }".to_owned(),
                 system: "rust".to_owned(),
                 track: "syntax_basics".to_owned(),
@@ -479,10 +531,19 @@ mod tests {
                 transition: StateTransition::None,
             }
         );
-        assert!(!expanded.prompt.ends_with('\n'));
-        assert!(!expanded.prompt.ends_with('\r'));
+        assert!(!expanded.stimulus.ends_with('\n'));
+        assert!(!expanded.stimulus.ends_with('\r'));
         assert!(!expanded.expected.ends_with('\n'));
         assert!(!expanded.expected.ends_with('\r'));
+        assert_eq!(expanded.content_seed, 0);
+        assert_eq!(expanded.stimulus_variant, 0);
+        assert_eq!(expanded.instruction_key, "copy.exact_line");
+        assert!(
+            expanded
+                .assignments
+                .iter()
+                .all(|assignment| assignment.meaning_key.is_none())
+        );
     }
 
     #[test]
@@ -527,9 +588,9 @@ mod tests {
                 .expect("in-range mixed-radix seed should expand");
             assert_eq!(expanded.assignments[0].rendered, expected_a);
             assert_eq!(expanded.assignments[1].rendered, expected_b);
-            assert_eq!(expanded.prompt, expected_rendered);
+            assert_eq!(expanded.stimulus, expected_rendered);
             assert_eq!(expanded.expected, expected_rendered);
-            assert_eq!(expanded.prompt_variant, 0);
+            assert_eq!(expanded.stimulus_variant, 0);
             assert_eq!(expanded.contrast_id.as_deref(), Some("fixed.contrast"));
         }
 
@@ -543,13 +604,25 @@ mod tests {
     }
 
     #[test]
+    fn selected_meaning_key_is_preserved_in_assignment() {
+        let expanded = expand_template(&MULTI_TEMPLATE, MULTI_DOMAINS, 0)
+            .expect("meaning-key fixture should expand");
+
+        assert_eq!(
+            expanded.assignments[0].meaning_key.as_deref(),
+            Some("test.a0")
+        );
+        assert_eq!(expanded.assignments[1].meaning_key, None);
+    }
+
+    #[test]
     fn zero_slot_template_has_one_valid_seed() {
         assert_eq!(template_cardinality(&ZERO_TEMPLATE, &[]), Ok(1));
 
         let expanded =
             expand_template(&ZERO_TEMPLATE, &[], 0).expect("zero-slot seed zero should expand");
         assert!(expanded.assignments.is_empty());
-        assert_eq!(expanded.prompt, "literal only");
+        assert_eq!(expanded.stimulus, "literal only");
         assert_eq!(expanded.expected, "literal only");
         assert_eq!(
             expand_template(&ZERO_TEMPLATE, &[], 1),
@@ -574,12 +647,20 @@ mod tests {
             SlotDomain {
                 id: "rust.function_name",
                 version: 1,
-                values: &[("first", "first")],
+                values: &[DomainValueSpec {
+                    id: "first",
+                    rendered: "first",
+                    meaning_key: None,
+                }],
             },
             SlotDomain {
                 id: "rust.function_name",
                 version: 1,
-                values: &[("second", "second")],
+                values: &[DomainValueSpec {
+                    id: "second",
+                    rendered: "second",
+                    meaning_key: None,
+                }],
             },
         ];
         assert_eq!(
@@ -630,6 +711,7 @@ mod tests {
             domain_version: 1,
             value_id: "value".to_owned(),
             rendered: "값".to_owned(),
+            meaning_key: None,
         }];
 
         assert_eq!(
@@ -660,6 +742,7 @@ mod tests {
                 domain_version: 1,
                 value_id: "first".to_owned(),
                 rendered: "first".to_owned(),
+                meaning_key: None,
             },
             SlotAssignment {
                 slot: "X".to_owned(),
@@ -667,6 +750,7 @@ mod tests {
                 domain_version: 1,
                 value_id: "second".to_owned(),
                 rendered: "second".to_owned(),
+                meaning_key: None,
             },
         ];
         assert_eq!(
@@ -680,6 +764,7 @@ mod tests {
             domain_version: 1,
             value_id: "value".to_owned(),
             rendered: "value".to_owned(),
+            meaning_key: None,
         }];
         assert_eq!(
             render_parts(PARTS, SLOTS, &unknown_assignment),
@@ -692,6 +777,7 @@ mod tests {
             domain_version: 1,
             value_id: "value".to_owned(),
             rendered: "value".to_owned(),
+            meaning_key: None,
         }];
         const UNKNOWN_PARTS: &[TemplatePart] = &[TemplatePart::Slot("Y")];
         assert_eq!(
@@ -726,8 +812,9 @@ mod tests {
             semantic_frame: "test.duplicate_slot",
             surface_frame: "duplicate_slot",
             operation: Operation::Copy,
+            instruction_key: "test.duplicate_slot",
             slots: DUPLICATE_SLOTS,
-            prompt: &[],
+            stimulus: &[],
             expected: &[],
             contrast_id: None,
             concepts: &[],
@@ -843,8 +930,9 @@ mod tests {
                 semantic_frame: "test.identity",
                 surface_frame,
                 operation: Operation::Copy,
+                instruction_key: "test.identity",
                 slots: &[],
-                prompt: LITERAL_PARTS,
+                stimulus: LITERAL_PARTS,
                 expected: LITERAL_PARTS,
                 contrast_id: None,
                 concepts: &[],

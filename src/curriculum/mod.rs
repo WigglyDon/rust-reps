@@ -2,6 +2,14 @@
     not(test),
     expect(
         dead_code,
+        reason = "guidance source is intentionally inert until a later guidance-resolution boundary"
+    )
+)]
+pub(crate) mod guidance;
+#[cfg_attr(
+    not(test),
+    expect(
+        dead_code,
         reason = "procgen source and expansion are intentionally inert until a later catalog-admission boundary"
     )
 )]

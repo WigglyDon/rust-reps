@@ -26,10 +26,17 @@ pub(crate) struct SlotSpec {
     pub(crate) domain_version: u16,
 }
 
+#[derive(Debug, Eq, PartialEq)]
+pub(crate) struct DomainValueSpec {
+    pub(crate) id: &'static str,
+    pub(crate) rendered: &'static str,
+    pub(crate) meaning_key: Option<&'static str>,
+}
+
 pub(crate) struct SlotDomain {
     pub(crate) id: &'static str,
     pub(crate) version: u16,
-    pub(crate) values: &'static [(&'static str, &'static str)],
+    pub(crate) values: &'static [DomainValueSpec],
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -46,8 +53,9 @@ pub(crate) struct TemplateSpec {
     pub(crate) semantic_frame: &'static str,
     pub(crate) surface_frame: &'static str,
     pub(crate) operation: Operation,
+    pub(crate) instruction_key: &'static str,
     pub(crate) slots: &'static [SlotSpec],
-    pub(crate) prompt: &'static [TemplatePart],
+    pub(crate) stimulus: &'static [TemplatePart],
     pub(crate) expected: &'static [TemplatePart],
     pub(crate) contrast_id: Option<&'static str>,
     pub(crate) concepts: &'static [&'static str],
@@ -90,17 +98,29 @@ pub(crate) const SLOT_DOMAINS: &[SlotDomain] = &[
     SlotDomain {
         id: "rust.function_name",
         version: 1,
-        values: &[("five", "five")],
+        values: &[DomainValueSpec {
+            id: "five",
+            rendered: "five",
+            meaning_key: None,
+        }],
     },
     SlotDomain {
         id: "rust.integer_type",
         version: 1,
-        values: &[("i32", "i32")],
+        values: &[DomainValueSpec {
+            id: "i32",
+            rendered: "i32",
+            meaning_key: None,
+        }],
     },
     SlotDomain {
         id: "rust.integer_literal",
         version: 1,
-        values: &[("five", "5")],
+        values: &[DomainValueSpec {
+            id: "five",
+            rendered: "5",
+            meaning_key: None,
+        }],
     },
 ];
 
@@ -125,7 +145,7 @@ const COPY_LINE_SLOTS: &[SlotSpec] = &[
     },
 ];
 
-const COPY_LINE_PROMPT: &[TemplatePart] = &[
+const COPY_LINE_STIMULUS: &[TemplatePart] = &[
     TemplatePart::Literal("fn "),
     TemplatePart::Slot("NAME"),
     TemplatePart::Literal("() -> "),
@@ -153,8 +173,9 @@ pub(crate) const TEMPLATES: &[TemplateSpec] = &[TemplateSpec {
     semantic_frame: "function.no_params.return_literal",
     surface_frame: "function.return_literal",
     operation: Operation::Copy,
+    instruction_key: "copy.exact_line",
     slots: COPY_LINE_SLOTS,
-    prompt: COPY_LINE_PROMPT,
+    stimulus: COPY_LINE_STIMULUS,
     expected: COPY_LINE_EXPECTED,
     contrast_id: None,
     concepts: RUST_FUNCTION_CONCEPTS,
@@ -169,7 +190,7 @@ mod tests {
     use super::*;
 
     const HAND_EXPANDED_SEED: u64 = 0;
-    const HAND_EXPANDED_PROMPT: &str = "fn five() -> i32 { 5 }";
+    const HAND_EXPANDED_STIMULUS: &str = "fn five() -> i32 { 5 }";
     const HAND_EXPANDED_EXPECTED: &str = "fn five() -> i32 { 5 }";
 
     fn assert_nonempty_unique(values: &[&str], context: &str) {
@@ -304,15 +325,21 @@ mod tests {
                 );
             }
 
-            for (value_index, (value_id, rendered)) in domain.values.iter().enumerate() {
-                assert!(!value_id.is_empty(), "domain value ID must not be empty");
+            for (value_index, value) in domain.values.iter().enumerate() {
+                assert!(!value.id.is_empty(), "domain value ID must not be empty");
                 assert!(
-                    !rendered.is_empty(),
+                    !value.rendered.is_empty(),
                     "rendered domain value must not be empty"
                 );
-                for (earlier_id, _) in &domain.values[..value_index] {
+                if let Some(meaning_key) = value.meaning_key {
+                    assert!(
+                        !meaning_key.is_empty(),
+                        "domain value meaning key must not be empty when present"
+                    );
+                }
+                for earlier in &domain.values[..value_index] {
                     assert_ne!(
-                        earlier_id, value_id,
+                        earlier.id, value.id,
                         "value IDs must be unique within a domain"
                     );
                 }
@@ -324,17 +351,38 @@ mod tests {
             (SLOT_DOMAINS[0].id, SLOT_DOMAINS[0].version),
             ("rust.function_name", 1)
         );
-        assert_eq!(SLOT_DOMAINS[0].values, &[("five", "five")]);
+        assert_eq!(
+            SLOT_DOMAINS[0].values,
+            &[DomainValueSpec {
+                id: "five",
+                rendered: "five",
+                meaning_key: None,
+            }]
+        );
         assert_eq!(
             (SLOT_DOMAINS[1].id, SLOT_DOMAINS[1].version),
             ("rust.integer_type", 1)
         );
-        assert_eq!(SLOT_DOMAINS[1].values, &[("i32", "i32")]);
+        assert_eq!(
+            SLOT_DOMAINS[1].values,
+            &[DomainValueSpec {
+                id: "i32",
+                rendered: "i32",
+                meaning_key: None,
+            }]
+        );
         assert_eq!(
             (SLOT_DOMAINS[2].id, SLOT_DOMAINS[2].version),
             ("rust.integer_literal", 1)
         );
-        assert_eq!(SLOT_DOMAINS[2].values, &[("five", "5")]);
+        assert_eq!(
+            SLOT_DOMAINS[2].values,
+            &[DomainValueSpec {
+                id: "five",
+                rendered: "5",
+                meaning_key: None,
+            }]
+        );
     }
 
     #[test]
@@ -357,6 +405,10 @@ mod tests {
             assert!(
                 !template.surface_frame.is_empty(),
                 "template surface frame must not be empty"
+            );
+            assert!(
+                !template.instruction_key.is_empty(),
+                "template instruction key must not be empty"
             );
             for earlier in &TEMPLATES[..index] {
                 assert_ne!(
@@ -419,14 +471,14 @@ mod tests {
             }
 
             assert!(
-                !template.prompt.is_empty(),
-                "template prompt must not be empty"
+                !template.stimulus.is_empty(),
+                "template stimulus must not be empty"
             );
             assert!(
                 !template.expected.is_empty(),
                 "template expected form must not be empty"
             );
-            for part in template.prompt.iter().chain(template.expected.iter()) {
+            for part in template.stimulus.iter().chain(template.expected.iter()) {
                 if let TemplatePart::Slot(name) = part {
                     assert!(
                         template.slots.iter().any(|slot| slot.name == *name),
@@ -437,11 +489,11 @@ mod tests {
             for slot in template.slots {
                 assert!(
                     template
-                        .prompt
+                        .stimulus
                         .iter()
                         .chain(template.expected.iter())
                         .any(|part| matches!(part, TemplatePart::Slot(name) if *name == slot.name)),
-                    "declared slot {} must be used by prompt or expected",
+                    "declared slot {} must be used by stimulus or expected",
                     slot.name
                 );
             }
@@ -469,6 +521,7 @@ mod tests {
         assert_eq!(template.id, "copy-line");
         assert_eq!(template.version, 1);
         assert_eq!(template.track, "syntax_basics");
+        assert_eq!(template.instruction_key, "copy.exact_line");
         assert_eq!(
             template
                 .slots
@@ -487,14 +540,14 @@ mod tests {
             TemplatePart::Slot("VALUE"),
             TemplatePart::Literal(" }"),
         ];
-        assert_eq!(template.prompt, exact_parts.as_slice());
+        assert_eq!(template.stimulus, exact_parts.as_slice());
         assert_eq!(template.expected, exact_parts.as_slice());
-        assert_eq!(template.prompt, template.expected);
+        assert_eq!(template.stimulus, template.expected);
 
         assert_eq!(HAND_EXPANDED_SEED, 0);
-        assert_eq!(HAND_EXPANDED_PROMPT, "fn five() -> i32 { 5 }");
+        assert_eq!(HAND_EXPANDED_STIMULUS, "fn five() -> i32 { 5 }");
         assert_eq!(HAND_EXPANDED_EXPECTED, "fn five() -> i32 { 5 }");
-        for fixture in [HAND_EXPANDED_PROMPT, HAND_EXPANDED_EXPECTED] {
+        for fixture in [HAND_EXPANDED_STIMULUS, HAND_EXPANDED_EXPECTED] {
             assert!(!fixture.ends_with('\n'));
             assert!(!fixture.ends_with('\r'));
         }
