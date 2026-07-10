@@ -12,6 +12,8 @@ Update triggers: Base, worktree, branch, scope, status, proof, integration, or r
 - Lane ID: `master-infrastructure`
 - Purpose: establish discoverable repository context and safe local fleet diagnostics without product changes.
 - Supervisor role: `Master GPT` through manually transported packet `RR-MASTER-INFRA-20260710-001`.
+- Latest packet ID: `RR-MASTER-INFRA-20260710-001`
+- Current goal: `project-context-and-fleet-infrastructure-v1`
 - Worker Codex worktree: `/home/don/rust-reps-infra-v1`
 - Branch: `infra/project-context-fleet-v1`
 - Accepted base source: local canonical `master` at `5f8a1d9504234f909760d55e026c46638aad602a`
@@ -26,3 +28,8 @@ Update triggers: Base, worktree, branch, scope, status, proof, integration, or r
 - Stop conditions: unknown work at risk, product transcript drift, product dependency/source change, secret exposure, or irreducible authority conflict.
 - Retirement condition: accepted context is integrated or the candidate is explicitly rejected while evidence remains preserved.
 - Next milestone: Master GPT review of the checksummed candidate report; do not begin feature progression.
+- Unresolved risk: context tooling cannot decide semantic contradictions or remote currentness without a configured remote.
+- Exact next action: await Master GPT review of the complete checksummed infrastructure result.
+- Authority state: local context/tool implementation, validation, external artifacts, and coherent local commits only.
+- Prohibited authority: product behavior, canonical-master mutation, push, deploy, release, deletion, or worker execution.
+- Expected proof: context verification, standalone tool tests, final candidate project regression, artifact checksum, and clean Git state.

@@ -73,6 +73,12 @@ Required existing project gates are `cargo fmt --check`, `cargo test`,
 `git diff --cached --check`. Fleet tooling has independent checks documented in
 [`../operations/RELEASE_AND_EVIDENCE.md`](../operations/RELEASE_AND_EVIDENCE.md).
 
+- `LIVE_REPO_FACT`: this unaccepted infrastructure candidate contains a
+  standalone std-only fleet binary behind `scripts/fleet.sh` for context,
+  lane, packet, respawn, queue, and evidence diagnostics/generation.
+- `LIVE_REPO_FACT`: the fleet tool is not linked into product Cargo or
+  `scripts/proof.sh`, and no product module calls it.
+
 Infrastructure candidate authority is documentation and standalone local
 diagnostics only. It has no product runtime integration, release, push, merge,
 deployment, deletion, or canonical-master authority.
