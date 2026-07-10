@@ -70,11 +70,14 @@ fn validate(fields: &BTreeMap<String, String>) -> AppResult<()> {
     if fields.get("record_type").map(String::as_str) != Some("release_integration") {
         return Err("record_type must be release_integration".to_owned());
     }
-    for field in ["integration_sha", "parent_sha", "context_sha"] {
+    for field in ["integration_sha", "parent_sha"] {
         let value = &fields[field];
-        if !hash::is_lower_hex_sha256(value) {
-            return Err(format!("{field} must be lowercase SHA-256"));
+        if !is_commit_sha(value) {
+            return Err(format!("{field} must be a 40-character Git commit SHA"));
         }
+    }
+    if !hash::is_lower_hex_sha256(&fields["context_sha"]) {
+        return Err("context_sha must be lowercase SHA-256".to_owned());
     }
     for value in fields["candidate_commits"].split(',').map(str::trim) {
         if !is_commit_sha(value) {
