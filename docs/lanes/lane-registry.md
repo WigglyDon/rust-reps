@@ -11,9 +11,7 @@ Update triggers: Lane creation, pause, block, integration, retirement, respawn, 
 
 ## Active lanes
 
-| Lane ID | Page | Worktree | Branch | Status |
-| --- | --- | --- | --- | --- |
-| `static-guidance-schema-v1` | [`static-guidance-schema-v1.md`](static-guidance-schema-v1.md) | `/home/don/rust-reps-guidance-schema-v1` | `lane/static-guidance-schema-v1` | active; implementation not yet accepted or integrated |
+None.
 
 ## Planned but not active
 
@@ -48,6 +46,7 @@ not active lanes.
 | Lane ID | Page | Accepted candidate | Retirement state |
 | --- | --- | --- | --- |
 | `master-infrastructure` | [`master-infrastructure.md`](master-infrastructure.md) | `34874d51a6ec54a5ec219f9f2ca99d1449eadf6e` | Fast-forwarded to local canonical master; worktree removed and branch deleted |
+| `static-guidance-schema-v1` | [`static-guidance-schema-v1.md`](static-guidance-schema-v1.md) | `1ae5da321a7b1aeb0265a6856be7f8db7d1325f1` | Activated at `9de0227345f7589cd24322fc9861b7d61ac4d506`, fast-forwarded to local canonical master; worktree removed and branch deleted |
 
 ## Historical milestones
 
@@ -56,5 +55,6 @@ not active lanes.
 - Curriculum schema, sharding, and catalog metadata.
 - Validator/tool-runner capability seams.
 - Static procgen source and pure owned expansion.
+- Static core-task/guidance schema split.
 
 See [`../context/PROJECT_HISTORY.md`](../context/PROJECT_HISTORY.md) for evidence and transitions.
