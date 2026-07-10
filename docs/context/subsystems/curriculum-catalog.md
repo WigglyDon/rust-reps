@@ -25,6 +25,21 @@ ordinary catalog. Curriculum must not depend on engine, client, TUI, or
 practice. Generated-shaped data remains unplayable until a future explicit
 catalog admission boundary produces ordinary `RepSpec` data.
 
+## Adjacent Inert Planner Source
+
+`src/curriculum/planner.rs` owns inert representation kinds, support levels,
+learning-focus targets, capability records, and explicit SetPlan source. The
+accepted Rust function-return-literal set authors Copy, Fill, Produce, Repair,
+and Transform in source order. Learning focus is evidence intent and does not
+replace all required task concepts or constraints; set traversal is structure,
+not mastery.
+
+Planner source contains no stimulus, expected answer, instruction key, locale,
+seed, XP, mastery, persistence, scheduling, candidate summary, PracticePlan, or
+planning function. It does not expand procgen templates and has no catalog,
+engine, guidance, presentation, client, TUI, CLI, practice, or lab caller. A
+future planner may select admitted rep IDs only; no such planner exists yet.
+
 ## Consistency And Proof
 
 Ordering is explicit source order. Short IDs are unique three-digit strings;
@@ -42,7 +57,8 @@ there is no persistence or telemetry. Resource cost is static data only.
 
 ## Gate And Unknowns
 
-The next authority gate is a separately reviewed admission design after inert
-materialization proof. `LIVE_REPO_FACT`: non-Copy admission is blocked by prompt
-propagation limitations recorded in current state. Update this page when schema,
-ordering, admission, or visible catalog behavior changes.
+The next planned boundary is the inert Pure Deterministic PracticePlan Builder
+V1; admission remains later, after inert materialization proof. `LIVE_REPO_FACT`:
+non-Copy admission is blocked by prompt propagation limitations recorded in
+current state. Update this page when schema, planning, ordering, admission, or
+visible catalog behavior changes.

@@ -39,6 +39,12 @@ Catalog admission, orchestration, packet construction, and every product arrow
 remain absent. Source and expansion may depend on curriculum metadata enums; no
 product module may call expansion or guidance resolution before admission.
 
+The Rust function-return-literal surface now declares conceptual support for
+Copy, Fill, Produce, Repair, and Transform in that order. Supported operation
+does not imply a template, materialized task, catalog admission, client support,
+or product use: current `TEMPLATES` remains Copy-only, and expansion behavior and
+task bytes are unchanged.
+
 `TemplateSpec` separates `instruction_key`, `stimulus`, and `expected`.
 `ExpandedTask` copies the instruction key and uses `content_seed` and
 `stimulus_variant`; selected assignments preserve optional meaning keys. The
@@ -93,11 +99,19 @@ Rollback is removal of an unadmitted candidate without catalog impact.
 Observability is deterministic test output; runtime/product observability is
 absent. Resource bounds are finite domain cardinality and owned strings/vectors.
 
+## Adjacent Planner Boundary
+
+`src/curriculum/planner.rs` owns inert representation, support, learning-focus,
+capability, and SetPlan source. It does not contain stimulus, expected answer,
+instruction key, locale, content or plan seed, XP, mastery, persistence, or
+scheduling; it does not expand templates or build a PracticePlan. Future runtime
+planning may select admitted rep IDs only.
+
 ## Gate And Unknowns
 
-No implementation lane is active. Language-Agnostic Capability Selector
-Architecture V1 is the next planned design-only boundary; materialization
-remains paused. Compatibility rows for non-Cartesian systems, product
+No implementation lane is active. Pure Deterministic PracticePlan Builder V1
+is planned but not active; materialization remains paused. Compatibility rows
+for non-Cartesian systems, product
 presentation orchestration, explicit user-selected fallback policy, linguistic
 admission, and all catalog admission semantics remain deferred. Update on any
 task/guidance source, expansion, resolution, versioning, determinism, identity,

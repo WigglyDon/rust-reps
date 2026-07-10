@@ -11,9 +11,7 @@ Update triggers: Lane creation, pause, block, integration, retirement, respawn, 
 
 ## Active lanes
 
-| Lane ID | Page | Worktree | Branch | Status |
-| --- | --- | --- | --- | --- |
-| `static-capability-setplan-v1` | [`static-capability-setplan-v1.md`](static-capability-setplan-v1.md) | `/home/don/rust-reps-capability-setplan-v1` | `lane/static-capability-setplan-v1` | active; implementation not yet accepted or integrated |
+None.
 
 ## Planned but not active
 
@@ -49,6 +47,7 @@ not active lanes.
 | `master-infrastructure` | [`master-infrastructure.md`](master-infrastructure.md) | `34874d51a6ec54a5ec219f9f2ca99d1449eadf6e` | Fast-forwarded to local canonical master; worktree removed and branch deleted |
 | `static-guidance-schema-v1` | [`static-guidance-schema-v1.md`](static-guidance-schema-v1.md) | `1ae5da321a7b1aeb0265a6856be7f8db7d1325f1` | Activated at `9de0227345f7589cd24322fc9861b7d61ac4d506`, fast-forwarded to local canonical master; worktree removed and branch deleted |
 | `pure-guidance-resolution-v1` | [`pure-guidance-resolution-v1.md`](pure-guidance-resolution-v1.md) | `b61d509e19c7627d63d062fe31c95b1ce579b928` | Activated at `6ddc22dfc717a9da0dfc8bf9f1fa4a79fc784b13`, fast-forwarded to local canonical master; worktree removed and branch deleted; product behavior unchanged; no push or deploy |
+| `static-capability-setplan-v1` | [`static-capability-setplan-v1.md`](static-capability-setplan-v1.md) | `bff7107d6485c06773af25987b321a5494b4e47e` | Activated at `86fd5a13c416a50373ca8a8ac72354c812161233`, fast-forwarded to local canonical master; worktree removed and branch deleted; product behavior unchanged; no push or deploy |
 
 ## Historical milestones
 
@@ -60,5 +59,7 @@ not active lanes.
 - Static core-task/guidance schema split.
 - Pure deterministic guidance resolution with inert English and Ukrainian proof
   packs.
+- Static representation, support, learning-focus, capability, and SetPlan
+  source for one Rust five-step ladder.
 
 See [`../context/PROJECT_HISTORY.md`](../context/PROJECT_HISTORY.md) for evidence and transitions.
