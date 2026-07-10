@@ -11,13 +11,15 @@ Update triggers: Lane creation, pause, block, integration, retirement, respawn, 
 
 ## Active lanes
 
-None.
+| Lane ID | Page | Worktree | Branch | Status |
+| --- | --- | --- | --- | --- |
+| `static-capability-setplan-v1` | [`static-capability-setplan-v1.md`](static-capability-setplan-v1.md) | `/home/don/rust-reps-capability-setplan-v1` | `lane/static-capability-setplan-v1` | active; implementation not yet accepted or integrated |
 
 ## Planned but not active
 
-- `USER_DECISION`: Language-Agnostic Capability Selector Architecture V1,
-  design-only.
-- `USER_DECISION`: Tiny Materialization And Product-Integration Decision V1.
+- `USER_DECISION`: Pure Deterministic PracticePlan Builder V1.
+- `USER_DECISION`: Tiny Multi-Operation Rust Set Materialization V1.
+- `USER_DECISION`: Product Integration Decision V1.
 
 ## Paused lanes
 

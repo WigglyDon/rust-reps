@@ -32,6 +32,10 @@ Update triggers: Accepted-main change, lane transition, authority change, blocke
 - `USER_DECISION`: the second inert cross-lingual boundary, Pure Guidance
   Resolution V1, is accepted. No active implementation lane remains; product
   behavior and authority remain unchanged.
+- `USER_DECISION`: Language-Agnostic Capability Selector Architecture V1 is
+  accepted. One active implementation lane, `static-capability-setplan-v1`,
+  owns its first inert static-data boundary; product behavior and authority
+  remain unchanged.
 
 ## Accepted Product State
 
@@ -97,16 +101,31 @@ adaptation; lab owns synthetic stress data only.
   foundation. Catalog admission, settings, fallback, translation, and product
   callers remain unauthorized.
 
+## Capability Planning State
+
+- `USER_DECISION`: capability planning belongs outside the engine; the engine
+  executes admitted work and does not invent curriculum policy.
+- `LIVE_REPO_FACT`: no planner function, plan seed, candidate summary,
+  PracticePlan, or playable generated task exists on the accepted base.
+- `USER_DECISION`: the active static capability/SetPlan lane may add only inert
+  representation, support, learning-focus, capability, and ordered set source,
+  plus the Rust surface's conceptual supported-operation list.
+- `USER_DECISION`: Pure Deterministic PracticePlan Builder V1 is planned but
+  not active. Multi-operation materialization and product integration remain
+  later boundaries.
+
 ## Lanes
 
-- Active implementation lanes: none.
+- Active implementation lane: [`static-capability-setplan-v1`](../lanes/static-capability-setplan-v1.md),
+  adding one inert Rust five-step capability/SetPlan source with no planner
+  algorithm or product use.
 - Retired: [`pure-guidance-resolution-v1`](../lanes/pure-guidance-resolution-v1.md),
   accepted and integrated into local canonical master; worktree removed and
   branch deleted.
 - Retired: [`static-guidance-schema-v1`](../lanes/static-guidance-schema-v1.md),
   accepted and integrated into local canonical master.
-- Planned but not active: Language-Agnostic Capability Selector Architecture
-  V1, design-only; Tiny Materialization And Product-Integration Decision V1.
+- Planned but not active: Pure Deterministic PracticePlan Builder V1; Tiny
+  Multi-Operation Rust Set Materialization V1; Product Integration Decision V1.
 - Paused: new Ukrainian/French curriculum, validator integration, lab cleanup,
   product settings, interface localization, persistence, and scheduling.
 - No guidance language setting currently exists.
