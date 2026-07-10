@@ -1,4 +1,4 @@
-mod expansion;
+pub(crate) mod expansion;
 
 use super::{AnswerRule, Operation, StateTransition};
 

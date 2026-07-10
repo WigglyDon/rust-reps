@@ -1,3 +1,5 @@
+pub(crate) mod resolution;
+
 #[derive(Debug, Eq, PartialEq)]
 pub(crate) enum GuidancePart {
     Literal(&'static str),
@@ -30,12 +32,29 @@ const EN_INSTRUCTIONS: &[GuidanceTemplate] = &[GuidanceTemplate {
     parts: EN_COPY_EXACT_LINE_PARTS,
 }];
 
-pub(crate) const GUIDANCE_PACKS: &[GuidancePack] = &[GuidancePack {
-    locale: "en",
-    version: 1,
-    instructions: EN_INSTRUCTIONS,
-    glosses: &[],
+// Proof-only Ukrainian source; human linguistic/product review is required before product admission.
+const UK_COPY_EXACT_LINE_PARTS: &[GuidancePart] =
+    &[GuidancePart::Literal("Скопіюйте цей рядок без змін:")];
+
+const UK_INSTRUCTIONS: &[GuidanceTemplate] = &[GuidanceTemplate {
+    key: "copy.exact_line",
+    parts: UK_COPY_EXACT_LINE_PARTS,
 }];
+
+pub(crate) const GUIDANCE_PACKS: &[GuidancePack] = &[
+    GuidancePack {
+        locale: "en",
+        version: 1,
+        instructions: EN_INSTRUCTIONS,
+        glosses: &[],
+    },
+    GuidancePack {
+        locale: "uk",
+        version: 1,
+        instructions: UK_INSTRUCTIONS,
+        glosses: &[],
+    },
+];
 
 #[cfg(test)]
 mod tests {
@@ -104,7 +123,7 @@ mod tests {
 
     #[test]
     fn english_copy_guidance_is_exact_and_covers_current_templates() {
-        assert_eq!(GUIDANCE_PACKS.len(), 1);
+        assert_eq!(GUIDANCE_PACKS.len(), 2);
         let pack = &GUIDANCE_PACKS[0];
         assert_eq!((pack.locale, pack.version), ("en", 1));
         assert_eq!(pack.instructions.len(), 1);
@@ -135,6 +154,37 @@ mod tests {
                 "English guidance must contain template instruction key {}",
                 template.instruction_key
             );
+        }
+    }
+
+    #[test]
+    fn proof_packs_are_exact_ordered_and_cover_current_templates() {
+        assert_eq!(GUIDANCE_PACKS.len(), 2);
+
+        for (pack, locale, exact_text) in [
+            (&GUIDANCE_PACKS[0], "en", "Copy this line exactly:"),
+            (&GUIDANCE_PACKS[1], "uk", "Скопіюйте цей рядок без змін:"),
+        ] {
+            assert_eq!((pack.locale, pack.version), (locale, 1));
+            assert_eq!(pack.instructions.len(), 1);
+            assert_eq!(pack.instructions[0].key, "copy.exact_line");
+            assert_eq!(
+                pack.instructions[0].parts,
+                &[GuidancePart::Literal(exact_text)]
+            );
+            assert!(!exact_text.ends_with('\n'));
+            assert!(!exact_text.ends_with('\r'));
+            assert!(pack.glosses.is_empty());
+
+            for template in TEMPLATES {
+                assert!(
+                    pack.instructions
+                        .iter()
+                        .any(|instruction| instruction.key == template.instruction_key),
+                    "proof pack {locale} must contain template instruction key {}",
+                    template.instruction_key
+                );
+            }
         }
     }
 }

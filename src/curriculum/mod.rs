@@ -2,7 +2,7 @@
     not(test),
     expect(
         dead_code,
-        reason = "guidance source is intentionally inert until a later guidance-resolution boundary"
+        reason = "guidance source and pure resolution are intentionally inert until a later presentation-integration boundary"
     )
 )]
 pub(crate) mod guidance;

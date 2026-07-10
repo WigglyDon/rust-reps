@@ -5,28 +5,28 @@ use crate::curriculum::{AnswerRule, Operation, StateTransition};
 use super::DomainValueSpec;
 
 #[derive(Debug, Eq, PartialEq)]
-pub(super) struct SlotAssignment {
-    pub(super) slot: String,
+pub(crate) struct SlotAssignment {
+    pub(crate) slot: String,
     pub(super) domain_id: String,
     pub(super) domain_version: u16,
     pub(super) value_id: String,
-    pub(super) rendered: String,
-    pub(super) meaning_key: Option<String>,
+    pub(crate) rendered: String,
+    pub(crate) meaning_key: Option<String>,
 }
 
 #[derive(Debug, Eq, PartialEq)]
-pub(super) struct ExpandedTask {
+pub(crate) struct ExpandedTask {
     // Inert procgen provenance only. This is not an admitted RepMetadata canonical ID.
-    pub(super) generated_id: String,
+    pub(crate) generated_id: String,
 
     pub(super) template_id: String,
     pub(super) template_version: u16,
     pub(super) content_seed: u64,
     pub(super) stimulus_variant: u16,
     pub(super) contrast_id: Option<String>,
-    pub(super) instruction_key: String,
+    pub(crate) instruction_key: String,
 
-    pub(super) assignments: Vec<SlotAssignment>,
+    pub(crate) assignments: Vec<SlotAssignment>,
     pub(super) stimulus: String,
     pub(super) expected: String,
 
@@ -43,7 +43,7 @@ pub(super) struct ExpandedTask {
 }
 
 #[derive(Debug, Eq, PartialEq)]
-pub(super) enum ExpansionError {
+pub(crate) enum ExpansionError {
     UnknownDomain { id: String, version: u16 },
     DuplicateDomain { id: String, version: u16 },
     EmptyDomain { id: String, version: u16 },
@@ -75,7 +75,7 @@ pub(super) fn template_cardinality(
     Ok(cardinality)
 }
 
-pub(super) fn expand_template(
+pub(crate) fn expand_template(
     template: &TemplateSpec,
     domains: &[SlotDomain],
     seed: u64,
