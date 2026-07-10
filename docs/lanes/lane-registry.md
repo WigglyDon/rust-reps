@@ -11,18 +11,17 @@ Update triggers: Lane creation, pause, block, integration, retirement, respawn, 
 
 ## Active lanes
 
-| Lane ID | Page | Worktree | Branch | Status |
-| --- | --- | --- | --- | --- |
-| `master-infrastructure` | [`master-infrastructure.md`](master-infrastructure.md) | `/home/don/rust-reps-infra-v1` | `infra/project-context-fleet-v1` | Local candidate construction; feature progression paused |
+None.
 
 ## Planned but not active
 
+- `USER_DECISION`: Cross-Lingual Guidance and Presentation Architecture V1 is
+  the next design-only boundary. No supervisor, worker, branch, or worktree is active.
 - `UNKNOWN`: selector implementation and new curriculum have product intent but
   no active worktree/branch evidence.
 
 ## Paused lanes
 
-- `USER_DECISION`: Cross-Lingual Guidance and Presentation Architecture V1.
 - `USER_DECISION`: Tiny Checked Procgen Materialization V1.
 - `USER_DECISION`: validator integration, lab cleanup, product settings, and localization.
 
@@ -44,7 +43,9 @@ not active lanes.
 
 ## Retired lanes
 
-No separate retired worktree is currently registered.
+| Lane ID | Page | Accepted candidate | Retirement state |
+| --- | --- | --- | --- |
+| `master-infrastructure` | [`master-infrastructure.md`](master-infrastructure.md) | `34874d51a6ec54a5ec219f9f2ca99d1449eadf6e` | Fast-forwarded to local canonical master; worktree removed and branch deleted |
 
 ## Historical milestones
 

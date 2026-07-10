@@ -2,7 +2,7 @@
 
 Context role: Canonical current-state ledger.
 Scope: Accepted product state, live lineages, active lanes, gates, blockers, and unknowns.
-Canonical for: The shared current-state snapshot in this infrastructure candidate.
+Canonical for: The shared current-state snapshot on local canonical master.
 Not canonical for: Product behavior details, full history, or decision rationale.
 Inherits: [`README.md`](README.md) and [`../../AGENTS.md`](../../AGENTS.md).
 Current-state owner: This document.
@@ -13,15 +13,16 @@ Update triggers: Accepted-main change, lane transition, authority change, blocke
 
 - `LIVE_REPO_FACT`: Rust Reps is one Git repository and one Cargo package at
   `/home/don/rust-reps`; package and binary name are `rust-reps`.
-- `LIVE_REPO_FACT`: canonical local `master` was clean at infrastructure-lane
-  creation, at `5f8a1d9504234f909760d55e026c46638aad602a` (`Add pure procgen expansion core`).
-- `LIVE_REPO_FACT`: `infra/project-context-fleet-v1` was created from that exact
-  commit in `/home/don/rust-reps-infra-v1`. Git remains the authority for its
-  moving candidate tip.
+- `LIVE_REPO_FACT`: canonical local `master` fast-forwarded from
+  `5f8a1d9504234f909760d55e026c46638aad602a` through the accepted infrastructure
+  lineage ending at `34874d51a6ec54a5ec219f9f2ca99d1449eadf6e`.
+- `LIVE_REPO_FACT`: the integrated `infra/project-context-fleet-v1` worktree and
+  branch were retired after the fast-forward; parked donor worktrees remain.
 - `UNKNOWN`: no remote is configured, so remote-tracking identity and remote
   currentness are unavailable. `gh` exists but was not authenticated during discovery.
-- `USER_DECISION`: feature progression is paused while this infrastructure
-  candidate is reviewed. Product behavior and authority must not change.
+- `USER_DECISION`: the infrastructure-review pause is complete. Cross-Lingual
+  Guidance and Presentation Architecture V1 is the next planned design-only
+  boundary, but no implementation lane, supervisor, or worker exists for it.
 
 ## Accepted Product State
 
@@ -58,9 +59,11 @@ and plain terminal adaptation; lab owns synthetic stress data only.
 
 ## Lanes
 
-- Active: [`master-infrastructure`](../lanes/master-infrastructure.md).
-- Paused by `USER_DECISION`: cross-lingual guidance/presentation architecture,
-  Tiny Checked Procgen Materialization V1, selector work, and new curriculum.
+- Active implementation lanes: none.
+- Planned but not active by `USER_DECISION`: Cross-Lingual Guidance and
+  Presentation Architecture V1, design-only.
+- Paused: Tiny Checked Procgen Materialization V1, selector implementation, new
+  curriculum, validator integration, lab cleanup, product settings, and localization.
 - Parked donor/reference: clean legacy worktrees `curriculum-data-seam-v0` and
   `curriculum-sharding-v0`; neither is an active product lane.
 - `UNKNOWN`: no repository/worktree evidence establishes a live cross-lingual
@@ -73,12 +76,12 @@ Required existing project gates are `cargo fmt --check`, `cargo test`,
 `git diff --cached --check`. Fleet tooling has independent checks documented in
 [`../operations/RELEASE_AND_EVIDENCE.md`](../operations/RELEASE_AND_EVIDENCE.md).
 
-- `LIVE_REPO_FACT`: this unaccepted infrastructure candidate contains a
-  standalone std-only fleet binary behind `scripts/fleet.sh` for context,
+- `LIVE_REPO_FACT`: recursive context and the standalone std-only fleet binary
+  behind `scripts/fleet.sh` are accepted on local canonical master for context,
   lane, packet, respawn, queue, and evidence diagnostics/generation.
 - `LIVE_REPO_FACT`: the fleet tool is not linked into product Cargo or
   `scripts/proof.sh`, and no product module calls it.
 
-Infrastructure candidate authority is documentation and standalone local
-diagnostics only. It has no product runtime integration, release, push, merge,
-deployment, deletion, or canonical-master authority.
+Accepted infrastructure authority remains documentation and standalone local
+diagnostics only. Product behavior, dependencies, runtime authority, and release
+authority are unchanged; the fleet tool has no product runtime integration.

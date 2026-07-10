@@ -41,7 +41,7 @@ documentation.
 ## Coordination And Process
 
 - Lane registry: [`lanes/lane-registry.md`](lanes/lane-registry.md)
-- Infrastructure lane: [`lanes/master-infrastructure.md`](lanes/master-infrastructure.md)
+- Retired infrastructure lane record: [`lanes/master-infrastructure.md`](lanes/master-infrastructure.md)
 - Integration queue source: [`../ops/fleet/integration-queue.tsv`](../ops/fleet/integration-queue.tsv)
 - Generated integration view: [`lanes/integration-queue.md`](lanes/integration-queue.md)
 - Packet protocol: [`process/PACKET_PROTOCOL.md`](process/PACKET_PROTOCOL.md)
