@@ -41,9 +41,11 @@ documentation.
 ## Coordination And Process
 
 - Lane registry: [`lanes/lane-registry.md`](lanes/lane-registry.md)
-- Active pure guidance resolution lane: [`lanes/pure-guidance-resolution-v1.md`](lanes/pure-guidance-resolution-v1.md)
+- Retired pure guidance resolution lane record: [`lanes/pure-guidance-resolution-v1.md`](lanes/pure-guidance-resolution-v1.md)
 - Retired static guidance schema lane record: [`lanes/static-guidance-schema-v1.md`](lanes/static-guidance-schema-v1.md)
 - Retired infrastructure lane record: [`lanes/master-infrastructure.md`](lanes/master-infrastructure.md)
+- Planned next boundary: Language-Agnostic Capability Selector Architecture V1,
+  design-only; no implementation lane is active.
 - Integration queue source: [`../ops/fleet/integration-queue.tsv`](../ops/fleet/integration-queue.tsv)
 - Generated integration view: [`lanes/integration-queue.md`](lanes/integration-queue.md)
 - Packet protocol: [`process/PACKET_PROTOCOL.md`](process/PACKET_PROTOCOL.md)

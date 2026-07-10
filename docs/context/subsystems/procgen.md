@@ -1,8 +1,8 @@
 # Deterministic Procgen
 
 Context role: Subsystem authority and navigation.
-Scope: `src/curriculum/procgen.rs`, `src/curriculum/procgen/expansion.rs`, and the adjacent static source boundary in `src/curriculum/guidance.rs`.
-Canonical for: Locale-independent task source, pure expansion, generated provenance, static guidance ownership, and isolation law.
+Scope: `src/curriculum/procgen.rs`, `src/curriculum/procgen/expansion.rs`, `src/curriculum/guidance.rs`, and `src/curriculum/guidance/resolution.rs`.
+Canonical for: Locale-independent task source, pure expansion, generated provenance, static guidance ownership, pure guidance resolution, and isolation law.
 Not canonical for: Catalog admission, playable identity, session behavior, or learning scheduling.
 Inherits: [`../../../AGENTS.md`](../../../AGENTS.md) and curriculum scoped law.
 Current-state owner: [`../CURRENT_STATE.md`](../CURRENT_STATE.md).
@@ -27,14 +27,17 @@ The ownership pipeline is:
 ```text
 static TemplateSpec + ordered SlotDomain source + content_seed
   -> owned ExpandedTask
-  -> future catalog admission
-  -> future guidance resolution
+static GuidancePack + locale + pack version + owned ExpandedTask
+  -> inert ResolvedGuidance
+future catalog admission + owned ExpandedTask + ResolvedGuidance
   -> future fully resolved ExercisePacket
   -> engine session truth
 ```
 
-Only the first arrow exists. Source and expansion may depend on curriculum
-metadata enums; no product module may call expansion before admission.
+The locale-independent expansion and inert guidance-resolution arrows exist.
+Catalog admission, orchestration, packet construction, and every product arrow
+remain absent. Source and expansion may depend on curriculum metadata enums; no
+product module may call expansion or guidance resolution before admission.
 
 `TemplateSpec` separates `instruction_key`, `stimulus`, and `expected`.
 `ExpandedTask` copies the instruction key and uses `content_seed` and
@@ -45,13 +48,34 @@ template.
 ## Adjacent Static Guidance Source
 
 `src/curriculum/guidance.rs` owns static reviewed instruction source only. The
-accepted source contains one `en@v1` pack with instruction key
-`copy.exact_line`, exact literal `Copy this line exactly:`, and no glosses.
+accepted inert source contains `en@v1` and proof-only `uk@v1`, both with
+instruction key `copy.exact_line` and empty glosses. English resolves exactly to
+`Copy this line exactly:`; Ukrainian resolves exactly to
+`Скопіюйте цей рядок без змін:`. The Ukrainian source requires future human
+linguistic/product review before product admission.
 
 Guidance may describe locale, pack version, instruction parts, and optional
-glosses. It may not own or mutate expected answers, validate attempts, admit
-catalog content, create engine truth, perform client/TUI lookup, translate at
-runtime, or choose a fallback. No resolver or product caller exists.
+glosses. It may not own or mutate stimulus or expected answers, select answer
+rules, validate attempts, admit catalog content, create engine truth, perform
+client/TUI lookup, localize interface text, translate at runtime, use a network,
+or choose a fallback. No product caller exists.
+
+## Pure Guidance Resolution
+
+`src/curriculum/guidance/resolution.rs` reads only an `ExpandedTask` generated
+ID, instruction key, and selected assignment slot/rendered/meaning-key facts.
+It returns `ResolvedGuidance`, containing exact instruction plus structured
+`GuidanceProvenance` (`core_generated_id`, locale, pack version, instruction
+key). It does not read or return task stimulus, expected response, answer rule,
+validator state, learner result, or interface locale.
+
+Resolution linearly selects one exact case-sensitive locale/version pack and
+one exact instruction key. Duplicate packs, duplicate instructions, duplicate
+assignments, missing slots or meaning keys, and missing or duplicate glosses are
+explicit `GuidanceError` values. `Literal`, `SlotRendered`, and `SlotGloss`
+append exact authored or selected bytes without trimming, newline insertion,
+normalization, translation, tool use, or fallback. Repeated valid references are
+allowed.
 
 ## Determinism And Proof
 
@@ -71,8 +95,10 @@ absent. Resource bounds are finite domain cardinality and owned strings/vectors.
 
 ## Gate And Unknowns
 
-Pure Guidance Resolution V1 is planned but not active. Materialization remains
-paused. Compatibility rows for non-Cartesian systems, presentation provenance,
-fallback behavior, and all catalog admission semantics remain deferred. Update
-on any task/guidance source, expansion, resolution, versioning, determinism,
-identity, isolation, or admission change.
+No implementation lane is active. Language-Agnostic Capability Selector
+Architecture V1 is the next planned design-only boundary; materialization
+remains paused. Compatibility rows for non-Cartesian systems, product
+presentation orchestration, explicit user-selected fallback policy, linguistic
+admission, and all catalog admission semantics remain deferred. Update on any
+task/guidance source, expansion, resolution, versioning, determinism, identity,
+isolation, or admission change.
