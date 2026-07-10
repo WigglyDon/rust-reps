@@ -20,9 +20,9 @@ Update triggers: Accepted-main change, lane transition, authority change, blocke
   branch were retired after the fast-forward; parked donor worktrees remain.
 - `UNKNOWN`: no remote is configured, so remote-tracking identity and remote
   currentness are unavailable. `gh` exists but was not authenticated during discovery.
-- `USER_DECISION`: the infrastructure-review pause is complete. Cross-Lingual
-  Guidance and Presentation Architecture V1 is the next planned design-only
-  boundary, but no implementation lane, supervisor, or worker exists for it.
+- `USER_DECISION`: Cross-Lingual Guidance and Presentation Architecture V1 is
+  accepted. One active implementation lane, `static-guidance-schema-v1`, owns
+  its first inert source-only boundary; no product behavior or authority changes.
 
 ## Accepted Product State
 
@@ -56,18 +56,22 @@ and plain terminal adaptation; lab owns synthetic stress data only.
   instruction, and `presentation::print_one_shot_prompt` prints `expected`
   instead of `prompt`. Non-Copy admission is blocked until a separately
   authorized, transcript-tested prompt propagation boundary addresses both.
+- `USER_DECISION`: the active static-guidance lane may rename inert procgen
+  source/output fields and add inert English guidance source only. No guidance
+  resolver, catalog admission, setting, or product caller is authorized.
 
 ## Lanes
 
-- Active implementation lanes: none.
-- Planned but not active by `USER_DECISION`: Cross-Lingual Guidance and
-  Presentation Architecture V1, design-only.
-- Paused: Tiny Checked Procgen Materialization V1, selector implementation, new
-  curriculum, validator integration, lab cleanup, product settings, and localization.
+- Active implementation lane: [`static-guidance-schema-v1`](../lanes/static-guidance-schema-v1.md),
+  implementing the inert Static Core Task / Guidance Schema Split V1.
+- Planned but not active: Pure Guidance Resolution V1; Language-Agnostic
+  Capability Selector Architecture V1; Tiny Materialization And
+  Product-Integration Decision V1.
+- Paused: new Ukrainian/French curriculum, validator integration, lab cleanup,
+  product settings, interface localization, persistence, and scheduling.
+- No guidance language setting currently exists.
 - Parked donor/reference: clean legacy worktrees `curriculum-data-seam-v0` and
   `curriculum-sharding-v0`; neither is an active product lane.
-- `UNKNOWN`: no repository/worktree evidence establishes a live cross-lingual
-  supervisor or worker. Chat intent is not a live lane.
 
 ## Validation And Authority
 

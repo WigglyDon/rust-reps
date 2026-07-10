@@ -11,19 +11,21 @@ Update triggers: Lane creation, pause, block, integration, retirement, respawn, 
 
 ## Active lanes
 
-None.
+| Lane ID | Page | Worktree | Branch | Status |
+| --- | --- | --- | --- | --- |
+| `static-guidance-schema-v1` | [`static-guidance-schema-v1.md`](static-guidance-schema-v1.md) | `/home/don/rust-reps-guidance-schema-v1` | `lane/static-guidance-schema-v1` | active; implementation not yet accepted or integrated |
 
 ## Planned but not active
 
-- `USER_DECISION`: Cross-Lingual Guidance and Presentation Architecture V1 is
-  the next design-only boundary. No supervisor, worker, branch, or worktree is active.
-- `UNKNOWN`: selector implementation and new curriculum have product intent but
-  no active worktree/branch evidence.
+- `USER_DECISION`: Pure Guidance Resolution V1.
+- `USER_DECISION`: Language-Agnostic Capability Selector Architecture V1,
+  design-only.
+- `USER_DECISION`: Tiny Materialization And Product-Integration Decision V1.
 
 ## Paused lanes
 
-- `USER_DECISION`: Tiny Checked Procgen Materialization V1.
-- `USER_DECISION`: validator integration, lab cleanup, product settings, and localization.
+- `USER_DECISION`: new Ukrainian/French curriculum, validator integration, lab
+  cleanup, product settings, interface localization, persistence, and scheduling.
 
 No paused item is represented as a live worker without repository/worktree evidence.
 
