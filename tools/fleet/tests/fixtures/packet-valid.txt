@@ -1,0 +1,24 @@
+BEGIN RUST REPS PROJECT PACKET
+
+Packet-Version: 1
+Packet-ID: RR-FIXTURE-VALID-001
+Reply-To: NONE
+From: Master GPT
+To: Worker Codex
+Project-ID: rust-reps
+Lane-ID: fixture-lane
+Goal-ID: verify-packet
+Context-SHA: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+Expected-Base: 1111111111111111111111111111111111111111
+Worktree: /tmp/rust-reps-fixture
+Branch: fixture/packet
+Authority-State: read-only verification
+Expected-Reply-Type: WORKER_FINAL_REPORT_V1
+Stale-When: expected base differs
+Allowed-Final-Classes: ACCEPTED, PARTIAL, STOP
+Allowed-Stop-Classes: VALIDATION_FAILURE
+
+Verify this complete packet.
+No push or deploy is authorized.
+
+END RUST REPS PROJECT PACKET

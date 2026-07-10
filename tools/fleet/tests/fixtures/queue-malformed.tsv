@@ -1,0 +1,2 @@
+lane_id	candidate_head	base	context_sha	artifact	targeted_validation	full_verify_status	overlap_risk	dependency	authority_impact	revalidation_state	integration_decision	push_state
+lane-a	too	few	fields
