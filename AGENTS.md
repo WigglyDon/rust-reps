@@ -124,3 +124,18 @@
 - Commit only after required verification passes.
 - Include commands run, results, and final status in closure.
 - Do not push, publish, tag, release, create GitHub workflows, or edit CI unless explicitly requested.
+
+## Project Context Discovery
+- Read this file first, then every more-specific `AGENTS.md` from the repository
+  root to the working directory.
+- Read [`docs/INDEX.md`](docs/INDEX.md) and
+  [`docs/context/CURRENT_STATE.md`](docs/context/CURRENT_STATE.md) before
+  consequential work.
+- Use the evidence labels `USER_DECISION`, `LIVE_REPO_FACT`, `RUNTIME_FACT`,
+  `WORKER_CLAIM`, `INFERENCE`, and `UNKNOWN` as defined by the context system.
+- One mutable fact has one canonical owner. Link to that owner instead of
+  copying current-state truth into multiple documents.
+- If context documents conflict, stop and identify the conflict. Stronger live
+  source, Git, test, or runtime evidence may correct stale shared memory.
+- Packet transport is manual and complete: fragments are invalid, Don
+  transports packets, and Don is not expected to fill routine repository facts.
