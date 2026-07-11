@@ -41,6 +41,7 @@ documentation.
 ## Coordination And Process
 
 - Lane registry: [`lanes/lane-registry.md`](lanes/lane-registry.md)
+- Active truthful task-projection lane: [`lanes/truthful-task-projection-v1.md`](lanes/truthful-task-projection-v1.md)
 - Retired resolved core-task orchestration lane record: [`lanes/resolved-core-task-orchestration-v1.md`](lanes/resolved-core-task-orchestration-v1.md)
 - Retired tiny multi-operation materialization lane record: [`lanes/tiny-multi-operation-materialization-v1.md`](lanes/tiny-multi-operation-materialization-v1.md)
 - Retired pure PracticePlan builder lane record: [`lanes/pure-practiceplan-builder-v1.md`](lanes/pure-practiceplan-builder-v1.md)
@@ -53,8 +54,8 @@ documentation.
   inert pure boundary. Tiny Multi-Operation Rust Set Materialization V1 is also
   accepted and integrated as inert checked source. Product Integration Decision
   V1 and Resolved Core Task And Orchestration Contract V1 are accepted and
-  integrated. No implementation lane is active; Truthful Task Projection
-  Contract V1 is planned, and generated catalog admission remains blocked.
+  integrated. Truthful Task Projection Contract V1 is the one active
+  implementation lane; generated catalog admission remains blocked.
 - Integration queue source: [`../ops/fleet/integration-queue.tsv`](../ops/fleet/integration-queue.tsv)
 - Generated integration view: [`lanes/integration-queue.md`](lanes/integration-queue.md)
 - Packet protocol: [`process/PACKET_PROTOCOL.md`](process/PACKET_PROTOCOL.md)

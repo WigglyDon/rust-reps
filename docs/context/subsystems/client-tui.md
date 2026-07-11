@@ -40,7 +40,11 @@ Frame pacing is bounded by the scheduler; no performance telemetry exists.
 
 ## Gate And Unknowns
 
-No client/TUI work is active. Reopen only for a concrete playtest defect or an
-authorized prompt-integration change. Terminal-specific capability differences
-remain an evidence limitation. Update for ownership, layout, controls,
-lifecycle, or proven feel changes.
+Truthful Task Projection Contract V1 is the active, narrowly authorized
+prompt-integration change. It may replace generic `do this:` wording with exact
+resolved instruction/stimulus task truth and must keep expected answers out of
+task render models. Layout, controls, editor behavior, feedback, counters,
+scrolling architecture, and lifecycle remain sealed. Automated render proof is
+required, but terminal feel stays PENDING_DON until the installed real-TTY
+playtest. Update for ownership, layout, controls, lifecycle, or proven feel
+changes.

@@ -13,17 +13,19 @@ Update triggers: Lane creation, pause, block, integration, retirement, respawn, 
 
 | Lane ID | Page | Worktree | Branch | Status |
 | --- | --- | --- | --- | --- |
+| truthful-task-projection-v1 | [truthful-task-projection-v1](truthful-task-projection-v1.md) | /home/don/rust-reps-task-projection-v1 | lane/truthful-task-projection-v1 | active |
 
 Active lane records must use this five-column table because `lane-doctor`
 consumes it. Bullet-form active records are invalid coordination memory.
 
 ## Planned but not active
 
-- `USER_DECISION`: Truthful Task Projection Contract V1.
 - `USER_DECISION`: Tiny Generated Catalog Admission V1 remains later and
   blocked; proposed IDs 013-017 are unassigned.
 - `USER_DECISION`: Five-Step Product Flow V1 remains later and is needed only
   if generated admission does not already define the accepted flow.
+- `USER_DECISION`: Guidance-Locale Settings Decision remains design-only and
+  Ukrainian product guidance still requires human review.
 
 ## Paused lanes
 

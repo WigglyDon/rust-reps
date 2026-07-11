@@ -200,7 +200,13 @@ adaptation; lab owns synthetic stress data only.
 
 ## Lanes
 
-- Active implementation lanes: none.
+- Active implementation lane:
+  [`truthful-task-projection-v1`](../lanes/truthful-task-projection-v1.md).
+  It may route only current reps 001-012 through resolved orchestration and
+  correct instruction/stimulus projection in plain, one-shot, client, and TUI.
+  Catalog size, identity, expected answers, Exact, controls, and unrelated
+  output must remain unchanged. Don's real-TTY playtest is mandatory before
+  integration.
 - Retired: [`resolved-core-task-orchestration-v1`](../lanes/resolved-core-task-orchestration-v1.md),
   accepted and integrated into local canonical master; worktree removed and
   branch deleted.
@@ -218,10 +224,10 @@ adaptation; lab owns synthetic stress data only.
   branch deleted.
 - Retired: [`static-guidance-schema-v1`](../lanes/static-guidance-schema-v1.md),
   accepted and integrated into local canonical master.
-- Planned but not active: Truthful Task Projection Contract V1.
 - Later and blocked: Tiny Generated Catalog Admission V1; IDs 013-017 remain
   proposed and unassigned.
 - Later if required: Five-Step Product Flow V1.
+- Planned design-only: Guidance-Locale Settings Decision.
 - Paused: new Ukrainian/French curriculum, validator integration, lab cleanup,
   product settings, interface localization, persistence, and scheduling.
 - No guidance language setting currently exists.

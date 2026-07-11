@@ -45,7 +45,10 @@ indexing.
 
 ## Gate And Unknowns
 
-Truthful Task Projection Contract V1 must replace the temporary Copy-shaped
-construction and resolve one-shot presentation before non-Copy admission.
-Until then, the pure resolved orchestration seam and non-Copy output stay inert.
-Update this page for packet, transition, source, or counter changes.
+Truthful Task Projection Contract V1 is the active implementation lane. It may
+replace the temporary Copy-shaped construction with already-resolved packets,
+rename packet prompt to stimulus, and preserve expected-answer containment.
+Attempts, pass/wrong, skip, completion, validation, and lab truth remain sealed.
+Non-Copy admission stays blocked, and Don must accept the installed TTY
+presentation before integration. Update this page for packet, transition,
+source, or counter changes.
