@@ -1,4 +1,5 @@
 pub(crate) mod expansion;
+mod materialized;
 
 use super::{AnswerRule, Operation, StateTransition};
 
@@ -90,7 +91,7 @@ pub(crate) const SURFACE_FRAMES: &[SurfaceFrameSpec] = &[SurfaceFrameSpec {
     ],
     concepts: RUST_FUNCTION_CONCEPTS,
     constraints: RUST_FUNCTION_CONSTRAINTS,
-    supported_contrasts: &[],
+    supported_contrasts: &["typescript.return_type_colon"],
     // Conceptual support does not imply templates, materialization, catalog admission, or product support.
     supported_operations: &[
         Operation::Copy,
@@ -131,7 +132,7 @@ pub(crate) const SLOT_DOMAINS: &[SlotDomain] = &[
     },
 ];
 
-const COPY_LINE_SLOTS: &[SlotSpec] = &[
+const RETURN_LITERAL_SLOTS: &[SlotSpec] = &[
     SlotSpec {
         name: "NAME",
         role: "callable_name",
@@ -162,7 +163,7 @@ const COPY_LINE_STIMULUS: &[TemplatePart] = &[
     TemplatePart::Literal(" }"),
 ];
 
-const COPY_LINE_EXPECTED: &[TemplatePart] = &[
+const RETURN_LITERAL_EXPECTED: &[TemplatePart] = &[
     TemplatePart::Literal("fn "),
     TemplatePart::Slot("NAME"),
     TemplatePart::Literal("() -> "),
@@ -172,25 +173,133 @@ const COPY_LINE_EXPECTED: &[TemplatePart] = &[
     TemplatePart::Literal(" }"),
 ];
 
-pub(crate) const TEMPLATES: &[TemplateSpec] = &[TemplateSpec {
-    id: "copy-line",
-    version: 1,
-    system: "rust",
-    track: "syntax_basics",
-    semantic_frame: "function.no_params.return_literal",
-    surface_frame: "function.return_literal",
-    operation: Operation::Copy,
-    instruction_key: "copy.exact_line",
-    slots: COPY_LINE_SLOTS,
-    stimulus: COPY_LINE_STIMULUS,
-    expected: COPY_LINE_EXPECTED,
-    contrast_id: None,
-    concepts: RUST_FUNCTION_CONCEPTS,
-    constraints: RUST_FUNCTION_CONSTRAINTS,
-    answer_rule: AnswerRule::ExactTrimFinalNewline,
-    transition: StateTransition::None,
-    xp: 10,
-}];
+const FILL_RETURN_VALUE_STIMULUS: &[TemplatePart] = &[
+    TemplatePart::Literal("fn "),
+    TemplatePart::Slot("NAME"),
+    TemplatePart::Literal("() -> "),
+    TemplatePart::Slot("TYPE"),
+    TemplatePart::Literal(" { ___ }"),
+];
+
+const PRODUCE_RETURN_LITERAL_STIMULUS: &[TemplatePart] = &[];
+
+const REPAIR_RETURN_TYPE_ARROW_STIMULUS: &[TemplatePart] = &[
+    TemplatePart::Literal("fn "),
+    TemplatePart::Slot("NAME"),
+    TemplatePart::Literal("(): "),
+    TemplatePart::Slot("TYPE"),
+    TemplatePart::Literal(" { "),
+    TemplatePart::Slot("VALUE"),
+    TemplatePart::Literal(" }"),
+];
+
+const TRANSFORM_TAIL_EXPRESSION_STIMULUS: &[TemplatePart] = &[
+    TemplatePart::Literal("fn "),
+    TemplatePart::Slot("NAME"),
+    TemplatePart::Literal("() -> "),
+    TemplatePart::Slot("TYPE"),
+    TemplatePart::Literal(" { return "),
+    TemplatePart::Slot("VALUE"),
+    TemplatePart::Literal("; }"),
+];
+
+pub(crate) const TEMPLATES: &[TemplateSpec] = &[
+    TemplateSpec {
+        id: "copy-line",
+        version: 1,
+        system: "rust",
+        track: "syntax_basics",
+        semantic_frame: "function.no_params.return_literal",
+        surface_frame: "function.return_literal",
+        operation: Operation::Copy,
+        instruction_key: "copy.exact_line",
+        slots: RETURN_LITERAL_SLOTS,
+        stimulus: COPY_LINE_STIMULUS,
+        expected: RETURN_LITERAL_EXPECTED,
+        contrast_id: None,
+        concepts: RUST_FUNCTION_CONCEPTS,
+        constraints: RUST_FUNCTION_CONSTRAINTS,
+        answer_rule: AnswerRule::ExactTrimFinalNewline,
+        transition: StateTransition::None,
+        xp: 10,
+    },
+    TemplateSpec {
+        id: "fill-return-value",
+        version: 1,
+        system: "rust",
+        track: "syntax_basics",
+        semantic_frame: "function.no_params.return_literal",
+        surface_frame: "function.return_literal",
+        operation: Operation::Fill,
+        instruction_key: "fill.return_value",
+        slots: RETURN_LITERAL_SLOTS,
+        stimulus: FILL_RETURN_VALUE_STIMULUS,
+        expected: RETURN_LITERAL_EXPECTED,
+        contrast_id: None,
+        concepts: RUST_FUNCTION_CONCEPTS,
+        constraints: RUST_FUNCTION_CONSTRAINTS,
+        answer_rule: AnswerRule::ExactTrimFinalNewline,
+        transition: StateTransition::None,
+        xp: 10,
+    },
+    TemplateSpec {
+        id: "produce-return-literal",
+        version: 1,
+        system: "rust",
+        track: "syntax_basics",
+        semantic_frame: "function.no_params.return_literal",
+        surface_frame: "function.return_literal",
+        operation: Operation::Produce,
+        instruction_key: "produce.return_literal",
+        slots: RETURN_LITERAL_SLOTS,
+        stimulus: PRODUCE_RETURN_LITERAL_STIMULUS,
+        expected: RETURN_LITERAL_EXPECTED,
+        contrast_id: None,
+        concepts: RUST_FUNCTION_CONCEPTS,
+        constraints: RUST_FUNCTION_CONSTRAINTS,
+        answer_rule: AnswerRule::ExactTrimFinalNewline,
+        transition: StateTransition::None,
+        xp: 10,
+    },
+    TemplateSpec {
+        id: "repair-return-type-arrow",
+        version: 1,
+        system: "rust",
+        track: "syntax_basics",
+        semantic_frame: "function.no_params.return_literal",
+        surface_frame: "function.return_literal",
+        operation: Operation::Repair,
+        instruction_key: "repair.return_type_arrow",
+        slots: RETURN_LITERAL_SLOTS,
+        stimulus: REPAIR_RETURN_TYPE_ARROW_STIMULUS,
+        expected: RETURN_LITERAL_EXPECTED,
+        contrast_id: Some("typescript.return_type_colon"),
+        concepts: RUST_FUNCTION_CONCEPTS,
+        constraints: RUST_FUNCTION_CONSTRAINTS,
+        answer_rule: AnswerRule::ExactTrimFinalNewline,
+        transition: StateTransition::None,
+        xp: 10,
+    },
+    TemplateSpec {
+        id: "transform-tail-expression",
+        version: 1,
+        system: "rust",
+        track: "syntax_basics",
+        semantic_frame: "function.no_params.return_literal",
+        surface_frame: "function.return_literal",
+        operation: Operation::Transform,
+        instruction_key: "transform.tail_expression",
+        slots: RETURN_LITERAL_SLOTS,
+        stimulus: TRANSFORM_TAIL_EXPRESSION_STIMULUS,
+        expected: RETURN_LITERAL_EXPECTED,
+        contrast_id: None,
+        concepts: RUST_FUNCTION_CONCEPTS,
+        constraints: RUST_FUNCTION_CONSTRAINTS,
+        answer_rule: AnswerRule::ExactTrimFinalNewline,
+        transition: StateTransition::None,
+        xp: 10,
+    },
+];
 
 #[cfg(test)]
 mod tests {
@@ -295,6 +404,7 @@ mod tests {
 
             assert_nonempty_unique(frame.concepts, "surface concept");
             assert_nonempty_unique(frame.constraints, "surface constraint");
+            assert_nonempty_unique(frame.supported_contrasts, "surface contrast");
             for (operation_index, operation) in frame.supported_operations.iter().enumerate() {
                 for earlier in &frame.supported_operations[..operation_index] {
                     assert_ne!(
@@ -316,7 +426,7 @@ mod tests {
                 Operation::Transform,
             ]
         );
-        assert!(frame.supported_contrasts.is_empty());
+        assert_eq!(frame.supported_contrasts, &["typescript.return_type_colon"]);
         assert_eq!(
             frame.slots,
             &[
@@ -442,6 +552,10 @@ mod tests {
                     ),
                     "template source keys must be unique"
                 );
+                assert_ne!(
+                    earlier.instruction_key, template.instruction_key,
+                    "template instruction keys must be unique"
+                );
             }
 
             assert!(
@@ -487,10 +601,6 @@ mod tests {
             }
 
             assert!(
-                !template.stimulus.is_empty(),
-                "template stimulus must not be empty"
-            );
-            assert!(
                 !template.expected.is_empty(),
                 "template expected form must not be empty"
             );
@@ -518,13 +628,22 @@ mod tests {
             assert_eq!(template.constraints, surface.constraints);
             assert_eq!(template.answer_rule, AnswerRule::ExactTrimFinalNewline);
             assert_eq!(template.transition, StateTransition::None);
-            assert_eq!(template.contrast_id, None);
+            if let Some(contrast_id) = template.contrast_id {
+                assert!(
+                    !contrast_id.is_empty(),
+                    "template contrast must not be empty"
+                );
+                assert!(
+                    surface.supported_contrasts.contains(&contrast_id),
+                    "template contrast must be supported by its surface"
+                );
+            }
             assert_eq!(template.xp, 10);
         }
     }
 
     #[test]
-    fn accepted_packet_one_source_is_exact() {
+    fn accepted_five_template_source_is_exact() {
         assert_eq!(SEMANTIC_FRAMES.len(), 1);
         assert_eq!(SEMANTIC_FRAMES[0].id, "function.no_params.return_literal");
 
@@ -532,23 +651,62 @@ mod tests {
         assert_eq!(SURFACE_FRAMES[0].system, "rust");
         assert_eq!(SURFACE_FRAMES[0].local_id, "function.return_literal");
 
-        assert_eq!(TEMPLATES.len(), 1);
-        let template = &TEMPLATES[0];
-        assert_eq!(template.id, "copy-line");
-        assert_eq!(template.version, 1);
-        assert_eq!(template.track, "syntax_basics");
-        assert_eq!(template.operation, Operation::Copy);
-        assert_eq!(template.instruction_key, "copy.exact_line");
+        assert_eq!(TEMPLATES.len(), 5);
         assert_eq!(
-            template
-                .slots
+            TEMPLATES
                 .iter()
-                .map(|slot| slot.name)
+                .map(|template| template.id)
                 .collect::<Vec<_>>(),
-            vec!["NAME", "TYPE", "VALUE"]
+            vec![
+                "copy-line",
+                "fill-return-value",
+                "produce-return-literal",
+                "repair-return-type-arrow",
+                "transform-tail-expression",
+            ]
+        );
+        assert_eq!(
+            TEMPLATES
+                .iter()
+                .map(|template| template.instruction_key)
+                .collect::<Vec<_>>(),
+            vec![
+                "copy.exact_line",
+                "fill.return_value",
+                "produce.return_literal",
+                "repair.return_type_arrow",
+                "transform.tail_expression",
+            ]
+        );
+        assert_eq!(
+            TEMPLATES
+                .iter()
+                .map(|template| template.operation)
+                .collect::<Vec<_>>(),
+            vec![
+                Operation::Copy,
+                Operation::Fill,
+                Operation::Produce,
+                Operation::Repair,
+                Operation::Transform,
+            ]
         );
 
-        let exact_parts = [
+        for template in TEMPLATES {
+            assert_eq!(template.version, 1);
+            assert_eq!(template.system, "rust");
+            assert_eq!(template.track, "syntax_basics");
+            assert_eq!(
+                template
+                    .slots
+                    .iter()
+                    .map(|slot| slot.name)
+                    .collect::<Vec<_>>(),
+                vec!["NAME", "TYPE", "VALUE"]
+            );
+        }
+
+        let complete_parts = [
             TemplatePart::Literal("fn "),
             TemplatePart::Slot("NAME"),
             TemplatePart::Literal("() -> "),
@@ -557,9 +715,47 @@ mod tests {
             TemplatePart::Slot("VALUE"),
             TemplatePart::Literal(" }"),
         ];
-        assert_eq!(template.stimulus, exact_parts.as_slice());
-        assert_eq!(template.expected, exact_parts.as_slice());
-        assert_eq!(template.stimulus, template.expected);
+        let fill_parts = [
+            TemplatePart::Literal("fn "),
+            TemplatePart::Slot("NAME"),
+            TemplatePart::Literal("() -> "),
+            TemplatePart::Slot("TYPE"),
+            TemplatePart::Literal(" { ___ }"),
+        ];
+        let repair_parts = [
+            TemplatePart::Literal("fn "),
+            TemplatePart::Slot("NAME"),
+            TemplatePart::Literal("(): "),
+            TemplatePart::Slot("TYPE"),
+            TemplatePart::Literal(" { "),
+            TemplatePart::Slot("VALUE"),
+            TemplatePart::Literal(" }"),
+        ];
+        let transform_parts = [
+            TemplatePart::Literal("fn "),
+            TemplatePart::Slot("NAME"),
+            TemplatePart::Literal("() -> "),
+            TemplatePart::Slot("TYPE"),
+            TemplatePart::Literal(" { return "),
+            TemplatePart::Slot("VALUE"),
+            TemplatePart::Literal("; }"),
+        ];
+
+        assert_eq!(TEMPLATES[0].stimulus, complete_parts.as_slice());
+        assert_eq!(TEMPLATES[1].stimulus, fill_parts.as_slice());
+        assert!(TEMPLATES[2].stimulus.is_empty());
+        assert_eq!(TEMPLATES[3].stimulus, repair_parts.as_slice());
+        assert_eq!(TEMPLATES[4].stimulus, transform_parts.as_slice());
+        for template in TEMPLATES {
+            assert_eq!(template.expected, complete_parts.as_slice());
+        }
+        assert_eq!(
+            TEMPLATES
+                .iter()
+                .map(|template| template.contrast_id)
+                .collect::<Vec<_>>(),
+            vec![None, None, None, Some("typescript.return_type_colon"), None,]
+        );
 
         assert_eq!(HAND_EXPANDED_SEED, 0);
         assert_eq!(HAND_EXPANDED_STIMULUS, "fn five() -> i32 { 5 }");

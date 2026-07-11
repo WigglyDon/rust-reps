@@ -27,19 +27,96 @@ pub(crate) struct GuidancePack {
 const EN_COPY_EXACT_LINE_PARTS: &[GuidancePart] =
     &[GuidancePart::Literal("Copy this line exactly:")];
 
-const EN_INSTRUCTIONS: &[GuidanceTemplate] = &[GuidanceTemplate {
-    key: "copy.exact_line",
-    parts: EN_COPY_EXACT_LINE_PARTS,
-}];
+const EN_FILL_RETURN_VALUE_PARTS: &[GuidancePart] =
+    &[GuidancePart::Literal("Complete the missing return value:")];
+
+const EN_PRODUCE_RETURN_LITERAL_PARTS: &[GuidancePart] = &[
+    GuidancePart::Literal("Write a Rust function named "),
+    GuidancePart::SlotRendered("NAME"),
+    GuidancePart::Literal(" with no parameters that returns the "),
+    GuidancePart::SlotRendered("TYPE"),
+    GuidancePart::Literal(" value "),
+    GuidancePart::SlotRendered("VALUE"),
+    GuidancePart::Literal(" using a tail expression:"),
+];
+
+const EN_REPAIR_RETURN_TYPE_ARROW_PARTS: &[GuidancePart] =
+    &[GuidancePart::Literal("Repair the return-type syntax:")];
+
+const EN_TRANSFORM_TAIL_EXPRESSION_PARTS: &[GuidancePart] = &[GuidancePart::Literal(
+    "Rewrite the function to use a tail expression:",
+)];
+
+const EN_INSTRUCTIONS: &[GuidanceTemplate] = &[
+    GuidanceTemplate {
+        key: "copy.exact_line",
+        parts: EN_COPY_EXACT_LINE_PARTS,
+    },
+    GuidanceTemplate {
+        key: "fill.return_value",
+        parts: EN_FILL_RETURN_VALUE_PARTS,
+    },
+    GuidanceTemplate {
+        key: "produce.return_literal",
+        parts: EN_PRODUCE_RETURN_LITERAL_PARTS,
+    },
+    GuidanceTemplate {
+        key: "repair.return_type_arrow",
+        parts: EN_REPAIR_RETURN_TYPE_ARROW_PARTS,
+    },
+    GuidanceTemplate {
+        key: "transform.tail_expression",
+        parts: EN_TRANSFORM_TAIL_EXPRESSION_PARTS,
+    },
+];
 
 // Proof-only Ukrainian source; human linguistic/product review is required before product admission.
 const UK_COPY_EXACT_LINE_PARTS: &[GuidancePart] =
     &[GuidancePart::Literal("Скопіюйте цей рядок без змін:")];
 
-const UK_INSTRUCTIONS: &[GuidanceTemplate] = &[GuidanceTemplate {
-    key: "copy.exact_line",
-    parts: UK_COPY_EXACT_LINE_PARTS,
-}];
+const UK_FILL_RETURN_VALUE_PARTS: &[GuidancePart] = &[GuidancePart::Literal(
+    "Заповніть пропущене значення, що повертається:",
+)];
+
+const UK_PRODUCE_RETURN_LITERAL_PARTS: &[GuidancePart] = &[
+    GuidancePart::Literal("Напишіть функцію Rust з назвою "),
+    GuidancePart::SlotRendered("NAME"),
+    GuidancePart::Literal(" без параметрів, яка повертає значення "),
+    GuidancePart::SlotRendered("VALUE"),
+    GuidancePart::Literal(" типу "),
+    GuidancePart::SlotRendered("TYPE"),
+    GuidancePart::Literal(" за допомогою хвостового виразу:"),
+];
+
+const UK_REPAIR_RETURN_TYPE_ARROW_PARTS: &[GuidancePart] =
+    &[GuidancePart::Literal("Виправте синтаксис типу повернення:")];
+
+const UK_TRANSFORM_TAIL_EXPRESSION_PARTS: &[GuidancePart] = &[GuidancePart::Literal(
+    "Перепишіть функцію, використовуючи хвостовий вираз:",
+)];
+
+const UK_INSTRUCTIONS: &[GuidanceTemplate] = &[
+    GuidanceTemplate {
+        key: "copy.exact_line",
+        parts: UK_COPY_EXACT_LINE_PARTS,
+    },
+    GuidanceTemplate {
+        key: "fill.return_value",
+        parts: UK_FILL_RETURN_VALUE_PARTS,
+    },
+    GuidanceTemplate {
+        key: "produce.return_literal",
+        parts: UK_PRODUCE_RETURN_LITERAL_PARTS,
+    },
+    GuidanceTemplate {
+        key: "repair.return_type_arrow",
+        parts: UK_REPAIR_RETURN_TYPE_ARROW_PARTS,
+    },
+    GuidanceTemplate {
+        key: "transform.tail_expression",
+        parts: UK_TRANSFORM_TAIL_EXPRESSION_PARTS,
+    },
+];
 
 pub(crate) const GUIDANCE_PACKS: &[GuidancePack] = &[
     GuidancePack {
@@ -93,10 +170,30 @@ mod tests {
                 for part in instruction.parts {
                     match part {
                         GuidancePart::Literal(text) => {
-                            assert!(!text.is_empty(), "guidance literal must not be empty")
+                            assert!(!text.is_empty(), "guidance literal must not be empty");
+                            assert!(
+                                !text.ends_with('\n') && !text.ends_with('\r'),
+                                "guidance literal must not add a final line ending"
+                            );
                         }
                         GuidancePart::SlotRendered(name) | GuidancePart::SlotGloss(name) => {
-                            assert!(!name.is_empty(), "guidance slot name must not be empty")
+                            assert!(!name.is_empty(), "guidance slot name must not be empty");
+                            let matching_templates = TEMPLATES
+                                .iter()
+                                .filter(|template| template.instruction_key == instruction.key)
+                                .collect::<Vec<_>>();
+                            assert_eq!(
+                                matching_templates.len(),
+                                1,
+                                "each guidance key must name one current template"
+                            );
+                            assert!(
+                                matching_templates[0]
+                                    .slots
+                                    .iter()
+                                    .any(|slot| slot.name == *name),
+                                "guidance slot {name} must be declared by its template"
+                            );
                         }
                     }
                 }
@@ -118,73 +215,118 @@ mod tests {
                     );
                 }
             }
-        }
-    }
 
-    #[test]
-    fn english_copy_guidance_is_exact_and_covers_current_templates() {
-        assert_eq!(GUIDANCE_PACKS.len(), 2);
-        let pack = &GUIDANCE_PACKS[0];
-        assert_eq!((pack.locale, pack.version), ("en", 1));
-        assert_eq!(pack.instructions.len(), 1);
-        assert_eq!(pack.instructions[0].key, "copy.exact_line");
-        assert_eq!(
-            pack.instructions[0].parts,
-            &[GuidancePart::Literal("Copy this line exactly:")]
-        );
-        assert!(pack.glosses.is_empty());
+            assert!(pack.glosses.is_empty());
 
-        for part in [
-            GuidancePart::SlotRendered("NAME"),
-            GuidancePart::SlotGloss("VALUE"),
-        ] {
-            match part {
-                GuidancePart::SlotRendered(name) | GuidancePart::SlotGloss(name) => {
-                    assert!(!name.is_empty());
-                }
-                GuidancePart::Literal(_) => unreachable!(),
+            for template in TEMPLATES {
+                assert_eq!(
+                    pack.instructions
+                        .iter()
+                        .filter(|instruction| instruction.key == template.instruction_key)
+                        .count(),
+                    1,
+                    "pack {} must contain template key {} exactly once",
+                    pack.locale,
+                    template.instruction_key
+                );
             }
-        }
-
-        for template in TEMPLATES {
-            assert!(
-                pack.instructions
-                    .iter()
-                    .any(|instruction| instruction.key == template.instruction_key),
-                "English guidance must contain template instruction key {}",
-                template.instruction_key
-            );
         }
     }
 
     #[test]
     fn proof_packs_are_exact_ordered_and_cover_current_templates() {
         assert_eq!(GUIDANCE_PACKS.len(), 2);
+        assert_eq!(
+            GUIDANCE_PACKS
+                .iter()
+                .map(|pack| (pack.locale, pack.version))
+                .collect::<Vec<_>>(),
+            vec![("en", 1), ("uk", 1)]
+        );
 
-        for (pack, locale, exact_text) in [
-            (&GUIDANCE_PACKS[0], "en", "Copy this line exactly:"),
-            (&GUIDANCE_PACKS[1], "uk", "Скопіюйте цей рядок без змін:"),
-        ] {
-            assert_eq!((pack.locale, pack.version), (locale, 1));
-            assert_eq!(pack.instructions.len(), 1);
-            assert_eq!(pack.instructions[0].key, "copy.exact_line");
+        let keys = [
+            "copy.exact_line",
+            "fill.return_value",
+            "produce.return_literal",
+            "repair.return_type_arrow",
+            "transform.tail_expression",
+        ];
+        for pack in GUIDANCE_PACKS {
+            assert_eq!(pack.instructions.len(), 5);
             assert_eq!(
-                pack.instructions[0].parts,
-                &[GuidancePart::Literal(exact_text)]
+                pack.instructions
+                    .iter()
+                    .map(|instruction| instruction.key)
+                    .collect::<Vec<_>>(),
+                keys
             );
-            assert!(!exact_text.ends_with('\n'));
-            assert!(!exact_text.ends_with('\r'));
             assert!(pack.glosses.is_empty());
-
-            for template in TEMPLATES {
-                assert!(
-                    pack.instructions
-                        .iter()
-                        .any(|instruction| instruction.key == template.instruction_key),
-                    "proof pack {locale} must contain template instruction key {}",
-                    template.instruction_key
-                );
-            }
         }
+
+        let english = &GUIDANCE_PACKS[0];
+        assert_eq!(
+            english.instructions[0].parts,
+            &[GuidancePart::Literal("Copy this line exactly:")]
+        );
+        assert_eq!(
+            english.instructions[1].parts,
+            &[GuidancePart::Literal("Complete the missing return value:")]
+        );
+        assert_eq!(
+            english.instructions[2].parts,
+            &[
+                GuidancePart::Literal("Write a Rust function named "),
+                GuidancePart::SlotRendered("NAME"),
+                GuidancePart::Literal(" with no parameters that returns the "),
+                GuidancePart::SlotRendered("TYPE"),
+                GuidancePart::Literal(" value "),
+                GuidancePart::SlotRendered("VALUE"),
+                GuidancePart::Literal(" using a tail expression:"),
+            ]
+        );
+        assert_eq!(
+            english.instructions[3].parts,
+            &[GuidancePart::Literal("Repair the return-type syntax:")]
+        );
+        assert_eq!(
+            english.instructions[4].parts,
+            &[GuidancePart::Literal(
+                "Rewrite the function to use a tail expression:"
+            )]
+        );
+
+        let ukrainian = &GUIDANCE_PACKS[1];
+        assert_eq!(
+            ukrainian.instructions[0].parts,
+            &[GuidancePart::Literal("Скопіюйте цей рядок без змін:")]
+        );
+        assert_eq!(
+            ukrainian.instructions[1].parts,
+            &[GuidancePart::Literal(
+                "Заповніть пропущене значення, що повертається:"
+            )]
+        );
+        assert_eq!(
+            ukrainian.instructions[2].parts,
+            &[
+                GuidancePart::Literal("Напишіть функцію Rust з назвою "),
+                GuidancePart::SlotRendered("NAME"),
+                GuidancePart::Literal(" без параметрів, яка повертає значення "),
+                GuidancePart::SlotRendered("VALUE"),
+                GuidancePart::Literal(" типу "),
+                GuidancePart::SlotRendered("TYPE"),
+                GuidancePart::Literal(" за допомогою хвостового виразу:"),
+            ]
+        );
+        assert_eq!(
+            ukrainian.instructions[3].parts,
+            &[GuidancePart::Literal("Виправте синтаксис типу повернення:")]
+        );
+        assert_eq!(
+            ukrainian.instructions[4].parts,
+            &[GuidancePart::Literal(
+                "Перепишіть функцію, використовуючи хвостовий вираз:"
+            )]
+        );
     }
 }

@@ -18,7 +18,7 @@ pub(crate) mod planner;
     not(test),
     expect(
         dead_code,
-        reason = "procgen source and expansion are intentionally inert until a later catalog-admission boundary"
+        reason = "procgen source, expansion, and checked materialization are intentionally inert until a later catalog-admission boundary"
     )
 )]
 pub(crate) mod procgen;
