@@ -10,7 +10,7 @@ pub(crate) mod guidance;
     not(test),
     expect(
         dead_code,
-        reason = "capability and set-plan source are intentionally inert until a later pure planning boundary"
+        reason = "capability/set-plan source and pure plan construction are intentionally inert until a later catalog-integration boundary"
     )
 )]
 pub(crate) mod planner;

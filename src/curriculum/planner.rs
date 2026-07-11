@@ -1,3 +1,5 @@
+pub(crate) mod planning;
+
 use super::Operation;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
