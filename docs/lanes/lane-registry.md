@@ -11,11 +11,12 @@ Update triggers: Lane creation, pause, block, integration, retirement, respawn, 
 
 ## Active lanes
 
-None.
+- [`tiny-multi-operation-materialization-v1`](tiny-multi-operation-materialization-v1.md):
+  one inert five-operation Rust template family, exact proof guidance, checked
+  static materialization, and expansion/guidance/PracticePlan agreement proof.
 
 ## Planned but not active
 
-- `USER_DECISION`: Tiny Multi-Operation Rust Set Materialization V1.
 - `USER_DECISION`: Product Integration Decision V1.
 
 ## Paused lanes

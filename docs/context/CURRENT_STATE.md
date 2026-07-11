@@ -41,8 +41,8 @@ Update triggers: Accepted-main change, lane transition, authority change, blocke
 - `USER_DECISION`: Language-Agnostic Capability Selector Architecture V1 and
   its first two inert implementation boundaries are accepted: static
   capability/SetPlan source and pure deterministic PracticePlan construction.
-  No implementation lane is active; product behavior and authority remain
-  unchanged.
+  Tiny Multi-Operation Rust Set Materialization V1 is now the one active inert
+  implementation lane; product behavior and authority remain unchanged.
 
 ## Accepted Product State
 
@@ -105,6 +105,9 @@ adaptation; lab owns synthetic stress data only.
   instruction, and `presentation::print_one_shot_prompt` prints `expected`
   instead of `prompt`. Non-Copy admission is blocked until a separately
   authorized, transcript-tested prompt propagation boundary addresses both.
+- `LIVE_REPO_FACT`: `client::project_client_frame_for_layout` substitutes
+  `do this:` instead of faithfully projecting the packet instruction. This is
+  the third binding blocker for any future product admission.
 - `USER_DECISION`: Pure Guidance Resolution V1 is accepted only as an inert
   foundation. Catalog admission, settings, fallback, translation, and product
   callers remain unauthorized.
@@ -158,12 +161,15 @@ adaptation; lab owns synthetic stress data only.
   behavior is unchanged.
 - `USER_DECISION`: no persistence, mastery, adaptive selection, or scheduling
   is authorized; planning remains static and deterministic. Tiny Multi-Operation
-  Rust Set Materialization V1 is the next planned boundary but is not active;
-  Product Integration Decision V1 remains later.
+  Rust Set Materialization V1 is the one active inert implementation lane;
+  Product Integration Decision V1 remains planned but not active.
 
 ## Lanes
 
-- Active implementation lanes: none.
+- Active implementation lane:
+  [`tiny-multi-operation-materialization-v1`](../lanes/tiny-multi-operation-materialization-v1.md).
+  It may add one checked five-task source set and proof only; no task is admitted
+  or playable, and product behavior remains unchanged.
 - Retired: [`pure-practiceplan-builder-v1`](../lanes/pure-practiceplan-builder-v1.md),
   accepted and integrated into local canonical master; worktree removed and
   branch deleted.
@@ -175,8 +181,7 @@ adaptation; lab owns synthetic stress data only.
   branch deleted.
 - Retired: [`static-guidance-schema-v1`](../lanes/static-guidance-schema-v1.md),
   accepted and integrated into local canonical master.
-- Planned but not active: Tiny Multi-Operation Rust Set Materialization V1;
-  Product Integration Decision V1.
+- Planned but not active: Product Integration Decision V1.
 - Paused: new Ukrainian/French curriculum, validator integration, lab cleanup,
   product settings, interface localization, persistence, and scheduling.
 - No guidance language setting currently exists.
