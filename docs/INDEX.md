@@ -41,7 +41,7 @@ documentation.
 ## Coordination And Process
 
 - Lane registry: [`lanes/lane-registry.md`](lanes/lane-registry.md)
-- Active tiny multi-operation materialization lane: [`lanes/tiny-multi-operation-materialization-v1.md`](lanes/tiny-multi-operation-materialization-v1.md)
+- Retired tiny multi-operation materialization lane record: [`lanes/tiny-multi-operation-materialization-v1.md`](lanes/tiny-multi-operation-materialization-v1.md)
 - Retired pure PracticePlan builder lane record: [`lanes/pure-practiceplan-builder-v1.md`](lanes/pure-practiceplan-builder-v1.md)
 - Retired static capability/SetPlan lane record: [`lanes/static-capability-setplan-v1.md`](lanes/static-capability-setplan-v1.md)
 - Retired pure guidance resolution lane record: [`lanes/pure-guidance-resolution-v1.md`](lanes/pure-guidance-resolution-v1.md)
@@ -49,8 +49,9 @@ documentation.
 - Retired infrastructure lane record: [`lanes/master-infrastructure.md`](lanes/master-infrastructure.md)
 - Accepted architecture: Language-Agnostic Capability Selector Architecture V1.
 - Pure Deterministic PracticePlan Builder V1 is accepted and integrated as an
-  inert pure boundary. Tiny Multi-Operation Rust Set Materialization V1 is the
-  one active implementation lane. Product Integration Decision V1 is planned,
+  inert pure boundary. Tiny Multi-Operation Rust Set Materialization V1 is also
+  accepted and integrated as inert checked source. No implementation lane is
+  active. Product Integration Decision V1 is the next design/proof boundary,
   not active.
 - Integration queue source: [`../ops/fleet/integration-queue.tsv`](../ops/fleet/integration-queue.tsv)
 - Generated integration view: [`lanes/integration-queue.md`](lanes/integration-queue.md)

@@ -11,9 +11,11 @@ Update triggers: Lane creation, pause, block, integration, retirement, respawn, 
 
 ## Active lanes
 
-- [`tiny-multi-operation-materialization-v1`](tiny-multi-operation-materialization-v1.md):
-  one inert five-operation Rust template family, exact proof guidance, checked
-  static materialization, and expansion/guidance/PracticePlan agreement proof.
+| Lane ID | Page | Worktree | Branch | Status |
+| --- | --- | --- | --- | --- |
+
+Active lane records must use this five-column table because `lane-doctor`
+consumes it. Bullet-form active records are invalid coordination memory.
 
 ## Planned but not active
 
@@ -49,6 +51,7 @@ not active lanes.
 | `pure-guidance-resolution-v1` | [`pure-guidance-resolution-v1.md`](pure-guidance-resolution-v1.md) | `b61d509e19c7627d63d062fe31c95b1ce579b928` | Activated at `6ddc22dfc717a9da0dfc8bf9f1fa4a79fc784b13`, fast-forwarded to local canonical master; worktree removed and branch deleted; product behavior unchanged; no push or deploy |
 | `static-capability-setplan-v1` | [`static-capability-setplan-v1.md`](static-capability-setplan-v1.md) | `bff7107d6485c06773af25987b321a5494b4e47e` | Activated at `86fd5a13c416a50373ca8a8ac72354c812161233`, fast-forwarded to local canonical master; worktree removed and branch deleted; product behavior unchanged; no push or deploy |
 | `pure-practiceplan-builder-v1` | [`pure-practiceplan-builder-v1.md`](pure-practiceplan-builder-v1.md) | `0521e448dfa204993c6a65edc51cb9018ef9b185` | Activated at `64ec59c185ca22387dd583b145fcb9c4ed8f15ed`, fast-forwarded to local canonical master; worktree removed and branch deleted; product behavior unchanged; no push or deploy |
+| `tiny-multi-operation-materialization-v1` | [`tiny-multi-operation-materialization-v1.md`](tiny-multi-operation-materialization-v1.md) | `67e0e55ee7ebc7970c81c41123c1c994eccbf12c` | Activated at `bbffd795733b1f23f99c121ed94951cdfff7581a`, fast-forwarded to local canonical master; worktree removed and branch deleted; pre-integration lane metadata was unavailable because the active entry used noncanonical bullet form; registry restored to canonical table form; product behavior unchanged; no push or deploy |
 
 ## Historical milestones
 
@@ -64,5 +67,7 @@ not active lanes.
   source for one Rust five-step ladder.
 - Pure deterministic PracticePlan construction over supplied candidate IDs,
   selected guidance availability, supported answer rules, and plan seed.
+- Five exact inert Rust templates and checked materialized tasks with exact
+  English/Ukrainian proof guidance and authored PracticePlan agreement.
 
 See [`../context/PROJECT_HISTORY.md`](../context/PROJECT_HISTORY.md) for evidence and transitions.

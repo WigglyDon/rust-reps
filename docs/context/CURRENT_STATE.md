@@ -30,6 +30,10 @@ Update triggers: Accepted-main change, lane transition, authority change, blocke
 - `LIVE_REPO_FACT`: Pure Deterministic PracticePlan Builder V1 was accepted and
   fast-forwarded through candidate `0521e448dfa204993c6a65edc51cb9018ef9b185`;
   its lane worktree was removed and its branch deleted after integration.
+- `LIVE_REPO_FACT`: Tiny Multi-Operation Rust Set Materialization V1 was
+  accepted and fast-forwarded through candidate
+  `67e0e55ee7ebc7970c81c41123c1c994eccbf12c`; its lane worktree was
+  removed and its branch deleted after integration.
 - `UNKNOWN`: no remote is configured, so remote-tracking identity and remote
   currentness are unavailable. `gh` exists but was not authenticated during discovery.
 - `USER_DECISION`: Cross-Lingual Guidance and Presentation Architecture V1 is
@@ -39,10 +43,10 @@ Update triggers: Accepted-main change, lane transition, authority change, blocke
   Resolution V1, is accepted. No active implementation lane remains; product
   behavior and authority remain unchanged.
 - `USER_DECISION`: Language-Agnostic Capability Selector Architecture V1 and
-  its first two inert implementation boundaries are accepted: static
-  capability/SetPlan source and pure deterministic PracticePlan construction.
-  Tiny Multi-Operation Rust Set Materialization V1 is now the one active inert
-  implementation lane; product behavior and authority remain unchanged.
+  its first three inert implementation boundaries are accepted: static
+  capability/SetPlan source, pure deterministic PracticePlan construction, and
+  one checked five-task materialization. No implementation lane is active;
+  product behavior and authority remain unchanged.
 
 ## Accepted Product State
 
@@ -78,11 +82,11 @@ adaptation; lab owns synthetic stress data only.
   `content_seed` and `stimulus_variant`.
 - `LIVE_REPO_FACT`: `DomainValueSpec` carries an optional `meaning_key`; all
   current Rust production values use `meaning_key: None`.
-- `LIVE_REPO_FACT`: `curriculum::guidance` contains two inert proof packs for
-  `copy.exact_line`: `en@v1` resolves exactly to `Copy this line exactly:`, and
-  `uk@v1` resolves exactly to `Скопіюйте цей рядок без змін:`. Both gloss sets
-  are empty; the Ukrainian text requires human linguistic/product review before
-  any product admission.
+- `LIVE_REPO_FACT`: `curriculum::guidance` contains two inert five-key proof
+  packs, `en@v1` and `uk@v1`, for Copy, Fill, Produce, Repair, and Transform.
+  Both gloss sets are empty; exact resolution is tested for every materialized
+  task, and Ukrainian text still requires human linguistic/product review
+  before any product admission.
 - `LIVE_REPO_FACT`: `curriculum::guidance::resolution` provides pure,
   deterministic, exact, case-sensitive resolution. `GuidanceProvenance` records
   core generated identity, locale, pack version, and instruction key;
@@ -98,6 +102,11 @@ adaptation; lab owns synthetic stress data only.
 - `LIVE_REPO_FACT`: no catalog, engine, CLI, practice, client, TUI, lab,
   formatter, validator, tool-runner, or presentation product caller admits
   expanded output or resolves guidance.
+- `LIVE_REPO_FACT`: `src/curriculum/procgen/materialized.rs` contains exactly
+  five inert checked tasks in Copy, Fill, Produce, Repair, Transform order.
+  Every materialized field is tested against pure seed-zero expansion; generated
+  IDs and task signatures are unique, and no task has a short ID or catalog
+  order.
 - `LIVE_REPO_FACT`: no French curriculum, guidance-language setting,
   interface-language setting, fallback, catalog admission, or product guidance
   caller exists. The accepted resolver and Ukrainian proof source remain inert.
@@ -129,9 +138,10 @@ adaptation; lab owns synthetic stress data only.
   authors Copy, Fill, Produce, Repair, and Transform in that source order; set
   traversal or completion is curriculum structure, not mastery.
 - `LIVE_REPO_FACT`: the Rust function-return-literal surface conceptually
-  supports those five operations, while `TEMPLATES` still contains only the
-  existing Copy template. Supported operation does not imply materialization,
-  catalog admission, client support, or product use.
+  supports those five operations. `TEMPLATES` now contains one inert template
+  per operation, with one matching checked materialized task. Supported
+  operation or materialization still does not imply catalog admission, client
+  support, or product use.
 - `LIVE_REPO_FACT`: `curriculum::planner::planning` provides the pure
   `plan_cardinality` and `build_practice_plan` boundary. `CandidateSummary`
   describes supplied task metadata and carries `content_seed` only as inert
@@ -161,15 +171,16 @@ adaptation; lab owns synthetic stress data only.
   behavior is unchanged.
 - `USER_DECISION`: no persistence, mastery, adaptive selection, or scheduling
   is authorized; planning remains static and deterministic. Tiny Multi-Operation
-  Rust Set Materialization V1 is the one active inert implementation lane;
-  Product Integration Decision V1 remains planned but not active.
+  Rust Set Materialization V1 is accepted and integrated as inert source.
+  Product Integration Decision V1 is the next design/proof boundary and is not
+  active.
 
 ## Lanes
 
-- Active implementation lane:
-  [`tiny-multi-operation-materialization-v1`](../lanes/tiny-multi-operation-materialization-v1.md).
-  It may add one checked five-task source set and proof only; no task is admitted
-  or playable, and product behavior remains unchanged.
+- Active implementation lanes: none.
+- Retired: [`tiny-multi-operation-materialization-v1`](../lanes/tiny-multi-operation-materialization-v1.md),
+  accepted and integrated into local canonical master; worktree removed and
+  branch deleted.
 - Retired: [`pure-practiceplan-builder-v1`](../lanes/pure-practiceplan-builder-v1.md),
   accepted and integrated into local canonical master; worktree removed and
   branch deleted.
@@ -181,7 +192,8 @@ adaptation; lab owns synthetic stress data only.
   branch deleted.
 - Retired: [`static-guidance-schema-v1`](../lanes/static-guidance-schema-v1.md),
   accepted and integrated into local canonical master.
-- Planned but not active: Product Integration Decision V1.
+- Planned but not active: Product Integration Decision V1, design and proof
+  gate only.
 - Paused: new Ukrainian/French curriculum, validator integration, lab cleanup,
   product settings, interface localization, persistence, and scheduling.
 - No guidance language setting currently exists.
