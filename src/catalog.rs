@@ -25,12 +25,36 @@ impl fmt::Display for Drill {
             self.metadata.answer_rule,
             self.metadata.transition,
             crate::curriculum::Operation::ALL,
-            self.prompt,
+            self.instruction_key,
+            self.assignments,
+            self.stimulus,
             self.expected,
+            self.capability_id,
+            self.generated_provenance,
             self.validator,
             self.prerequisites,
             self.tags,
         );
+        for assignment in self.assignments {
+            let _ = (
+                assignment.slot,
+                assignment.domain_id,
+                assignment.domain_version,
+                assignment.value_id,
+                assignment.rendered,
+                assignment.meaning_key,
+            );
+        }
+        if let Some(provenance) = self.generated_provenance {
+            let _ = (
+                provenance.generated_id,
+                provenance.template_id,
+                provenance.template_version,
+                provenance.content_seed,
+                provenance.stimulus_variant,
+                provenance.contrast_id,
+            );
+        }
         write!(f, "{}  {}", self.id, self.expected)
     }
 }
@@ -262,28 +286,28 @@ mod tests {
     }
 
     #[test]
-    fn prompts_are_not_empty() {
+    fn stimuli_are_not_empty() {
         for drill in drills() {
             assert!(
-                !drill.prompt.is_empty(),
-                "expected drill {} to have a non-empty prompt",
+                !drill.stimulus.is_empty(),
+                "expected drill {} to have a non-empty stimulus",
                 drill.id
             );
         }
     }
 
     #[test]
-    fn prompts_for_type_exact_are_one_line() {
+    fn stimuli_for_type_exact_are_one_line() {
         for drill in drills() {
             assert_eq!(drill.task_type, TaskType::TypeExact);
             assert!(
-                !drill.prompt.contains('\n'),
-                "expected drill {} prompt to be one line",
+                !drill.stimulus.contains('\n'),
+                "expected drill {} stimulus to be one line",
                 drill.id
             );
             assert!(
-                !drill.prompt.contains('\r'),
-                "expected drill {} prompt to be one line",
+                !drill.stimulus.contains('\r'),
+                "expected drill {} stimulus to be one line",
                 drill.id
             );
         }
@@ -348,6 +372,55 @@ mod tests {
     #[test]
     fn catalog_has_twelve_drills() {
         assert_eq!(drills().len(), 12);
+    }
+
+    #[test]
+    fn current_core_task_migration_is_exact_and_inert() {
+        let expected_ids = [
+            "001", "002", "003", "004", "005", "006", "007", "008", "009", "010", "011", "012",
+        ];
+        let expected_canonical_ids = [
+            "rust.function.main.v1.copy.0001",
+            "rust.macro.println.v1.copy.0002",
+            "rust.binding.integer.v1.copy.0003",
+            "rust.binding.string.v1.copy.0004",
+            "rust.binding.mutable.v1.copy.0005",
+            "rust.assignment.add_assign.v1.copy.0006",
+            "rust.binding.boolean.v1.copy.0007",
+            "rust.binding.type_annotation.v1.copy.0008",
+            "rust.binding.array.v1.copy.0009",
+            "rust.function.return_expression.v1.copy.0010",
+            "rust.control.if_empty.v1.copy.0011",
+            "rust.control.while_empty.v1.copy.0012",
+        ];
+        let expected_task_bytes = [
+            "fn main() {}",
+            "println!(\"Rust Reps\");",
+            "let answer = 42;",
+            "let name = \"Rust Reps\";",
+            "let mut score = 0;",
+            "score += 1;",
+            "let passed = true;",
+            "let score: i32 = 0;",
+            "let scores = [1, 2, 3];",
+            "fn add_one(x: i32) -> i32 { x + 1 }",
+            "if score > 0 {}",
+            "while score < 10 {}",
+        ];
+
+        assert_eq!(drills().len(), expected_ids.len());
+        for (index, drill) in drills().iter().enumerate() {
+            assert_eq!(drill.id, expected_ids[index]);
+            assert_eq!(drill.metadata.canonical_id, expected_canonical_ids[index]);
+            assert_eq!(drill.instruction_key, "copy.exact_line");
+            assert!(drill.assignments.is_empty());
+            assert_eq!(drill.capability_id, None);
+            assert_eq!(drill.generated_provenance, None);
+            assert_eq!(drill.stimulus, expected_task_bytes[index]);
+            assert_eq!(drill.expected, expected_task_bytes[index]);
+            assert_eq!(drill.stimulus, drill.expected);
+            assert!(!drill.metadata.canonical_id.starts_with("gen:"));
+        }
     }
 
     #[test]

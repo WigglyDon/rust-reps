@@ -274,7 +274,7 @@ fn catalog_exercise_packet_at(index: usize) -> Option<ExercisePacket> {
         id: Cow::Borrowed(drill.id),
         position: index + 1,
         total: catalog::drills().len(),
-        prompt: Cow::Borrowed(drill.prompt),
+        prompt: Cow::Borrowed(drill.stimulus),
         expected_answer: Cow::Borrowed(drill.expected),
         instruction: Cow::Borrowed("Copy this line exactly:"),
         kind: ExerciseKind::from_task_type(drill.task_type),

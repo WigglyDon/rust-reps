@@ -6,6 +6,14 @@ mod curriculum;
 mod engine;
 mod formatter;
 mod lab;
+#[cfg_attr(
+    not(test),
+    expect(
+        dead_code,
+        reason = "resolved core-task orchestration is intentionally inert until the later truthful task-projection boundary"
+    )
+)]
+mod orchestration;
 mod practice;
 mod presentation;
 mod tool_runner;

@@ -1,9 +1,15 @@
 use super::{GuidancePack, GuidancePart};
-use crate::curriculum::procgen::expansion::{ExpandedTask, SlotAssignment};
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub(crate) struct GuidanceAssignmentRef<'a> {
+    pub(crate) slot: &'a str,
+    pub(crate) rendered: &'a str,
+    pub(crate) meaning_key: Option<&'a str>,
+}
 
 #[derive(Debug, Eq, PartialEq)]
 pub(crate) struct GuidanceProvenance {
-    pub(crate) core_generated_id: String,
+    pub(crate) core_task_id: String,
     pub(crate) locale: String,
     pub(crate) pack_version: u16,
     pub(crate) instruction_key: String,
@@ -51,27 +57,29 @@ pub(crate) enum GuidanceError {
 }
 
 pub(crate) fn resolve_guidance(
-    task: &ExpandedTask,
+    core_task_id: &str,
+    instruction_key: &str,
+    assignments: &[GuidanceAssignmentRef<'_>],
     packs: &[GuidancePack],
     locale: &str,
     pack_version: u16,
 ) -> Result<ResolvedGuidance, GuidanceError> {
     let pack_index = find_pack_index(packs, locale, pack_version)?;
     let pack = &packs[pack_index];
-    let instruction_index = find_instruction_index(pack, &task.instruction_key)?;
-    validate_assignments(&task.assignments)?;
+    let instruction_index = find_instruction_index(pack, instruction_key)?;
+    validate_assignments(assignments)?;
     let instruction = render_guidance_parts(
         pack,
         pack.instructions[instruction_index].parts,
-        &task.assignments,
+        assignments,
     )?;
 
     Ok(ResolvedGuidance {
         provenance: GuidanceProvenance {
-            core_generated_id: task.generated_id.clone(),
+            core_task_id: core_task_id.to_owned(),
             locale: pack.locale.to_owned(),
             pack_version: pack.version,
-            instruction_key: task.instruction_key.clone(),
+            instruction_key: instruction_key.to_owned(),
         },
         instruction,
     })
@@ -123,11 +131,13 @@ fn find_instruction_index(pack: &GuidancePack, key: &str) -> Result<usize, Guida
     })
 }
 
-fn validate_assignments(assignments: &[SlotAssignment]) -> Result<(), GuidanceError> {
+fn validate_assignments(assignments: &[GuidanceAssignmentRef<'_>]) -> Result<(), GuidanceError> {
     for (index, assignment) in assignments.iter().enumerate() {
         for earlier in &assignments[..index] {
             if earlier.slot == assignment.slot {
-                return Err(GuidanceError::DuplicateAssignment(assignment.slot.clone()));
+                return Err(GuidanceError::DuplicateAssignment(
+                    assignment.slot.to_owned(),
+                ));
             }
         }
     }
@@ -135,7 +145,7 @@ fn validate_assignments(assignments: &[SlotAssignment]) -> Result<(), GuidanceEr
 }
 
 fn find_assignment_index(
-    assignments: &[SlotAssignment],
+    assignments: &[GuidanceAssignmentRef<'_>],
     slot: &str,
 ) -> Result<usize, GuidanceError> {
     assignments
@@ -169,7 +179,7 @@ fn find_gloss_index(pack: &GuidancePack, meaning_key: &str) -> Result<usize, Gui
 fn render_guidance_parts(
     pack: &GuidancePack,
     parts: &[GuidancePart],
-    assignments: &[SlotAssignment],
+    assignments: &[GuidanceAssignmentRef<'_>],
 ) -> Result<String, GuidanceError> {
     let mut output = String::new();
     for part in parts {
@@ -182,7 +192,7 @@ fn render_guidance_parts(
             GuidancePart::SlotGloss(slot) => {
                 let assignment_index = find_assignment_index(assignments, slot)?;
                 let assignment = &assignments[assignment_index];
-                let Some(meaning_key) = assignment.meaning_key.as_deref() else {
+                let Some(meaning_key) = assignment.meaning_key else {
                     return Err(GuidanceError::MissingMeaningKey((*slot).to_owned()));
                 };
                 let gloss_index = find_gloss_index(pack, meaning_key)?;
@@ -197,7 +207,7 @@ fn render_guidance_parts(
 mod tests {
     use super::*;
     use crate::curriculum::guidance::{GUIDANCE_PACKS, GlossEntry, GuidanceTemplate};
-    use crate::curriculum::procgen::expansion::expand_template;
+    use crate::curriculum::procgen::expansion::{ExpandedTask, expand_template};
     use crate::curriculum::procgen::{SLOT_DOMAINS, TEMPLATES};
 
     const BASIC_PARTS: &[GuidancePart] = &[GuidancePart::Literal("test")];
@@ -344,25 +354,53 @@ mod tests {
         expand_template(&TEMPLATES[0], SLOT_DOMAINS, 0).expect("accepted core task should expand")
     }
 
+    fn assignment_refs(task: &ExpandedTask) -> Vec<GuidanceAssignmentRef<'_>> {
+        task.assignments
+            .iter()
+            .map(|assignment| GuidanceAssignmentRef {
+                slot: &assignment.slot,
+                rendered: &assignment.rendered,
+                meaning_key: assignment.meaning_key.as_deref(),
+            })
+            .collect()
+    }
+
+    fn resolve_task_guidance(
+        task: &ExpandedTask,
+        packs: &[GuidancePack],
+        locale: &str,
+        pack_version: u16,
+    ) -> Result<ResolvedGuidance, GuidanceError> {
+        let assignments = assignment_refs(task);
+        resolve_guidance(
+            &task.generated_id,
+            &task.instruction_key,
+            &assignments,
+            packs,
+            locale,
+            pack_version,
+        )
+    }
+
     #[test]
     fn current_task_resolves_in_english_and_ukrainian() {
         let task = current_task();
         let before = format!("{task:?}");
 
-        let english = resolve_guidance(&task, GUIDANCE_PACKS, "en", 1)
+        let english = resolve_task_guidance(&task, GUIDANCE_PACKS, "en", 1)
             .expect("English proof pack should resolve");
-        let ukrainian = resolve_guidance(&task, GUIDANCE_PACKS, "uk", 1)
+        let ukrainian = resolve_task_guidance(&task, GUIDANCE_PACKS, "uk", 1)
             .expect("Ukrainian proof pack should resolve");
 
         assert_eq!(english.instruction, "Copy this line exactly:");
         assert_eq!(ukrainian.instruction, "Скопіюйте цей рядок без змін:");
         assert_eq!(
-            english.provenance.core_generated_id,
+            english.provenance.core_task_id,
             "gen:rust:function.return_literal:copy-line:v1:copy:s0"
         );
         assert_eq!(
-            english.provenance.core_generated_id,
-            ukrainian.provenance.core_generated_id
+            english.provenance.core_task_id,
+            ukrainian.provenance.core_task_id
         );
         assert_eq!(english.provenance.instruction_key, "copy.exact_line");
         assert_eq!(
@@ -382,8 +420,8 @@ mod tests {
     fn resolution_is_reproducible() {
         let task = current_task();
         assert_eq!(
-            resolve_guidance(&task, GUIDANCE_PACKS, "en", 1),
-            resolve_guidance(&task, GUIDANCE_PACKS, "en", 1)
+            resolve_task_guidance(&task, GUIDANCE_PACKS, "en", 1),
+            resolve_task_guidance(&task, GUIDANCE_PACKS, "en", 1)
         );
     }
 
@@ -399,7 +437,7 @@ mod tests {
         value.rendered = "5".to_owned();
         value.meaning_key = Some("number.five".to_owned());
 
-        let resolved = resolve_guidance(&task, &[EXACT_PACK], "test", 1)
+        let resolved = resolve_task_guidance(&task, &[EXACT_PACK], "test", 1)
             .expect("exact rendering fixture should resolve");
         assert_eq!(
             resolved.instruction.as_bytes(),
@@ -412,21 +450,21 @@ mod tests {
     fn pack_failures_are_explicit() {
         let task = current_task();
         assert_eq!(
-            resolve_guidance(&task, GUIDANCE_PACKS, "missing", 1),
+            resolve_task_guidance(&task, GUIDANCE_PACKS, "missing", 1),
             Err(GuidanceError::UnknownPack {
                 locale: "missing".to_owned(),
                 version: 1,
             })
         );
         assert_eq!(
-            resolve_guidance(&task, GUIDANCE_PACKS, "en", 2),
+            resolve_task_guidance(&task, GUIDANCE_PACKS, "en", 2),
             Err(GuidanceError::UnknownPack {
                 locale: "en".to_owned(),
                 version: 2,
             })
         );
         assert_eq!(
-            resolve_guidance(&task, DUPLICATE_PACKS, "test", 1),
+            resolve_task_guidance(&task, DUPLICATE_PACKS, "test", 1),
             Err(GuidanceError::DuplicatePack {
                 locale: "test".to_owned(),
                 version: 1,
@@ -439,7 +477,7 @@ mod tests {
         let mut task = current_task();
         task.instruction_key = "missing".to_owned();
         assert_eq!(
-            resolve_guidance(&task, &[BASIC_PACK], "test", 1),
+            resolve_task_guidance(&task, &[BASIC_PACK], "test", 1),
             Err(GuidanceError::UnknownInstruction {
                 locale: "test".to_owned(),
                 version: 1,
@@ -449,7 +487,7 @@ mod tests {
 
         task.instruction_key = "copy.exact_line".to_owned();
         assert_eq!(
-            resolve_guidance(&task, &[DUPLICATE_INSTRUCTION_PACK], "test", 1),
+            resolve_task_guidance(&task, &[DUPLICATE_INSTRUCTION_PACK], "test", 1),
             Err(GuidanceError::DuplicateInstruction {
                 locale: "test".to_owned(),
                 version: 1,
@@ -463,20 +501,20 @@ mod tests {
         let mut duplicate = current_task();
         duplicate.assignments[1].slot = duplicate.assignments[0].slot.clone();
         assert_eq!(
-            resolve_guidance(&duplicate, &[BASIC_PACK], "test", 1),
+            resolve_task_guidance(&duplicate, &[BASIC_PACK], "test", 1),
             Err(GuidanceError::DuplicateAssignment("NAME".to_owned()))
         );
 
         assert_eq!(
-            resolve_guidance(&current_task(), &[UNKNOWN_RENDERED_PACK], "test", 1),
+            resolve_task_guidance(&current_task(), &[UNKNOWN_RENDERED_PACK], "test", 1),
             Err(GuidanceError::UnknownSlot("MISSING".to_owned()))
         );
         assert_eq!(
-            resolve_guidance(&current_task(), &[UNKNOWN_GLOSS_SLOT_PACK], "test", 1),
+            resolve_task_guidance(&current_task(), &[UNKNOWN_GLOSS_SLOT_PACK], "test", 1),
             Err(GuidanceError::UnknownSlot("MISSING".to_owned()))
         );
         assert_eq!(
-            resolve_guidance(&current_task(), &[VALUE_GLOSS_PACK], "test", 1),
+            resolve_task_guidance(&current_task(), &[VALUE_GLOSS_PACK], "test", 1),
             Err(GuidanceError::MissingMeaningKey("VALUE".to_owned()))
         );
     }
@@ -492,7 +530,7 @@ mod tests {
         value.meaning_key = Some("number.five".to_owned());
 
         assert_eq!(
-            resolve_guidance(&task, &[VALUE_GLOSS_PACK], "test", 1),
+            resolve_task_guidance(&task, &[VALUE_GLOSS_PACK], "test", 1),
             Err(GuidanceError::UnknownGloss {
                 locale: "test".to_owned(),
                 version: 1,
@@ -500,7 +538,7 @@ mod tests {
             })
         );
         assert_eq!(
-            resolve_guidance(&task, &[DUPLICATE_GLOSS_PACK], "test", 1),
+            resolve_task_guidance(&task, &[DUPLICATE_GLOSS_PACK], "test", 1),
             Err(GuidanceError::DuplicateGloss {
                 locale: "test".to_owned(),
                 version: 1,
@@ -520,7 +558,7 @@ mod tests {
         value.meaning_key = Some("number.five".to_owned());
 
         assert_eq!(
-            resolve_guidance(&task, &[REPEATED_PACK], "test", 1)
+            resolve_task_guidance(&task, &[REPEATED_PACK], "test", 1)
                 .expect("repeated references should resolve")
                 .instruction,
             "5/5/five/five"
@@ -529,21 +567,21 @@ mod tests {
 
     #[test]
     fn resolved_guidance_has_only_provenance_and_instruction() {
-        let resolved = resolve_guidance(&current_task(), GUIDANCE_PACKS, "en", 1)
+        let resolved = resolve_task_guidance(&current_task(), GUIDANCE_PACKS, "en", 1)
             .expect("English proof pack should resolve");
         let ResolvedGuidance {
             provenance,
             instruction,
         } = resolved;
         let GuidanceProvenance {
-            core_generated_id,
+            core_task_id,
             locale,
             pack_version,
             instruction_key,
         } = provenance;
 
         assert_eq!(
-            core_generated_id,
+            core_task_id,
             "gen:rust:function.return_literal:copy-line:v1:copy:s0"
         );
         assert_eq!(locale, "en");

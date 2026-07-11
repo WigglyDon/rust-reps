@@ -184,7 +184,7 @@ const MATERIALIZED_TASKS: &[MaterializedTaskSpec] = &[
 mod tests {
     use super::*;
     use crate::curriculum::guidance::GUIDANCE_PACKS;
-    use crate::curriculum::guidance::resolution::resolve_guidance;
+    use crate::curriculum::guidance::resolution::{GuidanceAssignmentRef, resolve_guidance};
     use crate::curriculum::planner::planning::{
         CandidateSummary, GuidanceAvailability, build_practice_plan, plan_cardinality,
     };
@@ -532,16 +532,32 @@ mod tests {
             let instruction_key = task.instruction_key.clone();
             let stimulus = task.stimulus.clone();
             let expected = task.expected.clone();
+            let assignments = task
+                .assignments
+                .iter()
+                .map(|assignment| GuidanceAssignmentRef {
+                    slot: &assignment.slot,
+                    rendered: &assignment.rendered,
+                    meaning_key: assignment.meaning_key.as_deref(),
+                })
+                .collect::<Vec<_>>();
 
             for (locale, pack_index, exact_instruction) in
                 [("en", 0, english[index]), ("uk", 1, ukrainian[index])]
             {
-                let resolved = resolve_guidance(&task, GUIDANCE_PACKS, locale, 1)
-                    .expect("each exact proof instruction must resolve");
+                let resolved = resolve_guidance(
+                    &task.generated_id,
+                    &task.instruction_key,
+                    &assignments,
+                    GUIDANCE_PACKS,
+                    locale,
+                    1,
+                )
+                .expect("each exact proof instruction must resolve");
                 assert_eq!(resolved.instruction, exact_instruction);
                 assert!(!resolved.instruction.ends_with('\n'));
                 assert!(!resolved.instruction.ends_with('\r'));
-                assert_eq!(resolved.provenance.core_generated_id, generated_id);
+                assert_eq!(resolved.provenance.core_task_id, generated_id);
                 assert_eq!(resolved.provenance.locale, locale);
                 assert_eq!(resolved.provenance.pack_version, 1);
                 assert_eq!(resolved.provenance.instruction_key, instruction_key);

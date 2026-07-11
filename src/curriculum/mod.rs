@@ -98,7 +98,7 @@ pub enum StateTransition {
     None,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct RepMetadata {
     pub canonical_id: &'static str,
     pub system: &'static str,
@@ -113,17 +113,41 @@ pub struct RepMetadata {
     pub transition: StateTransition,
 }
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub(crate) struct CoreTaskAssignmentSpec {
+    pub(crate) slot: &'static str,
+    pub(crate) domain_id: &'static str,
+    pub(crate) domain_version: u16,
+    pub(crate) value_id: &'static str,
+    pub(crate) rendered: &'static str,
+    pub(crate) meaning_key: Option<&'static str>,
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub(crate) struct GeneratedTaskProvenanceSpec {
+    pub(crate) generated_id: &'static str,
+    pub(crate) template_id: &'static str,
+    pub(crate) template_version: u16,
+    pub(crate) content_seed: u64,
+    pub(crate) stimulus_variant: u16,
+    pub(crate) contrast_id: Option<&'static str>,
+}
+
 #[derive(Copy, Clone)]
 pub struct DrillSpec {
     pub id: &'static str,
     pub metadata: RepMetadata,
+    pub(crate) instruction_key: &'static str,
+    pub(crate) assignments: &'static [CoreTaskAssignmentSpec],
+    pub stimulus: &'static str,
+    pub expected: &'static str,
+    pub(crate) capability_id: Option<&'static str>,
+    pub(crate) generated_provenance: Option<GeneratedTaskProvenanceSpec>,
     pub track: Track,
     pub skill: &'static str,
     pub stage: Stage,
     pub task_type: TaskType,
     pub difficulty: u8,
-    pub prompt: &'static str,
-    pub expected: &'static str,
     pub validator: Validator,
     pub prerequisites: &'static [&'static str],
     pub tags: &'static [&'static str],
