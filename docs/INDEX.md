@@ -41,13 +41,14 @@ documentation.
 ## Coordination And Process
 
 - Lane registry: [`lanes/lane-registry.md`](lanes/lane-registry.md)
+- Active pure PracticePlan builder lane: [`lanes/pure-practiceplan-builder-v1.md`](lanes/pure-practiceplan-builder-v1.md)
 - Retired static capability/SetPlan lane record: [`lanes/static-capability-setplan-v1.md`](lanes/static-capability-setplan-v1.md)
 - Retired pure guidance resolution lane record: [`lanes/pure-guidance-resolution-v1.md`](lanes/pure-guidance-resolution-v1.md)
 - Retired static guidance schema lane record: [`lanes/static-guidance-schema-v1.md`](lanes/static-guidance-schema-v1.md)
 - Retired infrastructure lane record: [`lanes/master-infrastructure.md`](lanes/master-infrastructure.md)
 - Accepted architecture: Language-Agnostic Capability Selector Architecture V1.
-- No implementation lane is active. Pure Deterministic PracticePlan Builder V1,
-  Tiny Multi-Operation Rust Set Materialization V1, and Product Integration
+- Pure Deterministic PracticePlan Builder V1 is the active inert implementation
+  lane. Tiny Multi-Operation Rust Set Materialization V1 and Product Integration
   Decision V1 are planned, not active.
 - Integration queue source: [`../ops/fleet/integration-queue.tsv`](../ops/fleet/integration-queue.tsv)
 - Generated integration view: [`lanes/integration-queue.md`](lanes/integration-queue.md)

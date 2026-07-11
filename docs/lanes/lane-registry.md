@@ -11,11 +11,12 @@ Update triggers: Lane creation, pause, block, integration, retirement, respawn, 
 
 ## Active lanes
 
-None.
+| Lane ID | Page | Worktree | Branch | Status |
+| --- | --- | --- | --- | --- |
+| `pure-practiceplan-builder-v1` | [`pure-practiceplan-builder-v1.md`](pure-practiceplan-builder-v1.md) | `/home/don/rust-reps-practiceplan-v1` | `lane/pure-practiceplan-builder-v1` | active; implementation not yet accepted or integrated |
 
 ## Planned but not active
 
-- `USER_DECISION`: Pure Deterministic PracticePlan Builder V1.
 - `USER_DECISION`: Tiny Multi-Operation Rust Set Materialization V1.
 - `USER_DECISION`: Product Integration Decision V1.
 

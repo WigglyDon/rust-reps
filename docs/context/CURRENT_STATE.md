@@ -36,8 +36,9 @@ Update triggers: Accepted-main change, lane transition, authority change, blocke
   Resolution V1, is accepted. No active implementation lane remains; product
   behavior and authority remain unchanged.
 - `USER_DECISION`: Language-Agnostic Capability Selector Architecture V1 and
-  its first inert static-data boundary are accepted. No implementation lane is
-  active; product behavior and authority remain unchanged.
+  its first inert static-data boundary are accepted. One active implementation
+  lane, `pure-practiceplan-builder-v1`, owns the next inert deterministic
+  plan-construction boundary; product behavior and authority remain unchanged.
 
 ## Accepted Product State
 
@@ -127,13 +128,20 @@ adaptation; lab owns synthetic stress data only.
 - `LIVE_REPO_FACT`: no catalog, engine, guidance, presentation, client, TUI,
   CLI, practice, or lab caller uses planner source. No generated task is
   playable and product behavior is unchanged.
-- `USER_DECISION`: Pure Deterministic PracticePlan Builder V1 is planned but
-  not active. Multi-operation materialization and product integration remain
-  later boundaries.
+- `USER_DECISION`: Pure Deterministic PracticePlan Builder V1 is active only as
+  an inert implementation lane over explicit candidate summaries, guidance
+  availability, supported answer rules, and plan seed. Runtime product
+  selection, catalog admission, task generation, and engine execution remain
+  absent.
+- `USER_DECISION`: no persistence, mastery, adaptive selection, or scheduling
+  is authorized. Tiny Multi-Operation Rust Set Materialization V1 is planned
+  but not active; Product Integration Decision V1 remains later.
 
 ## Lanes
 
-- Active implementation lanes: none.
+- Active implementation lane: [`pure-practiceplan-builder-v1`](../lanes/pure-practiceplan-builder-v1.md),
+  adding inert checked deterministic PracticePlan construction with no catalog
+  or product caller.
 - Retired: [`static-capability-setplan-v1`](../lanes/static-capability-setplan-v1.md),
   accepted and integrated into local canonical master; worktree removed and
   branch deleted.
@@ -142,8 +150,8 @@ adaptation; lab owns synthetic stress data only.
   branch deleted.
 - Retired: [`static-guidance-schema-v1`](../lanes/static-guidance-schema-v1.md),
   accepted and integrated into local canonical master.
-- Planned but not active: Pure Deterministic PracticePlan Builder V1; Tiny
-  Multi-Operation Rust Set Materialization V1; Product Integration Decision V1.
+- Planned but not active: Tiny Multi-Operation Rust Set Materialization V1;
+  Product Integration Decision V1.
 - Paused: new Ukrainian/French curriculum, validator integration, lab cleanup,
   product settings, interface localization, persistence, and scheduling.
 - No guidance language setting currently exists.
