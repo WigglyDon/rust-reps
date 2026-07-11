@@ -11,9 +11,7 @@ Update triggers: Lane creation, pause, block, integration, retirement, respawn, 
 
 ## Active lanes
 
-| Lane ID | Page | Worktree | Branch | Status |
-| --- | --- | --- | --- | --- |
-| `pure-practiceplan-builder-v1` | [`pure-practiceplan-builder-v1.md`](pure-practiceplan-builder-v1.md) | `/home/don/rust-reps-practiceplan-v1` | `lane/pure-practiceplan-builder-v1` | active; implementation not yet accepted or integrated |
+None.
 
 ## Planned but not active
 
@@ -49,6 +47,7 @@ not active lanes.
 | `static-guidance-schema-v1` | [`static-guidance-schema-v1.md`](static-guidance-schema-v1.md) | `1ae5da321a7b1aeb0265a6856be7f8db7d1325f1` | Activated at `9de0227345f7589cd24322fc9861b7d61ac4d506`, fast-forwarded to local canonical master; worktree removed and branch deleted |
 | `pure-guidance-resolution-v1` | [`pure-guidance-resolution-v1.md`](pure-guidance-resolution-v1.md) | `b61d509e19c7627d63d062fe31c95b1ce579b928` | Activated at `6ddc22dfc717a9da0dfc8bf9f1fa4a79fc784b13`, fast-forwarded to local canonical master; worktree removed and branch deleted; product behavior unchanged; no push or deploy |
 | `static-capability-setplan-v1` | [`static-capability-setplan-v1.md`](static-capability-setplan-v1.md) | `bff7107d6485c06773af25987b321a5494b4e47e` | Activated at `86fd5a13c416a50373ca8a8ac72354c812161233`, fast-forwarded to local canonical master; worktree removed and branch deleted; product behavior unchanged; no push or deploy |
+| `pure-practiceplan-builder-v1` | [`pure-practiceplan-builder-v1.md`](pure-practiceplan-builder-v1.md) | `0521e448dfa204993c6a65edc51cb9018ef9b185` | Activated at `64ec59c185ca22387dd583b145fcb9c4ed8f15ed`, fast-forwarded to local canonical master; worktree removed and branch deleted; product behavior unchanged; no push or deploy |
 
 ## Historical milestones
 
@@ -62,5 +61,7 @@ not active lanes.
   packs.
 - Static representation, support, learning-focus, capability, and SetPlan
   source for one Rust five-step ladder.
+- Pure deterministic PracticePlan construction over supplied candidate IDs,
+  selected guidance availability, supported answer rules, and plan seed.
 
 See [`../context/PROJECT_HISTORY.md`](../context/PROJECT_HISTORY.md) for evidence and transitions.

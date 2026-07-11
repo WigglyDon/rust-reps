@@ -27,6 +27,9 @@ Update triggers: Accepted-main change, lane transition, authority change, blocke
 - `LIVE_REPO_FACT`: Static Capability And SetPlan Schema V1 was accepted and
   fast-forwarded through candidate `bff7107d6485c06773af25987b321a5494b4e47e`;
   its lane worktree was removed and its branch deleted after integration.
+- `LIVE_REPO_FACT`: Pure Deterministic PracticePlan Builder V1 was accepted and
+  fast-forwarded through candidate `0521e448dfa204993c6a65edc51cb9018ef9b185`;
+  its lane worktree was removed and its branch deleted after integration.
 - `UNKNOWN`: no remote is configured, so remote-tracking identity and remote
   currentness are unavailable. `gh` exists but was not authenticated during discovery.
 - `USER_DECISION`: Cross-Lingual Guidance and Presentation Architecture V1 is
@@ -36,9 +39,10 @@ Update triggers: Accepted-main change, lane transition, authority change, blocke
   Resolution V1, is accepted. No active implementation lane remains; product
   behavior and authority remain unchanged.
 - `USER_DECISION`: Language-Agnostic Capability Selector Architecture V1 and
-  its first inert static-data boundary are accepted. One active implementation
-  lane, `pure-practiceplan-builder-v1`, owns the next inert deterministic
-  plan-construction boundary; product behavior and authority remain unchanged.
+  its first two inert implementation boundaries are accepted: static
+  capability/SetPlan source and pure deterministic PracticePlan construction.
+  No implementation lane is active; product behavior and authority remain
+  unchanged.
 
 ## Accepted Product State
 
@@ -57,8 +61,9 @@ Update triggers: Accepted-main change, lane transition, authority change, blocke
 
 The canonical matrix is [`CONTEXT_MATRIX.md`](CONTEXT_MATRIX.md). In brief,
 curriculum/catalog own normal content and admission; procgen owns inert core-task
-source and pure expansion; planner owns inert capability and SetPlan source;
-guidance owns inert authored instruction source and pure instruction resolution only;
+source and pure expansion; planner owns inert capability/SetPlan source and pure
+deterministic planning over supplied candidate summaries; guidance owns inert
+authored instruction source and pure instruction resolution only;
 engine owns session truth; answer owns Exact; validators and tool runner own
 closed non-exact capability seams; client owns portable UI state; TUI owns
 terminal projection; CLI/practice/presentation/main own launch and plain terminal
@@ -108,10 +113,9 @@ adaptation; lab owns synthetic stress data only.
 
 - `USER_DECISION`: capability planning belongs outside the engine; the engine
   executes admitted work and does not invent curriculum policy.
-- `LIVE_REPO_FACT`: `curriculum::planner` is inert static curriculum source. It
+- `LIVE_REPO_FACT`: `curriculum::planner` remains inert curriculum source. It
   defines representation kinds, support levels, learning-focus targets,
-  capability records, ordered set steps, and SetPlan records; it has no planner
-  function, candidate summary, PracticePlan, or plan seed.
+  capability records, ordered set steps, and SetPlan records.
 - `LIVE_REPO_FACT`: capability records keep semantic frame, response system and
   surface, optional real cue system and surface, operation, cue and response
   representations, support level, and learning-focus target explicit. Guidance
@@ -125,23 +129,44 @@ adaptation; lab owns synthetic stress data only.
   supports those five operations, while `TEMPLATES` still contains only the
   existing Copy template. Supported operation does not imply materialization,
   catalog admission, client support, or product use.
+- `LIVE_REPO_FACT`: `curriculum::planner::planning` provides the pure
+  `plan_cardinality` and `build_practice_plan` boundary. `CandidateSummary`
+  describes supplied task metadata and carries `content_seed` only as inert
+  provenance; no catalog adapter or lookup exists.
+- `LIVE_REPO_FACT`: `GuidanceAvailability` contains exact locale, pack version,
+  and instruction key without instruction text or fallback. Supported answer
+  rules and selected guidance availability are explicit eligibility inputs.
+- `LIVE_REPO_FACT`: `PlannedRep` contains only step, capability, and supplied
+  rep IDs. `PlanProvenance` records set ID/version, plan seed/cardinality,
+  selected guidance locale/version, and caller-ordered supported answer rules;
+  `PracticePlan` contains only provenance and planned rep IDs.
+- `LIVE_REPO_FACT`: `PlanError` explicitly classifies invalid guidance source,
+  capability/candidate source, eligibility, cardinality, and seed failures.
+  Candidate input must already be strict catalog order and is never sorted.
+- `LIVE_REPO_FACT`: plan cardinality uses checked mixed radix, zero steps have
+  cardinality one, valid plan seeds are exactly `0..cardinality`, and the first
+  SetStep varies fastest. No modulo wrapping, PRNG, hash, time, shuffle, or
+  hidden entropy exists.
+- `LIVE_REPO_FACT`: plan seed changes only deterministic candidate choice and
+  appears only in plan provenance; it does not change supplied rep identity.
+  Content seed does not influence planning. Explicit repeated capability steps
+  may repeat one supplied rep.
 - `LIVE_REPO_FACT`: no catalog, engine, guidance, presentation, client, TUI,
-  CLI, practice, or lab caller uses planner source. No generated task is
-  playable and product behavior is unchanged.
-- `USER_DECISION`: Pure Deterministic PracticePlan Builder V1 is active only as
-  an inert implementation lane over explicit candidate summaries, guidance
-  availability, supported answer rules, and plan seed. Runtime product
-  selection, catalog admission, task generation, and engine execution remain
-  absent.
+  CLI, practice, or lab caller uses the pure planner. It does not expand
+  templates, generate tasks, resolve guidance, inspect task bytes, execute a
+  plan, or enter product flow. No generated task is playable and product
+  behavior is unchanged.
 - `USER_DECISION`: no persistence, mastery, adaptive selection, or scheduling
-  is authorized. Tiny Multi-Operation Rust Set Materialization V1 is planned
-  but not active; Product Integration Decision V1 remains later.
+  is authorized; planning remains static and deterministic. Tiny Multi-Operation
+  Rust Set Materialization V1 is the next planned boundary but is not active;
+  Product Integration Decision V1 remains later.
 
 ## Lanes
 
-- Active implementation lane: [`pure-practiceplan-builder-v1`](../lanes/pure-practiceplan-builder-v1.md),
-  adding inert checked deterministic PracticePlan construction with no catalog
-  or product caller.
+- Active implementation lanes: none.
+- Retired: [`pure-practiceplan-builder-v1`](../lanes/pure-practiceplan-builder-v1.md),
+  accepted and integrated into local canonical master; worktree removed and
+  branch deleted.
 - Retired: [`static-capability-setplan-v1`](../lanes/static-capability-setplan-v1.md),
   accepted and integrated into local canonical master; worktree removed and
   branch deleted.

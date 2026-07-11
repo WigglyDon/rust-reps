@@ -25,7 +25,7 @@ ordinary catalog. Curriculum must not depend on engine, client, TUI, or
 practice. Generated-shaped data remains unplayable until a future explicit
 catalog admission boundary produces ordinary `RepSpec` data.
 
-## Adjacent Inert Planner Source
+## Adjacent Inert Planner Source And Pure Planning
 
 `src/curriculum/planner.rs` owns inert representation kinds, support levels,
 learning-focus targets, capability records, and explicit SetPlan source. The
@@ -34,11 +34,25 @@ and Transform in source order. Learning focus is evidence intent and does not
 replace all required task concepts or constraints; set traversal is structure,
 not mastery.
 
-Planner source contains no stimulus, expected answer, instruction key, locale,
-seed, XP, mastery, persistence, scheduling, candidate summary, PracticePlan, or
-planning function. It does not expand procgen templates and has no catalog,
-engine, guidance, presentation, client, TUI, CLI, practice, or lab caller. A
-future planner may select admitted rep IDs only; no such planner exists yet.
+`src/curriculum/planner/planning.rs` owns the inert pure planning boundary:
+`CandidateSummary`, `GuidanceAvailability`, `PlannedRep`, `PlanProvenance`,
+`PracticePlan`, `PlanError`, `plan_cardinality`, and `build_practice_plan`.
+Candidate summaries are supplied read-only metadata, not catalog reads;
+content seed is provenance only. Guidance availability carries exact
+locale/version/instruction-key facts without text, resolution, or fallback.
+
+Candidate IDs must be unique and source order must already be strict catalog
+order. Eligibility uses exact capability, caller-supported answer rule, and
+selected guidance availability. Checked mixed radix gives zero steps
+cardinality one, accepts only seeds in `0..cardinality`, and varies the first
+SetStep fastest. Output contains planning provenance and supplied rep IDs only.
+
+Planner source does not inspect stimulus or expected bytes, expand procgen
+templates, generate tasks, read catalog, resolve guidance, execute a plan,
+persist state, adapt from attempts, use XP/mastery/scheduling, or enter catalog,
+engine, presentation, client, TUI, CLI, practice, or lab product flow. Future
+catalog integration must construct truthful candidate summaries from admitted
+reps without moving catalog authority into planner.
 
 ## Consistency And Proof
 
@@ -57,8 +71,8 @@ there is no persistence or telemetry. Resource cost is static data only.
 
 ## Gate And Unknowns
 
-The next planned boundary is the inert Pure Deterministic PracticePlan Builder
-V1; admission remains later, after inert materialization proof. `LIVE_REPO_FACT`:
+The next planned boundary is Tiny Multi-Operation Rust Set Materialization V1;
+admission remains later, after inert materialization proof. `LIVE_REPO_FACT`:
 non-Copy admission is blocked by prompt propagation limitations recorded in
 current state. Update this page when schema, planning, ordering, admission, or
 visible catalog behavior changes.
