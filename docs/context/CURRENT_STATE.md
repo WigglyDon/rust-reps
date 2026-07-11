@@ -45,8 +45,12 @@ Update triggers: Accepted-main change, lane transition, authority change, blocke
 - `USER_DECISION`: Language-Agnostic Capability Selector Architecture V1 and
   its first three inert implementation boundaries are accepted: static
   capability/SetPlan source, pure deterministic PracticePlan construction, and
-  one checked five-task materialization. No implementation lane is active;
-  product behavior and authority remain unchanged.
+  one checked five-task materialization. Those accepted boundaries remain
+  inert; product behavior and authority remain unchanged.
+- `USER_DECISION`: Product Integration Decision V1 is accepted. Its first
+  prerequisite, Resolved Core Task And Orchestration Contract V1, is the one
+  active implementation lane. It may migrate only current reps 001-012 and add
+  an inert pure `en@v1` orchestration seam; product behavior must not change.
 
 ## Accepted Product State
 
@@ -172,12 +176,17 @@ adaptation; lab owns synthetic stress data only.
 - `USER_DECISION`: no persistence, mastery, adaptive selection, or scheduling
   is authorized; planning remains static and deterministic. Tiny Multi-Operation
   Rust Set Materialization V1 is accepted and integrated as inert source.
-  Product Integration Decision V1 is the next design/proof boundary and is not
-  active.
+  Its five tasks remain outside the catalog. Proposed IDs 013-017 are unassigned,
+  PracticePlan execution remains deferred, and generated admission remains
+  blocked behind the two accepted product prerequisites.
 
 ## Lanes
 
-- Active implementation lanes: none.
+- Active implementation lane:
+  [`resolved-core-task-orchestration-v1`](../lanes/resolved-core-task-orchestration-v1.md).
+  It migrates only existing reps 001-012 to a unified core-task source shape
+  and proves an inert pure resolved-task seam with explicit `en@v1`; no output,
+  admission, ID assignment, or projection behavior may change.
 - Retired: [`tiny-multi-operation-materialization-v1`](../lanes/tiny-multi-operation-materialization-v1.md),
   accepted and integrated into local canonical master; worktree removed and
   branch deleted.
@@ -192,8 +201,9 @@ adaptation; lab owns synthetic stress data only.
   branch deleted.
 - Retired: [`static-guidance-schema-v1`](../lanes/static-guidance-schema-v1.md),
   accepted and integrated into local canonical master.
-- Planned but not active: Product Integration Decision V1, design and proof
-  gate only.
+- Planned but not active: Truthful Task Projection Contract V1.
+- Later and blocked: Tiny Generated Catalog Admission V1; IDs 013-017 remain
+  proposed and unassigned.
 - Paused: new Ukrainian/French curriculum, validator integration, lab cleanup,
   product settings, interface localization, persistence, and scheduling.
 - No guidance language setting currently exists.

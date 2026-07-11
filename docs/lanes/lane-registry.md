@@ -13,13 +13,16 @@ Update triggers: Lane creation, pause, block, integration, retirement, respawn, 
 
 | Lane ID | Page | Worktree | Branch | Status |
 | --- | --- | --- | --- | --- |
+| resolved-core-task-orchestration-v1 | [resolved-core-task-orchestration-v1](resolved-core-task-orchestration-v1.md) | /home/don/rust-reps-orchestration-v1 | lane/resolved-core-task-orchestration-v1 | active |
 
 Active lane records must use this five-column table because `lane-doctor`
 consumes it. Bullet-form active records are invalid coordination memory.
 
 ## Planned but not active
 
-- `USER_DECISION`: Product Integration Decision V1.
+- `USER_DECISION`: Truthful Task Projection Contract V1.
+- `USER_DECISION`: Tiny Generated Catalog Admission V1 remains later and
+  blocked; proposed IDs 013-017 are unassigned.
 
 ## Paused lanes
 

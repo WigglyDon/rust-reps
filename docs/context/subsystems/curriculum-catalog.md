@@ -71,8 +71,11 @@ there is no persistence or telemetry. Resource cost is static data only.
 
 ## Gate And Unknowns
 
-The next planned boundary is Tiny Multi-Operation Rust Set Materialization V1;
-admission remains later, after inert materialization proof. `LIVE_REPO_FACT`:
-non-Copy admission is blocked by prompt propagation limitations recorded in
-current state. Update this page when schema, planning, ordering, admission, or
-visible catalog behavior changes.
+Tiny Multi-Operation Rust Set Materialization V1 is integrated as checked inert
+source; catalog admission is still absent. Product Integration Decision V1 is
+accepted, and its first prerequisite—Resolved Core Task And Orchestration
+Contract V1—is the active implementation lane. It may migrate only current reps
+001-012 and add an inert pure resolution seam. Truthful Task Projection Contract
+V1 remains the next prerequisite, and non-Copy admission remains blocked by the
+projection limitations recorded in current state. Update this page when schema,
+planning, ordering, admission, or visible catalog behavior changes.
