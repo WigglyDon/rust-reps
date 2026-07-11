@@ -27,9 +27,12 @@ structure, not mastery. Wrong answers are normal results, not errors.
 ## Integration And Proof
 
 Current catalog packets carry prompt, expected answer, fixed Copy instruction,
-task kind, validator, and answer rule. `LIVE_REPO_FACT`:
-`catalog_exercise_packet_at` hard-codes `Copy this line exactly:` and therefore
-cannot safely expose non-Copy curriculum yet.
+task kind, validator, and answer rule. The catalog source field is now
+`stimulus`; `catalog_exercise_packet_at` mechanically reads it into the
+temporary `ExercisePacket.prompt` field without changing bytes or session
+behavior. `LIVE_REPO_FACT`: that function still hard-codes
+`Copy this line exactly:` and therefore cannot safely expose non-Copy
+curriculum yet. Engine does not call orchestration or guidance.
 
 Accepted proof: pure engine unit tests, adapter tests that use the same session,
 and full CLI proof. These tests do not prove learning quality, manual TUI feel,
@@ -42,6 +45,7 @@ indexing.
 
 ## Gate And Unknowns
 
-The next production gate is a narrowly tested prompt/instruction propagation
-decision that also resolves one-shot presentation. Until then, non-Copy output
-stays inert. Update this page for packet, transition, source, or counter changes.
+Truthful Task Projection Contract V1 must replace the temporary Copy-shaped
+construction and resolve one-shot presentation before non-Copy admission.
+Until then, the pure resolved orchestration seam and non-Copy output stay inert.
+Update this page for packet, transition, source, or counter changes.

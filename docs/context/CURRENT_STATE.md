@@ -34,6 +34,10 @@ Update triggers: Accepted-main change, lane transition, authority change, blocke
   accepted and fast-forwarded through candidate
   `67e0e55ee7ebc7970c81c41123c1c994eccbf12c`; its lane worktree was
   removed and its branch deleted after integration.
+- `LIVE_REPO_FACT`: Resolved Core Task And Orchestration Contract V1 was
+  accepted and fast-forwarded through candidate
+  `e4ab24cf9447601abc79f8a2bcead2e588252483`; its lane worktree was
+  removed and its branch deleted after integration.
 - `UNKNOWN`: no remote is configured, so remote-tracking identity and remote
   currentness are unavailable. `gh` exists but was not authenticated during discovery.
 - `USER_DECISION`: Cross-Lingual Guidance and Presentation Architecture V1 is
@@ -47,10 +51,9 @@ Update triggers: Accepted-main change, lane transition, authority change, blocke
   capability/SetPlan source, pure deterministic PracticePlan construction, and
   one checked five-task materialization. Those accepted boundaries remain
   inert; product behavior and authority remain unchanged.
-- `USER_DECISION`: Product Integration Decision V1 is accepted. Its first
-  prerequisite, Resolved Core Task And Orchestration Contract V1, is the one
-  active implementation lane. It may migrate only current reps 001-012 and add
-  an inert pure `en@v1` orchestration seam; product behavior must not change.
+- `USER_DECISION`: Product Integration Decision V1 and its first prerequisite,
+  Resolved Core Task And Orchestration Contract V1, are accepted and integrated.
+  No active implementation lane remains; product behavior is unchanged.
 
 ## Accepted Product State
 
@@ -68,10 +71,11 @@ Update triggers: Accepted-main change, lane transition, authority change, blocke
 ## Ownership Snapshot
 
 The canonical matrix is [`CONTEXT_MATRIX.md`](CONTEXT_MATRIX.md). In brief,
-curriculum/catalog own normal content and admission; procgen owns inert core-task
-source and pure expansion; planner owns inert capability/SetPlan source and pure
-deterministic planning over supplied candidate summaries; guidance owns inert
-authored instruction source and pure instruction resolution only;
+curriculum/catalog own normal content, admission, and locale-independent core
+task records; procgen owns inert source and pure expansion; planner owns inert
+capability/SetPlan source and pure deterministic planning over supplied candidate
+summaries; guidance owns authored instruction source and pure instruction
+resolution only; orchestration owns inert pure resolved-core-task construction;
 engine owns session truth; answer owns Exact; validators and tool runner own
 closed non-exact capability seams; client owns portable UI state; TUI owns
 terminal projection; CLI/practice/presentation/main own launch and plain terminal
@@ -93,8 +97,22 @@ adaptation; lab owns synthetic stress data only.
   before any product admission.
 - `LIVE_REPO_FACT`: `curriculum::guidance::resolution` provides pure,
   deterministic, exact, case-sensitive resolution. `GuidanceProvenance` records
-  core generated identity, locale, pack version, and instruction key;
+  a source-neutral core task ID, locale, pack version, and instruction key;
   `ResolvedGuidance` contains only provenance and exact instruction.
+- `LIVE_REPO_FACT`: current admitted `DrillSpec` records explicitly separate
+  instruction key, static guidance assignments, stimulus, expected response,
+  optional capability ID, and optional generated provenance. Catalog canonical
+  identity remains product identity; generated identity remains optional source
+  provenance.
+- `LIVE_REPO_FACT`: all twelve current reps retain IDs 001-012, canonical IDs,
+  metadata, stimulus, and expected bytes. Each uses `copy.exact_line`, an empty
+  assignment slice, `capability_id: None`, and `generated_provenance: None`.
+- `LIVE_REPO_FACT`: `src/orchestration.rs` defines explicit initial `en@v1`
+  guidance constants and pure `resolve_core_task` construction. `ResolvedCoreTask`
+  separates stable identity, localized instruction, exact stimulus, exact
+  expected response, unchanged metadata, and guidance provenance.
+- `LIVE_REPO_FACT`: the initial guidance constants are neither fallback nor
+  user settings. `resolve_core_task` remains inert and has no product caller.
 - `LIVE_REPO_FACT`: `GuidanceError` explicitly classifies missing or duplicate
   packs and instructions, duplicate assignments, missing slots or meaning keys,
   and missing or duplicate glosses. There is no fallback, locale normalization,
@@ -116,7 +134,7 @@ adaptation; lab owns synthetic stress data only.
   caller exists. The accepted resolver and Ukrainian proof source remain inert.
 - `LIVE_REPO_FACT`: `engine::catalog_exercise_packet_at` hard-codes the Copy
   instruction, and `presentation::print_one_shot_prompt` prints `expected`
-  instead of `prompt`. Non-Copy admission is blocked until a separately
+  instead of the task stimulus. Non-Copy admission is blocked until a separately
   authorized, transcript-tested prompt propagation boundary addresses both.
 - `LIVE_REPO_FACT`: `client::project_client_frame_for_layout` substitutes
   `do this:` instead of faithfully projecting the packet instruction. This is
@@ -178,15 +196,14 @@ adaptation; lab owns synthetic stress data only.
   Rust Set Materialization V1 is accepted and integrated as inert source.
   Its five tasks remain outside the catalog. Proposed IDs 013-017 are unassigned,
   PracticePlan execution remains deferred, and generated admission remains
-  blocked behind the two accepted product prerequisites.
+  blocked behind the remaining truthful-projection prerequisite.
 
 ## Lanes
 
-- Active implementation lane:
-  [`resolved-core-task-orchestration-v1`](../lanes/resolved-core-task-orchestration-v1.md).
-  It migrates only existing reps 001-012 to a unified core-task source shape
-  and proves an inert pure resolved-task seam with explicit `en@v1`; no output,
-  admission, ID assignment, or projection behavior may change.
+- Active implementation lanes: none.
+- Retired: [`resolved-core-task-orchestration-v1`](../lanes/resolved-core-task-orchestration-v1.md),
+  accepted and integrated into local canonical master; worktree removed and
+  branch deleted.
 - Retired: [`tiny-multi-operation-materialization-v1`](../lanes/tiny-multi-operation-materialization-v1.md),
   accepted and integrated into local canonical master; worktree removed and
   branch deleted.
@@ -204,6 +221,7 @@ adaptation; lab owns synthetic stress data only.
 - Planned but not active: Truthful Task Projection Contract V1.
 - Later and blocked: Tiny Generated Catalog Admission V1; IDs 013-017 remain
   proposed and unassigned.
+- Later if required: Five-Step Product Flow V1.
 - Paused: new Ukrainian/French curriculum, validator integration, lab cleanup,
   product settings, interface localization, persistence, and scheduling.
 - No guidance language setting currently exists.
