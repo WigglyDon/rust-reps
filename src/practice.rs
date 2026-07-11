@@ -1,6 +1,6 @@
 use std::io::{self, Write};
 
-use crate::{answer, catalog, engine, presentation, validators};
+use crate::{answer, engine, presentation};
 
 #[derive(Clone, Copy)]
 pub enum PracticeEvent {
@@ -68,11 +68,27 @@ fn read_line_or_exit(input: &mut String) -> usize {
     }
 }
 
+fn write_task_prompt_or_exit(exercise: &engine::ExercisePacket) {
+    let result = {
+        let stdout = io::stdout();
+        let mut writer = stdout.lock();
+        presentation::write_task_prompt(
+            &mut writer,
+            exercise.instruction.as_ref(),
+            exercise.stimulus.as_ref(),
+        )
+    };
+    if let Err(err) = result {
+        eprintln!("I/O error: {}", err);
+        std::process::exit(1);
+    }
+}
+
 fn print_practice_exercise_prompt(exercise: &engine::ExercisePacket) {
     println!("Drill {}/{:03}", exercise.id, exercise.total);
     println!("Prompt:");
     println!();
-    println!("{}", exercise.prompt);
+    write_task_prompt_or_exit(exercise);
     println!();
     print!(">");
 }
@@ -85,31 +101,34 @@ fn print_practice_exercise_status(exercise: &engine::ExercisePacket, session: &e
     println!("Attempts: {}", session.attempts());
 }
 
-pub fn run_one_shot_drill(drill: &catalog::Drill) {
-    presentation::print_one_shot_prompt(drill);
+pub fn run_one_shot_drill(exercise: engine::ExercisePacket) {
+    presentation::print_app_header();
+    println!("Drill {}", exercise.id);
+    println!("Prompt:");
+    println!();
+    write_task_prompt_or_exit(&exercise);
+    println!();
+    print!(">");
     flush_stdout_or_exit();
 
+    let mut session = engine::Session::from_exercises(vec![exercise]);
     let mut input = String::new();
     read_line_or_exit(&mut input);
 
-    let outcome = validators::validate(
-        validators::ValidationInput::new(&input, drill.expected),
-        validators::ValidatorSpec::from_catalog(drill.validator, drill.metadata.answer_rule),
-    );
-
-    match outcome {
-        validators::ValidationOutcome::Correct => presentation::print_answer_pass(),
-        validators::ValidationOutcome::Wrong => {
-            presentation::print_answer_try_again(drill.expected)
-        }
-        validators::ValidationOutcome::UnsupportedValidator => unsupported_validator_or_exit(),
+    match session.submit_answer(&input) {
+        engine::SubmitResult::Correct => presentation::print_answer_pass(),
+        engine::SubmitResult::TryAgain => presentation::print_answer_try_again(
+            session
+                .wrong_answer_feedback()
+                .expect("wrong result carries answer feedback"),
+        ),
+        engine::SubmitResult::UnsupportedValidator => unsupported_validator_or_exit(),
+        engine::SubmitResult::NoActiveDrill => unsupported_validator_or_exit(),
     }
 }
 
-pub fn run_practice_session() {
+pub fn run_practice_session(mut session: engine::Session) {
     presentation::print_practice_header();
-
-    let mut session = engine::Session::new();
 
     while !session.is_complete() {
         let exercise = session
@@ -166,7 +185,11 @@ pub fn run_practice_session() {
                 println!();
             }
             PracticeEvent::TryAgain => {
-                presentation::print_answer_try_again(exercise.expected_answer.as_ref());
+                presentation::print_answer_try_again(
+                    session
+                        .wrong_answer_feedback()
+                        .expect("wrong result carries answer feedback"),
+                );
                 println!();
             }
             PracticeEvent::UnsupportedValidator => unsupported_validator_or_exit(),
@@ -191,7 +214,7 @@ mod tests {
         let mut session = engine::Session::new();
 
         let exercise = session.current_exercise().expect("expected first exercise");
-        let event = submit_practice_input(&mut session, exercise.expected_answer.as_ref());
+        let event = submit_practice_input(&mut session, exercise.expected_answer());
 
         assert!(matches!(event, PracticeEvent::Correct));
         assert_eq!(session.passed(), 1);

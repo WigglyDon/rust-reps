@@ -1,8 +1,8 @@
-use crate::{catalog, presentation};
+use crate::{catalog, engine, orchestration, presentation};
 
 pub enum DrillCommand {
     Practice,
-    Run(&'static catalog::Drill),
+    Run(engine::ExercisePacket),
     List,
     Tui,
     Lab,
@@ -38,9 +38,9 @@ pub fn select_command(args: &[&str]) -> Result<DrillCommand, String> {
         return Err(format!("unknown argument: {}", id));
     }
 
-    catalog::find_drill(id)
+    orchestration::current_product_exercise_packet_by_id(id)
         .map(DrillCommand::Run)
-        .ok_or_else(|| format!("unknown drill id: {}", id))
+        .map_err(|error| error.to_string())
 }
 
 pub fn print_drill_list() {
@@ -51,7 +51,7 @@ pub fn print_help() {
     presentation::print_help_text();
     println!("Current drills:");
     for drill in catalog::drills() {
-        println!("{}  {}", drill.id, drill.expected);
+        println!("{}  {}", drill.id, drill.stimulus);
     }
 }
 

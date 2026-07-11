@@ -20,10 +20,6 @@ use input::classify_mouse_event;
 const CURSOR_BLINK_INTERVAL: Duration = Duration::from_millis(500);
 const TARGET_FRAME_RATE: u16 = 60;
 
-pub fn run_tui() -> io::Result<()> {
-    run_tui_app(TuiApp::new())
-}
-
 pub fn run_tui_with_session(session: engine::Session) -> io::Result<()> {
     run_tui_app(TuiApp::with_session(session))
 }

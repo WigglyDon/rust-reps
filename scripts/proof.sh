@@ -139,6 +139,7 @@ drill_001_try_again_output='Rust Reps
 Drill 001
 Prompt:
 
+Copy this line exactly:
 fn main() {}
 
 >TRY AGAIN
@@ -151,6 +152,7 @@ drill_001_blank_line_output='Rust Reps
 Drill 001
 Prompt:
 
+Copy this line exactly:
 fn main() {}
 
 >TRY AGAIN
@@ -163,6 +165,7 @@ drill_001_crlf_pass_output='Rust Reps
 Drill 001
 Prompt:
 
+Copy this line exactly:
 fn main() {}
 
 >PASS'
@@ -178,6 +181,7 @@ Type :help for commands and :q to quit.
 Drill 001/012
 Prompt:
 
+Copy this line exactly:
 fn main() {}
 
 >PASS
@@ -185,6 +189,7 @@ fn main() {}
 Drill 002/012
 Prompt:
 
+Copy this line exactly:
 println!("Rust Reps");
 
 >PASS
@@ -192,6 +197,7 @@ println!("Rust Reps");
 Drill 003/012
 Prompt:
 
+Copy this line exactly:
 let answer = 42;
 
 >PASS
@@ -199,6 +205,7 @@ let answer = 42;
 Drill 004/012
 Prompt:
 
+Copy this line exactly:
 let name = "Rust Reps";
 
 >PASS
@@ -206,6 +213,7 @@ let name = "Rust Reps";
 Drill 005/012
 Prompt:
 
+Copy this line exactly:
 let mut score = 0;
 
 >PASS
@@ -213,6 +221,7 @@ let mut score = 0;
 Drill 006/012
 Prompt:
 
+Copy this line exactly:
 score += 1;
 
 >PASS
@@ -220,6 +229,7 @@ score += 1;
 Drill 007/012
 Prompt:
 
+Copy this line exactly:
 let passed = true;
 
 >PASS
@@ -227,6 +237,7 @@ let passed = true;
 Drill 008/012
 Prompt:
 
+Copy this line exactly:
 let score: i32 = 0;
 
 >PASS
@@ -234,6 +245,7 @@ let score: i32 = 0;
 Drill 009/012
 Prompt:
 
+Copy this line exactly:
 let scores = [1, 2, 3];
 
 >PASS
@@ -241,6 +253,7 @@ let scores = [1, 2, 3];
 Drill 010/012
 Prompt:
 
+Copy this line exactly:
 fn add_one(x: i32) -> i32 { x + 1 }
 
 >PASS
@@ -248,6 +261,7 @@ fn add_one(x: i32) -> i32 { x + 1 }
 Drill 011/012
 Prompt:
 
+Copy this line exactly:
 if score > 0 {}
 
 >PASS
@@ -255,6 +269,7 @@ if score > 0 {}
 Drill 012/012
 Prompt:
 
+Copy this line exactly:
 while score < 10 {}
 
 >PASS
@@ -276,6 +291,7 @@ Type :help for commands and :q to quit.
 Drill 001/012
 Prompt:
 
+Copy this line exactly:
 fn main() {}
 
 >QUIT
@@ -295,6 +311,7 @@ Type :help for commands and :q to quit.
 Drill 001/012
 Prompt:
 
+Copy this line exactly:
 fn main() {}
 
 >UNKNOWN COMMAND
@@ -303,6 +320,7 @@ Type :help for commands.
 Drill 001/012
 Prompt:
 
+Copy this line exactly:
 fn main() {}
 
 >QUIT
@@ -322,6 +340,7 @@ Type :help for commands and :q to quit.
 Drill 001/012
 Prompt:
 
+Copy this line exactly:
 fn main() {}
 
 >UNKNOWN COMMAND
@@ -330,6 +349,7 @@ Type :help for commands.
 Drill 001/012
 Prompt:
 
+Copy this line exactly:
 fn main() {}
 
 >Status:
@@ -341,6 +361,7 @@ Attempts: 0
 Drill 001/012
 Prompt:
 
+Copy this line exactly:
 fn main() {}
 
 >QUIT
@@ -360,6 +381,7 @@ Type :help for commands and :q to quit.
 Drill 001/012
 Prompt:
 
+Copy this line exactly:
 fn main() {}
 
 >TRY AGAIN
@@ -369,6 +391,7 @@ fn main() {}
 Drill 001/012
 Prompt:
 
+Copy this line exactly:
 fn main() {}
 
 >Status:
@@ -380,6 +403,7 @@ Attempts: 1
 Drill 001/012
 Prompt:
 
+Copy this line exactly:
 fn main() {}
 
 >QUIT
@@ -399,6 +423,7 @@ Type :help for commands and :q to quit.
 Drill 001/012
 Prompt:
 
+Copy this line exactly:
 fn main() {}
 
 >TRY AGAIN
@@ -408,6 +433,7 @@ fn main() {}
 Drill 001/012
 Prompt:
 
+Copy this line exactly:
 fn main() {}
 
 >Status:
@@ -419,6 +445,7 @@ Attempts: 1
 Drill 001/012
 Prompt:
 
+Copy this line exactly:
 fn main() {}
 
 >QUIT
@@ -438,6 +465,7 @@ Type :help for commands and :q to quit.
 Drill 001/012
 Prompt:
 
+Copy this line exactly:
 fn main() {}
 
 >PASS
@@ -445,6 +473,7 @@ fn main() {}
 Drill 002/012
 Prompt:
 
+Copy this line exactly:
 println!("Rust Reps");
 
 >QUIT
@@ -464,6 +493,7 @@ Type :help for commands and :q to quit.
 Drill 001/012
 Prompt:
 
+Copy this line exactly:
 fn main() {}
 
 >UNKNOWN COMMAND
@@ -472,6 +502,7 @@ Type :help for commands.
 Drill 001/012
 Prompt:
 
+Copy this line exactly:
 fn main() {}
 
 >PASS
@@ -479,6 +510,7 @@ fn main() {}
 Drill 002/012
 Prompt:
 
+Copy this line exactly:
 println!("Rust Reps");
 
 >QUIT
@@ -498,6 +530,7 @@ Type :help for commands and :q to quit.
 Drill 001/012
 Prompt:
 
+Copy this line exactly:
 fn main() {}
 
 >TRY AGAIN
@@ -507,6 +540,7 @@ fn main() {}
 Drill 001/012
 Prompt:
 
+Copy this line exactly:
 fn main() {}
 
 >PASS
@@ -514,6 +548,7 @@ fn main() {}
 Drill 002/012
 Prompt:
 
+Copy this line exactly:
 println!("Rust Reps");
 
 >QUIT
@@ -533,6 +568,7 @@ Type :help for commands and :q to quit.
 Drill 001/012
 Prompt:
 
+Copy this line exactly:
 fn main() {}
 
 >Commands:
@@ -546,6 +582,7 @@ fn main() {}
 Drill 001/012
 Prompt:
 
+Copy this line exactly:
 fn main() {}
 
 >QUIT
@@ -565,6 +602,7 @@ Type :help for commands and :q to quit.
 Drill 001/012
 Prompt:
 
+Copy this line exactly:
 fn main() {}
 
 >TRY AGAIN
@@ -574,6 +612,7 @@ fn main() {}
 Drill 001/012
 Prompt:
 
+Copy this line exactly:
 fn main() {}
 
 >QUIT
@@ -593,6 +632,7 @@ Type :help for commands and :q to quit.
 Drill 001/012
 Prompt:
 
+Copy this line exactly:
 fn main() {}
 
 >Status:
@@ -604,6 +644,7 @@ Attempts: 0
 Drill 001/012
 Prompt:
 
+Copy this line exactly:
 fn main() {}
 
 >QUIT
@@ -623,6 +664,7 @@ Type :help for commands and :q to quit.
 Drill 001/012
 Prompt:
 
+Copy this line exactly:
 fn main() {}
 
 >Available drills:
@@ -642,6 +684,7 @@ fn main() {}
 Drill 001/012
 Prompt:
 
+Copy this line exactly:
 fn main() {}
 
 >QUIT
@@ -661,6 +704,7 @@ Type :help for commands and :q to quit.
 Drill 001/012
 Prompt:
 
+Copy this line exactly:
 fn main() {}
 
 >SKIP
@@ -668,6 +712,7 @@ fn main() {}
 Drill 002/012
 Prompt:
 
+Copy this line exactly:
 println!("Rust Reps");
 
 >QUIT
@@ -687,6 +732,7 @@ Type :help for commands and :q to quit.
 Drill 001/012
 Prompt:
 
+Copy this line exactly:
 fn main() {}
 
 >Commands:
@@ -700,6 +746,7 @@ fn main() {}
 Drill 001/012
 Prompt:
 
+Copy this line exactly:
 fn main() {}
 
 >Status:
@@ -711,6 +758,7 @@ Attempts: 0
 Drill 001/012
 Prompt:
 
+Copy this line exactly:
 fn main() {}
 
 >QUIT
@@ -730,6 +778,7 @@ Type :help for commands and :q to quit.
 Drill 001/012
 Prompt:
 
+Copy this line exactly:
 fn main() {}
 
 >TRY AGAIN
@@ -739,6 +788,7 @@ fn main() {}
 Drill 001/012
 Prompt:
 
+Copy this line exactly:
 fn main() {}
 
 >Status:
@@ -750,6 +800,7 @@ Attempts: 1
 Drill 001/012
 Prompt:
 
+Copy this line exactly:
 fn main() {}
 
 >QUIT
@@ -769,6 +820,7 @@ Type :help for commands and :q to quit.
 Drill 001/012
 Prompt:
 
+Copy this line exactly:
 fn main() {}
 
 >PASS
@@ -776,6 +828,7 @@ fn main() {}
 Drill 002/012
 Prompt:
 
+Copy this line exactly:
 println!("Rust Reps");
 
 >Status:
@@ -787,6 +840,7 @@ Attempts: 1
 Drill 002/012
 Prompt:
 
+Copy this line exactly:
 println!("Rust Reps");
 
 >QUIT
@@ -806,6 +860,7 @@ Type :help for commands and :q to quit.
 Drill 001/012
 Prompt:
 
+Copy this line exactly:
 fn main() {}
 
 >SKIP
@@ -813,6 +868,7 @@ fn main() {}
 Drill 002/012
 Prompt:
 
+Copy this line exactly:
 println!("Rust Reps");
 
 >Status:
@@ -824,6 +880,7 @@ Attempts: 0
 Drill 002/012
 Prompt:
 
+Copy this line exactly:
 println!("Rust Reps");
 
 >QUIT
@@ -858,6 +915,7 @@ Type :help for commands and :q to quit.
 Drill 001/012
 Prompt:
 
+Copy this line exactly:
 fn main() {}
 
 >SKIP
@@ -865,6 +923,7 @@ fn main() {}
 Drill 002/012
 Prompt:
 
+Copy this line exactly:
 println!("Rust Reps");
 
 >SKIP
@@ -872,6 +931,7 @@ println!("Rust Reps");
 Drill 003/012
 Prompt:
 
+Copy this line exactly:
 let answer = 42;
 
 >SKIP
@@ -879,6 +939,7 @@ let answer = 42;
 Drill 004/012
 Prompt:
 
+Copy this line exactly:
 let name = "Rust Reps";
 
 >SKIP
@@ -886,6 +947,7 @@ let name = "Rust Reps";
 Drill 005/012
 Prompt:
 
+Copy this line exactly:
 let mut score = 0;
 
 >SKIP
@@ -893,6 +955,7 @@ let mut score = 0;
 Drill 006/012
 Prompt:
 
+Copy this line exactly:
 score += 1;
 
 >SKIP
@@ -900,6 +963,7 @@ score += 1;
 Drill 007/012
 Prompt:
 
+Copy this line exactly:
 let passed = true;
 
 >SKIP
@@ -907,6 +971,7 @@ let passed = true;
 Drill 008/012
 Prompt:
 
+Copy this line exactly:
 let score: i32 = 0;
 
 >SKIP
@@ -914,6 +979,7 @@ let score: i32 = 0;
 Drill 009/012
 Prompt:
 
+Copy this line exactly:
 let scores = [1, 2, 3];
 
 >SKIP
@@ -921,6 +987,7 @@ let scores = [1, 2, 3];
 Drill 010/012
 Prompt:
 
+Copy this line exactly:
 fn add_one(x: i32) -> i32 { x + 1 }
 
 >SKIP
@@ -928,6 +995,7 @@ fn add_one(x: i32) -> i32 { x + 1 }
 Drill 011/012
 Prompt:
 
+Copy this line exactly:
 if score > 0 {}
 
 >SKIP
@@ -935,6 +1003,7 @@ if score > 0 {}
 Drill 012/012
 Prompt:
 
+Copy this line exactly:
 while score < 10 {}
 
 >SKIP
@@ -971,6 +1040,7 @@ Type :help for commands and :q to quit.
 Drill 001/012
 Prompt:
 
+Copy this line exactly:
 fn main() {}
 
 >TRY AGAIN
@@ -980,6 +1050,7 @@ fn main() {}
 Drill 001/012
 Prompt:
 
+Copy this line exactly:
 fn main() {}
 
 >PASS
@@ -987,6 +1058,7 @@ fn main() {}
 Drill 002/012
 Prompt:
 
+Copy this line exactly:
 println!("Rust Reps");
 
 >SKIP
@@ -994,6 +1066,7 @@ println!("Rust Reps");
 Drill 003/012
 Prompt:
 
+Copy this line exactly:
 let answer = 42;
 
 >SKIP
@@ -1001,6 +1074,7 @@ let answer = 42;
 Drill 004/012
 Prompt:
 
+Copy this line exactly:
 let name = "Rust Reps";
 
 >SKIP
@@ -1008,6 +1082,7 @@ let name = "Rust Reps";
 Drill 005/012
 Prompt:
 
+Copy this line exactly:
 let mut score = 0;
 
 >SKIP
@@ -1015,6 +1090,7 @@ let mut score = 0;
 Drill 006/012
 Prompt:
 
+Copy this line exactly:
 score += 1;
 
 >SKIP
@@ -1022,6 +1098,7 @@ score += 1;
 Drill 007/012
 Prompt:
 
+Copy this line exactly:
 let passed = true;
 
 >SKIP
@@ -1029,6 +1106,7 @@ let passed = true;
 Drill 008/012
 Prompt:
 
+Copy this line exactly:
 let score: i32 = 0;
 
 >SKIP
@@ -1036,6 +1114,7 @@ let score: i32 = 0;
 Drill 009/012
 Prompt:
 
+Copy this line exactly:
 let scores = [1, 2, 3];
 
 >SKIP
@@ -1043,6 +1122,7 @@ let scores = [1, 2, 3];
 Drill 010/012
 Prompt:
 
+Copy this line exactly:
 fn add_one(x: i32) -> i32 { x + 1 }
 
 >SKIP
@@ -1050,6 +1130,7 @@ fn add_one(x: i32) -> i32 { x + 1 }
 Drill 011/012
 Prompt:
 
+Copy this line exactly:
 if score > 0 {}
 
 >SKIP
@@ -1057,6 +1138,7 @@ if score > 0 {}
 Drill 012/012
 Prompt:
 
+Copy this line exactly:
 while score < 10 {}
 
 >SKIP
@@ -1096,6 +1178,7 @@ expect_stdout "Drill 001 explicit PASS" 'Rust Reps
 Drill 001
 Prompt:
 
+Copy this line exactly:
 fn main() {}
 
 >PASS' sh -c "printf 'fn main() {}\\n' | cargo run -q -- 001"
@@ -1274,6 +1357,7 @@ expect_stdout "Drill 002 PASS" 'Rust Reps
 Drill 002
 Prompt:
 
+Copy this line exactly:
 println!("Rust Reps");
 
 >PASS' sh -c "printf 'println!(\"Rust Reps\");\\n' | cargo run -q -- 002"
@@ -1284,6 +1368,7 @@ expect_stdout "Drill 006 PASS" 'Rust Reps
 Drill 006
 Prompt:
 
+Copy this line exactly:
 score += 1;
 
 >PASS' sh -c "printf 'score += 1;\\n' | cargo run -q -- 006"
@@ -1294,6 +1379,7 @@ expect_stdout "Drill 007 PASS" 'Rust Reps
 Drill 007
 Prompt:
 
+Copy this line exactly:
 let passed = true;
 
 >PASS' sh -c "printf 'let passed = true;\\n' | cargo run -q -- 007"
@@ -1304,6 +1390,7 @@ expect_stdout "Drill 008 PASS" 'Rust Reps
 Drill 008
 Prompt:
 
+Copy this line exactly:
 let score: i32 = 0;
 
 >PASS' sh -c "printf 'let score: i32 = 0;\\n' | cargo run -q -- 008"
@@ -1314,6 +1401,7 @@ expect_stdout "Drill 009 PASS" 'Rust Reps
 Drill 009
 Prompt:
 
+Copy this line exactly:
 let scores = [1, 2, 3];
 
 >PASS' sh -c "printf 'let scores = [1, 2, 3];\\n' | cargo run -q -- 009"
@@ -1324,6 +1412,7 @@ expect_stdout "Drill 010 PASS" 'Rust Reps
 Drill 010
 Prompt:
 
+Copy this line exactly:
 fn add_one(x: i32) -> i32 { x + 1 }
 
 >PASS' sh -c "printf 'fn add_one(x: i32) -> i32 { x + 1 }\\n' | cargo run -q -- 010"
@@ -1334,6 +1423,7 @@ expect_stdout "Drill 011 PASS" 'Rust Reps
 Drill 011
 Prompt:
 
+Copy this line exactly:
 if score > 0 {}
 
 >PASS' sh -c "printf 'if score > 0 {}\\n' | cargo run -q -- 011"
@@ -1344,6 +1434,7 @@ expect_stdout "Drill 012 PASS" 'Rust Reps
 Drill 012
 Prompt:
 
+Copy this line exactly:
 while score < 10 {}
 
 >PASS' sh -c "printf 'while score < 10 {}\\n' | cargo run -q -- 012"
@@ -1354,6 +1445,7 @@ expect_stdout "Drill 006 TRY AGAIN" 'Rust Reps
 Drill 006
 Prompt:
 
+Copy this line exactly:
 score += 1;
 
 >TRY AGAIN
@@ -1366,6 +1458,7 @@ expect_stdout "Drill 012 TRY AGAIN" 'Rust Reps
 Drill 012
 Prompt:
 
+Copy this line exactly:
 while score < 10 {}
 
 >TRY AGAIN

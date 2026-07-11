@@ -60,7 +60,7 @@ pub fn exercise_packet_at(index: usize) -> ExercisePacket {
     let family = stress_family_at(index);
     let id = format!("LAB-{number:06}");
 
-    let (prompt, expected_answer) = match family {
+    let (stimulus, expected_answer) = match family {
         LabStressFamily::LongWrappedProblem => long_wrapped_problem(number),
         LabStressFamily::ManyShortProblemLines => many_short_problem_lines(number),
         LabStressFamily::DeepIndentedCodeBlock => deep_indented_code_block(number),
@@ -72,17 +72,17 @@ pub fn exercise_packet_at(index: usize) -> ExercisePacket {
         LabStressFamily::TinyControl => tiny_control(number),
     };
 
-    ExercisePacket {
-        id: Cow::Owned(id),
-        position: number,
-        total: LAB_TOTAL,
-        prompt: Cow::Owned(prompt),
-        expected_answer: Cow::Owned(expected_answer),
-        instruction: Cow::Borrowed(LAB_INSTRUCTION),
-        kind: ExerciseKind::TypeExact,
-        validator: ExerciseValidator::Exact,
-        answer_rule: ExerciseAnswerRule::ExactTrimFinalNewline,
-    }
+    ExercisePacket::new(
+        Cow::Owned(id),
+        number,
+        LAB_TOTAL,
+        Cow::Borrowed(LAB_INSTRUCTION),
+        Cow::Owned(stimulus),
+        Cow::Owned(expected_answer),
+        ExerciseKind::TypeExact,
+        ExerciseValidator::Exact,
+        ExerciseAnswerRule::ExactTrimFinalNewline,
+    )
 }
 
 fn long_wrapped_problem(number: usize) -> (String, String) {
@@ -121,13 +121,13 @@ fn long_wrapped_problem(number: usize) -> (String, String) {
 }
 
 fn many_short_problem_lines(number: usize) -> (String, String) {
-    let mut prompt =
+    let mut stimulus =
         format!("task:\nCopy the tiny constant for lab case {number}.\n\nchecklist:\n");
     for line in 1..=28 {
-        prompt.push_str(&format!("- visible short line {line:02}\n"));
+        stimulus.push_str(&format!("- visible short line {line:02}\n"));
     }
-    prompt.push_str("\nanswer shape:\nlet score: i32 = 1;");
-    (prompt, "let score: i32 = 1;".to_string())
+    stimulus.push_str("\nanswer shape:\nlet score: i32 = 1;");
+    (stimulus, "let score: i32 = 1;".to_string())
 }
 
 fn deep_indented_code_block(number: usize) -> (String, String) {
@@ -191,7 +191,7 @@ fn multiline_exact_answer(number: usize) -> (String, String) {
 }
 
 fn answer_taller_than_editor(number: usize) -> (String, String) {
-    let prompt = format!(
+    let stimulus = format!(
         "task:\n\
          Type a table-shaped function for lab case {number}.\n\
          \n\
@@ -214,7 +214,7 @@ fn answer_taller_than_editor(number: usize) -> (String, String) {
         "}"
     )
     .to_string();
-    (prompt, expected)
+    (stimulus, expected)
 }
 
 fn syntax_sampler(number: usize) -> (String, String) {
@@ -319,8 +319,8 @@ mod tests {
             assert_eq!(packet.id.as_ref(), format!("LAB-{:06}", index + 1));
             assert_eq!(packet.position, index + 1);
             assert_eq!(packet.total, usize::MAX);
-            assert!(!packet.prompt.trim().is_empty());
-            assert!(!packet.expected_answer.trim().is_empty());
+            assert!(!packet.stimulus.trim().is_empty());
+            assert!(!packet.expected_answer().trim().is_empty());
             assert_eq!(packet.kind, ExerciseKind::TypeExact);
             assert_eq!(packet.validator, ExerciseValidator::Exact);
             assert_ne!(packet.validator, ExerciseValidator::RustfmtExact);
@@ -357,27 +357,27 @@ mod tests {
         let multiline = exercise_packet_at(MULTILINE_SOLUTION_FAMILY_INDEX);
         let syntax = exercise_packet_at(SYNTAX_SAMPLER_FAMILY_INDEX);
 
-        assert!(long_problem.prompt.lines().count() > 20);
+        assert!(long_problem.stimulus.lines().count() > 20);
         assert!(
             nested
-                .prompt
+                .stimulus
                 .contains("fn main() {\n    if true {\n        println!(\"nested\");\n    }\n}")
         );
         assert!(
             nested
-                .expected_answer
+                .expected_answer()
                 .contains("fn main() {\n    if true {\n        println!(\"nested\");\n    }\n}")
         );
-        assert!(multiline.expected_answer.contains('\n'));
-        assert_eq!(multiline.expected_answer, MULTILINE_SOLUTION_EXPECTED);
-        assert!(syntax.prompt.contains("Vec<T>"));
-        assert!(syntax.prompt.contains("Result<T, E>"));
-        assert!(syntax.expected_answer.contains("match"));
-        assert!(syntax.expected_answer.contains("Some(value)"));
-        assert!(syntax.expected_answer.contains("None"));
-        assert!(syntax.expected_answer.contains("Ok(format!"));
-        assert!(syntax.expected_answer.contains("Err(String::from"));
-        assert!(syntax.expected_answer.contains("// sample"));
+        assert!(multiline.expected_answer().contains('\n'));
+        assert_eq!(multiline.expected_answer(), MULTILINE_SOLUTION_EXPECTED);
+        assert!(syntax.stimulus.contains("Vec<T>"));
+        assert!(syntax.stimulus.contains("Result<T, E>"));
+        assert!(syntax.expected_answer().contains("match"));
+        assert!(syntax.expected_answer().contains("Some(value)"));
+        assert!(syntax.expected_answer().contains("None"));
+        assert!(syntax.expected_answer().contains("Ok(format!"));
+        assert!(syntax.expected_answer().contains("Err(String::from"));
+        assert!(syntax.expected_answer().contains("// sample"));
         assert!(SYNTAX_SAMPLER_EXPECTED.contains("'R'"));
         assert!(MULTILINE_SOLUTION_EXPECTED.contains("x + 1"));
     }
@@ -386,8 +386,8 @@ mod tests {
     fn lab_full_function_reference_and_expected_are_rustfmt_shaped() {
         let multiline = exercise_packet_at(MULTILINE_SOLUTION_FAMILY_INDEX);
 
-        assert!(multiline.prompt.contains(MULTILINE_SOLUTION_EXPECTED));
-        assert_eq!(multiline.expected_answer, MULTILINE_SOLUTION_EXPECTED);
+        assert!(multiline.stimulus.contains(MULTILINE_SOLUTION_EXPECTED));
+        assert_eq!(multiline.expected_answer(), MULTILINE_SOLUTION_EXPECTED);
 
         let unformatted = "fn add_one(x: i32) -> i32 { x + 1 }";
         if let FormatResult::Formatted(formatted) = format_rust_source(unformatted) {
@@ -401,9 +401,9 @@ mod tests {
         for index in 0..STRESS_FAMILY_COUNT {
             let packet = exercise_packet_at(index);
 
-            assert!(!packet.prompt.contains("PageDown"));
-            assert!(!packet.prompt.contains("PageUp"));
-            assert!(!packet.prompt.contains(&stale_reward_rail));
+            assert!(!packet.stimulus.contains("PageDown"));
+            assert!(!packet.stimulus.contains("PageUp"));
+            assert!(!packet.stimulus.contains(&stale_reward_rail));
         }
     }
 
@@ -413,14 +413,14 @@ mod tests {
         let second = exercise_packet_at(17);
 
         assert_eq!(first.id, second.id);
-        assert_eq!(first.prompt, second.prompt);
-        assert_eq!(first.expected_answer, second.expected_answer);
+        assert_eq!(first.stimulus, second.stimulus);
+        assert_eq!(first.expected_answer(), second.expected_answer());
     }
 
     #[test]
     fn syntax_sampler_lines_tokenize_without_losing_text() {
         let syntax = exercise_packet_at(SYNTAX_SAMPLER_FAMILY_INDEX);
-        let combined = format!("{}\n{}", syntax.prompt, syntax.expected_answer);
+        let combined = format!("{}\n{}", syntax.stimulus, syntax.expected_answer());
         let mut saw_keyword = false;
         let mut saw_type = false;
         let mut saw_number = false;

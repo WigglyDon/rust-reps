@@ -15,6 +15,7 @@ pub struct TuiApp {
 }
 
 impl TuiApp {
+    #[cfg(test)]
     pub fn new() -> Self {
         Self::with_session(engine::Session::new())
     }
@@ -232,9 +233,10 @@ impl TuiApp {
             self.ui_state.clear_skip_toast();
             self.ui_state.clear_format_toast();
             self.ui_state.clear_draft_input();
-            engine::exercise_packets()
+            self.session
+                .product_exercises()
                 .iter()
-                .map(|exercise| format!("{}  {}", exercise.id, exercise.expected_answer))
+                .map(|exercise| format!("{}  {}", exercise.id, exercise.stimulus))
                 .collect()
         } else if command == ":skip" {
             self.ui_state.clear_failure_pulse();
@@ -280,11 +282,14 @@ impl TuiApp {
                     self.ui_state.clear_skip_toast();
                     self.ui_state.clear_format_toast();
                     self.ui_state.start_failure_pulse(now);
-                    let expected = self.active_exercise().expected_answer;
+                    let answer = self
+                        .session
+                        .wrong_answer_feedback()
+                        .expect("wrong result carries answer feedback");
                     vec![
                         "not quite".to_string(),
                         "expected:".to_string(),
-                        expected.to_string(),
+                        answer.to_string(),
                     ]
                 }
                 engine::SubmitResult::UnsupportedValidator => {
@@ -603,7 +608,7 @@ mod tests {
         let mut app = TuiApp::new();
         let now = test_now();
         type_text(&mut app, "score+=1;");
-        let before_expected = app.active_exercise().expected_answer.to_string();
+        let before_expected = app.active_exercise().expected_answer().to_string();
 
         app.apply_format_result(now, FormatResult::Formatted("score += 1;".to_string()));
 
@@ -615,7 +620,7 @@ mod tests {
         assert_eq!(app.session().skipped(), 0);
         assert_eq!(app.session().attempts(), 0);
         assert_eq!(app.active_exercise().id, "001");
-        assert_eq!(app.active_exercise().expected_answer, before_expected);
+        assert_eq!(app.active_exercise().expected_answer(), before_expected);
         assert!(!frame.reward_active);
         assert!(!frame.failure_active);
         assert!(!frame.skip_active);
@@ -1352,7 +1357,7 @@ mod tests {
                 .session()
                 .current_exercise()
                 .expect("expected active exercise");
-            for ch in exercise.expected_answer.chars() {
+            for ch in exercise.expected_answer().chars() {
                 app.handle_action(ClientAction::TypeChar(ch));
             }
             app.handle_action(ClientAction::Submit);

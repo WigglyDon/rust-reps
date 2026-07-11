@@ -2,36 +2,25 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::process::{Command, Output, Stdio};
 
-const DRILL_001_PASS_OUTPUT: &str =
-    "Rust Reps\n----------------\n\nDrill 001\nPrompt:\n\nfn main() {}\n\n>PASS\n";
-const DRILL_001_TRY_AGAIN_OUTPUT: &str = "Rust Reps\n----------------\n\nDrill 001\nPrompt:\n\nfn main() {}\n\n>TRY AGAIN\nExpected:\nfn main() {}\n";
+const DRILL_001_PASS_OUTPUT: &str = "Rust Reps\n----------------\n\nDrill 001\nPrompt:\n\nCopy this line exactly:\nfn main() {}\n\n>PASS\n";
+const DRILL_001_TRY_AGAIN_OUTPUT: &str = "Rust Reps\n----------------\n\nDrill 001\nPrompt:\n\nCopy this line exactly:\nfn main() {}\n\n>TRY AGAIN\nExpected:\nfn main() {}\n";
 const DRILL_001_BLANK_LINE_OUTPUT: &str = DRILL_001_TRY_AGAIN_OUTPUT;
 const DRILL_001_TRAILING_SPACE_OUTPUT: &str = DRILL_001_TRY_AGAIN_OUTPUT;
 const DRILL_001_CRLF_PASS_OUTPUT: &str = DRILL_001_PASS_OUTPUT;
-const DRILL_002_PASS_OUTPUT: &str =
-    "Rust Reps\n----------------\n\nDrill 002\nPrompt:\n\nprintln!(\"Rust Reps\");\n\n>PASS\n";
-const DRILL_002_TRY_AGAIN_OUTPUT: &str = "Rust Reps\n----------------\n\nDrill 002\nPrompt:\n\nprintln!(\"Rust Reps\");\n\n>TRY AGAIN\nExpected:\nprintln!(\"Rust Reps\");\n";
-const DRILL_003_PASS_OUTPUT: &str =
-    "Rust Reps\n----------------\n\nDrill 003\nPrompt:\n\nlet answer = 42;\n\n>PASS\n";
-const DRILL_004_PASS_OUTPUT: &str =
-    "Rust Reps\n----------------\n\nDrill 004\nPrompt:\n\nlet name = \"Rust Reps\";\n\n>PASS\n";
-const DRILL_005_PASS_OUTPUT: &str =
-    "Rust Reps\n----------------\n\nDrill 005\nPrompt:\n\nlet mut score = 0;\n\n>PASS\n";
-const DRILL_006_PASS_OUTPUT: &str =
-    "Rust Reps\n----------------\n\nDrill 006\nPrompt:\n\nscore += 1;\n\n>PASS\n";
-const DRILL_006_TRY_AGAIN_OUTPUT: &str = "Rust Reps\n----------------\n\nDrill 006\nPrompt:\n\nscore += 1;\n\n>TRY AGAIN\nExpected:\nscore += 1;\n";
-const DRILL_007_PASS_OUTPUT: &str =
-    "Rust Reps\n----------------\n\nDrill 007\nPrompt:\n\nlet passed = true;\n\n>PASS\n";
-const DRILL_008_PASS_OUTPUT: &str =
-    "Rust Reps\n----------------\n\nDrill 008\nPrompt:\n\nlet score: i32 = 0;\n\n>PASS\n";
-const DRILL_009_PASS_OUTPUT: &str =
-    "Rust Reps\n----------------\n\nDrill 009\nPrompt:\n\nlet scores = [1, 2, 3];\n\n>PASS\n";
-const DRILL_010_PASS_OUTPUT: &str = "Rust Reps\n----------------\n\nDrill 010\nPrompt:\n\nfn add_one(x: i32) -> i32 { x + 1 }\n\n>PASS\n";
-const DRILL_011_PASS_OUTPUT: &str =
-    "Rust Reps\n----------------\n\nDrill 011\nPrompt:\n\nif score > 0 {}\n\n>PASS\n";
-const DRILL_012_PASS_OUTPUT: &str =
-    "Rust Reps\n----------------\n\nDrill 012\nPrompt:\n\nwhile score < 10 {}\n\n>PASS\n";
-const DRILL_012_TRY_AGAIN_OUTPUT: &str = "Rust Reps\n----------------\n\nDrill 012\nPrompt:\n\nwhile score < 10 {}\n\n>TRY AGAIN\nExpected:\nwhile score < 10 {}\n";
+const DRILL_002_PASS_OUTPUT: &str = "Rust Reps\n----------------\n\nDrill 002\nPrompt:\n\nCopy this line exactly:\nprintln!(\"Rust Reps\");\n\n>PASS\n";
+const DRILL_002_TRY_AGAIN_OUTPUT: &str = "Rust Reps\n----------------\n\nDrill 002\nPrompt:\n\nCopy this line exactly:\nprintln!(\"Rust Reps\");\n\n>TRY AGAIN\nExpected:\nprintln!(\"Rust Reps\");\n";
+const DRILL_003_PASS_OUTPUT: &str = "Rust Reps\n----------------\n\nDrill 003\nPrompt:\n\nCopy this line exactly:\nlet answer = 42;\n\n>PASS\n";
+const DRILL_004_PASS_OUTPUT: &str = "Rust Reps\n----------------\n\nDrill 004\nPrompt:\n\nCopy this line exactly:\nlet name = \"Rust Reps\";\n\n>PASS\n";
+const DRILL_005_PASS_OUTPUT: &str = "Rust Reps\n----------------\n\nDrill 005\nPrompt:\n\nCopy this line exactly:\nlet mut score = 0;\n\n>PASS\n";
+const DRILL_006_PASS_OUTPUT: &str = "Rust Reps\n----------------\n\nDrill 006\nPrompt:\n\nCopy this line exactly:\nscore += 1;\n\n>PASS\n";
+const DRILL_006_TRY_AGAIN_OUTPUT: &str = "Rust Reps\n----------------\n\nDrill 006\nPrompt:\n\nCopy this line exactly:\nscore += 1;\n\n>TRY AGAIN\nExpected:\nscore += 1;\n";
+const DRILL_007_PASS_OUTPUT: &str = "Rust Reps\n----------------\n\nDrill 007\nPrompt:\n\nCopy this line exactly:\nlet passed = true;\n\n>PASS\n";
+const DRILL_008_PASS_OUTPUT: &str = "Rust Reps\n----------------\n\nDrill 008\nPrompt:\n\nCopy this line exactly:\nlet score: i32 = 0;\n\n>PASS\n";
+const DRILL_009_PASS_OUTPUT: &str = "Rust Reps\n----------------\n\nDrill 009\nPrompt:\n\nCopy this line exactly:\nlet scores = [1, 2, 3];\n\n>PASS\n";
+const DRILL_010_PASS_OUTPUT: &str = "Rust Reps\n----------------\n\nDrill 010\nPrompt:\n\nCopy this line exactly:\nfn add_one(x: i32) -> i32 { x + 1 }\n\n>PASS\n";
+const DRILL_011_PASS_OUTPUT: &str = "Rust Reps\n----------------\n\nDrill 011\nPrompt:\n\nCopy this line exactly:\nif score > 0 {}\n\n>PASS\n";
+const DRILL_012_PASS_OUTPUT: &str = "Rust Reps\n----------------\n\nDrill 012\nPrompt:\n\nCopy this line exactly:\nwhile score < 10 {}\n\n>PASS\n";
+const DRILL_012_TRY_AGAIN_OUTPUT: &str = "Rust Reps\n----------------\n\nDrill 012\nPrompt:\n\nCopy this line exactly:\nwhile score < 10 {}\n\n>TRY AGAIN\nExpected:\nwhile score < 10 {}\n";
 const LIST_OUTPUT: &str = "Rust Reps\n----------------\n\nAvailable drills:\n001  fn main() {}\n002  println!(\"Rust Reps\");\n003  let answer = 42;\n004  let name = \"Rust Reps\";\n005  let mut score = 0;\n006  score += 1;\n007  let passed = true;\n008  let score: i32 = 0;\n009  let scores = [1, 2, 3];\n010  fn add_one(x: i32) -> i32 { x + 1 }\n011  if score > 0 {}\n012  while score < 10 {}\n";
 const HELP_OUTPUT: &str = "Rust Reps\n----------------\n\nUsage:\n  rust-reps\n  rust-reps plain\n  rust-reps [DRILL_ID]\n  rust-reps play\n  rust-reps lab\n  rust-reps --list\n  rust-reps --help\n  rust-reps --version\n\nDefault:\n  Starts fullscreen TUI in an interactive terminal.\n  Uses plain practice mode when stdin/stdout are piped.\n\nLab:\n  rust-reps lab starts a fullscreen client stress lab in an interactive terminal.\n  It is not curriculum and does not appear in --list.\n\nCurrent drills:\n001  fn main() {}\n002  println!(\"Rust Reps\");\n003  let answer = 42;\n004  let name = \"Rust Reps\";\n005  let mut score = 0;\n006  score += 1;\n007  let passed = true;\n008  let score: i32 = 0;\n009  let scores = [1, 2, 3];\n010  fn add_one(x: i32) -> i32 { x + 1 }\n011  if score > 0 {}\n012  while score < 10 {}\n";
 const LAB_REQUIRES_TTY_STDERR: &str = "error: lab mode requires an interactive terminal\n";
@@ -56,18 +45,18 @@ const PRACTICE_ALL_CORRECT_OUTPUT: &str = concat!(
     "Exact typing practice.\n",
     "Answers must match exactly.\n",
     "Type :help for commands and :q to quit.\n\n",
-    "Drill 001/012\nPrompt:\n\nfn main() {}\n\n>PASS\n\n",
-    "Drill 002/012\nPrompt:\n\nprintln!(\"Rust Reps\");\n\n>PASS\n\n",
-    "Drill 003/012\nPrompt:\n\nlet answer = 42;\n\n>PASS\n\n",
-    "Drill 004/012\nPrompt:\n\nlet name = \"Rust Reps\";\n\n>PASS\n\n",
-    "Drill 005/012\nPrompt:\n\nlet mut score = 0;\n\n>PASS\n\n",
-    "Drill 006/012\nPrompt:\n\nscore += 1;\n\n>PASS\n\n",
-    "Drill 007/012\nPrompt:\n\nlet passed = true;\n\n>PASS\n\n",
-    "Drill 008/012\nPrompt:\n\nlet score: i32 = 0;\n\n>PASS\n\n",
-    "Drill 009/012\nPrompt:\n\nlet scores = [1, 2, 3];\n\n>PASS\n\n",
-    "Drill 010/012\nPrompt:\n\nfn add_one(x: i32) -> i32 { x + 1 }\n\n>PASS\n\n",
-    "Drill 011/012\nPrompt:\n\nif score > 0 {}\n\n>PASS\n\n",
-    "Drill 012/012\nPrompt:\n\nwhile score < 10 {}\n\n>PASS\n\n",
+    "Drill 001/012\nPrompt:\n\nCopy this line exactly:\nfn main() {}\n\n>PASS\n\n",
+    "Drill 002/012\nPrompt:\n\nCopy this line exactly:\nprintln!(\"Rust Reps\");\n\n>PASS\n\n",
+    "Drill 003/012\nPrompt:\n\nCopy this line exactly:\nlet answer = 42;\n\n>PASS\n\n",
+    "Drill 004/012\nPrompt:\n\nCopy this line exactly:\nlet name = \"Rust Reps\";\n\n>PASS\n\n",
+    "Drill 005/012\nPrompt:\n\nCopy this line exactly:\nlet mut score = 0;\n\n>PASS\n\n",
+    "Drill 006/012\nPrompt:\n\nCopy this line exactly:\nscore += 1;\n\n>PASS\n\n",
+    "Drill 007/012\nPrompt:\n\nCopy this line exactly:\nlet passed = true;\n\n>PASS\n\n",
+    "Drill 008/012\nPrompt:\n\nCopy this line exactly:\nlet score: i32 = 0;\n\n>PASS\n\n",
+    "Drill 009/012\nPrompt:\n\nCopy this line exactly:\nlet scores = [1, 2, 3];\n\n>PASS\n\n",
+    "Drill 010/012\nPrompt:\n\nCopy this line exactly:\nfn add_one(x: i32) -> i32 { x + 1 }\n\n>PASS\n\n",
+    "Drill 011/012\nPrompt:\n\nCopy this line exactly:\nif score > 0 {}\n\n>PASS\n\n",
+    "Drill 012/012\nPrompt:\n\nCopy this line exactly:\nwhile score < 10 {}\n\n>PASS\n\n",
     "COMPLETE\n",
     "Summary:\n",
     "Passed: 12/12\n",
@@ -80,7 +69,7 @@ const PRACTICE_QUIT_OUTPUT: &str = concat!(
     "Exact typing practice.\n",
     "Answers must match exactly.\n",
     "Type :help for commands and :q to quit.\n\n",
-    "Drill 001/012\nPrompt:\n\nfn main() {}\n\n>QUIT\n",
+    "Drill 001/012\nPrompt:\n\nCopy this line exactly:\nfn main() {}\n\n>QUIT\n",
     "Summary:\n",
     "Passed: 0/12\n",
     "Skipped: 0\n",
@@ -92,11 +81,11 @@ const PRACTICE_RETRY_THEN_QUIT_OUTPUT: &str = concat!(
     "Exact typing practice.\n",
     "Answers must match exactly.\n",
     "Type :help for commands and :q to quit.\n\n",
-    "Drill 001/012\nPrompt:\n\nfn main() {}\n\n>TRY AGAIN\n",
+    "Drill 001/012\nPrompt:\n\nCopy this line exactly:\nfn main() {}\n\n>TRY AGAIN\n",
     "Expected:\n",
     "fn main() {}\n\n",
-    "Drill 001/012\nPrompt:\n\nfn main() {}\n\n>PASS\n\n",
-    "Drill 002/012\nPrompt:\n\nprintln!(\"Rust Reps\");\n\n>QUIT\n",
+    "Drill 001/012\nPrompt:\n\nCopy this line exactly:\nfn main() {}\n\n>PASS\n\n",
+    "Drill 002/012\nPrompt:\n\nCopy this line exactly:\nprintln!(\"Rust Reps\");\n\n>QUIT\n",
     "Summary:\n",
     "Passed: 1/12\n",
     "Skipped: 0\n",
@@ -108,7 +97,7 @@ const PRACTICE_WRONG_THEN_QUIT_OUTPUT: &str = concat!(
     "Exact typing practice.\n",
     "Answers must match exactly.\n",
     "Type :help for commands and :q to quit.\n\n",
-    "Drill 001/012\nPrompt:\n\nfn main() {}\n\n>TRY AGAIN\nExpected:\nfn main() {}\n\nDrill 001/012\nPrompt:\n\nfn main() {}\n\n>QUIT\nSummary:\nPassed: 0/12\nSkipped: 0\nAttempts: 1\n",
+    "Drill 001/012\nPrompt:\n\nCopy this line exactly:\nfn main() {}\n\n>TRY AGAIN\nExpected:\nfn main() {}\n\nDrill 001/012\nPrompt:\n\nCopy this line exactly:\nfn main() {}\n\n>QUIT\nSummary:\nPassed: 0/12\nSkipped: 0\nAttempts: 1\n",
 );
 const PRACTICE_HELP_THEN_QUIT_OUTPUT: &str = concat!(
     "Rust Reps\n----------------\n\n",
@@ -116,14 +105,14 @@ const PRACTICE_HELP_THEN_QUIT_OUTPUT: &str = concat!(
     "Exact typing practice.\n",
     "Answers must match exactly.\n",
     "Type :help for commands and :q to quit.\n\n",
-    "Drill 001/012\nPrompt:\n\nfn main() {}\n\n>Commands:\n",
+    "Drill 001/012\nPrompt:\n\nCopy this line exactly:\nfn main() {}\n\n>Commands:\n",
     ":help    show commands\n",
     ":status  show session status\n",
     ":list    show drills\n",
     ":skip    skip current drill\n",
     ":q       quit\n",
     ":quit    quit\n\n",
-    "Drill 001/012\nPrompt:\n\nfn main() {}\n\n>QUIT\n",
+    "Drill 001/012\nPrompt:\n\nCopy this line exactly:\nfn main() {}\n\n>QUIT\n",
     "Summary:\n",
     "Passed: 0/12\n",
     "Skipped: 0\n",
@@ -135,12 +124,12 @@ const PRACTICE_STATUS_THEN_QUIT_OUTPUT: &str = concat!(
     "Exact typing practice.\n",
     "Answers must match exactly.\n",
     "Type :help for commands and :q to quit.\n\n",
-    "Drill 001/012\nPrompt:\n\nfn main() {}\n\n>Status:\n",
+    "Drill 001/012\nPrompt:\n\nCopy this line exactly:\nfn main() {}\n\n>Status:\n",
     "Current: 001/012\n",
     "Passed: 0/12\n",
     "Skipped: 0\n",
     "Attempts: 0\n\n",
-    "Drill 001/012\nPrompt:\n\nfn main() {}\n\n>QUIT\n",
+    "Drill 001/012\nPrompt:\n\nCopy this line exactly:\nfn main() {}\n\n>QUIT\n",
     "Summary:\n",
     "Passed: 0/12\n",
     "Skipped: 0\n",
@@ -152,7 +141,7 @@ const PRACTICE_LIST_THEN_QUIT_OUTPUT: &str = concat!(
     "Exact typing practice.\n",
     "Answers must match exactly.\n",
     "Type :help for commands and :q to quit.\n\n",
-    "Drill 001/012\nPrompt:\n\nfn main() {}\n\n>Available drills:\n",
+    "Drill 001/012\nPrompt:\n\nCopy this line exactly:\nfn main() {}\n\n>Available drills:\n",
     "001  fn main() {}\n",
     "002  println!(\"Rust Reps\");\n",
     "003  let answer = 42;\n",
@@ -165,7 +154,7 @@ const PRACTICE_LIST_THEN_QUIT_OUTPUT: &str = concat!(
     "010  fn add_one(x: i32) -> i32 { x + 1 }\n",
     "011  if score > 0 {}\n",
     "012  while score < 10 {}\n\n",
-    "Drill 001/012\nPrompt:\n\nfn main() {}\n\n>QUIT\n",
+    "Drill 001/012\nPrompt:\n\nCopy this line exactly:\nfn main() {}\n\n>QUIT\n",
     "Summary:\n",
     "Passed: 0/12\n",
     "Skipped: 0\n",
@@ -177,8 +166,8 @@ const PRACTICE_SKIP_THEN_QUIT_OUTPUT: &str = concat!(
     "Exact typing practice.\n",
     "Answers must match exactly.\n",
     "Type :help for commands and :q to quit.\n\n",
-    "Drill 001/012\nPrompt:\n\nfn main() {}\n\n>SKIP\n\n",
-    "Drill 002/012\nPrompt:\n\nprintln!(\"Rust Reps\");\n\n>QUIT\n",
+    "Drill 001/012\nPrompt:\n\nCopy this line exactly:\nfn main() {}\n\n>SKIP\n\n",
+    "Drill 002/012\nPrompt:\n\nCopy this line exactly:\nprintln!(\"Rust Reps\");\n\n>QUIT\n",
     "Summary:\n",
     "Passed: 0/12\n",
     "Skipped: 1\n",
@@ -191,19 +180,19 @@ const PRACTICE_HELP_THEN_STATUS_THEN_QUIT_OUTPUT: &str = concat!(
     "Exact typing practice.\n",
     "Answers must match exactly.\n",
     "Type :help for commands and :q to quit.\n\n",
-    "Drill 001/012\nPrompt:\n\nfn main() {}\n\n>Commands:\n",
+    "Drill 001/012\nPrompt:\n\nCopy this line exactly:\nfn main() {}\n\n>Commands:\n",
     ":help    show commands\n",
     ":status  show session status\n",
     ":list    show drills\n",
     ":skip    skip current drill\n",
     ":q       quit\n",
     ":quit    quit\n\n",
-    "Drill 001/012\nPrompt:\n\nfn main() {}\n\n>Status:\n",
+    "Drill 001/012\nPrompt:\n\nCopy this line exactly:\nfn main() {}\n\n>Status:\n",
     "Current: 001/012\n",
     "Passed: 0/12\n",
     "Skipped: 0\n",
     "Attempts: 0\n\n",
-    "Drill 001/012\nPrompt:\n\nfn main() {}\n\n>QUIT\n",
+    "Drill 001/012\nPrompt:\n\nCopy this line exactly:\nfn main() {}\n\n>QUIT\n",
     "Summary:\n",
     "Passed: 0/12\n",
     "Skipped: 0\n",
@@ -216,15 +205,15 @@ const PRACTICE_WRONG_THEN_STATUS_THEN_QUIT_OUTPUT: &str = concat!(
     "Exact typing practice.\n",
     "Answers must match exactly.\n",
     "Type :help for commands and :q to quit.\n\n",
-    "Drill 001/012\nPrompt:\n\nfn main() {}\n\n>TRY AGAIN\n",
+    "Drill 001/012\nPrompt:\n\nCopy this line exactly:\nfn main() {}\n\n>TRY AGAIN\n",
     "Expected:\n",
     "fn main() {}\n\n",
-    "Drill 001/012\nPrompt:\n\nfn main() {}\n\n>Status:\n",
+    "Drill 001/012\nPrompt:\n\nCopy this line exactly:\nfn main() {}\n\n>Status:\n",
     "Current: 001/012\n",
     "Passed: 0/12\n",
     "Skipped: 0\n",
     "Attempts: 1\n\n",
-    "Drill 001/012\nPrompt:\n\nfn main() {}\n\n>QUIT\n",
+    "Drill 001/012\nPrompt:\n\nCopy this line exactly:\nfn main() {}\n\n>QUIT\n",
     "Summary:\n",
     "Passed: 0/12\n",
     "Skipped: 0\n",
@@ -237,13 +226,13 @@ const PRACTICE_CORRECT_THEN_STATUS_THEN_QUIT_OUTPUT: &str = concat!(
     "Exact typing practice.\n",
     "Answers must match exactly.\n",
     "Type :help for commands and :q to quit.\n\n",
-    "Drill 001/012\nPrompt:\n\nfn main() {}\n\n>PASS\n\n",
-    "Drill 002/012\nPrompt:\n\nprintln!(\"Rust Reps\");\n\n>Status:\n",
+    "Drill 001/012\nPrompt:\n\nCopy this line exactly:\nfn main() {}\n\n>PASS\n\n",
+    "Drill 002/012\nPrompt:\n\nCopy this line exactly:\nprintln!(\"Rust Reps\");\n\n>Status:\n",
     "Current: 002/012\n",
     "Passed: 1/12\n",
     "Skipped: 0\n",
     "Attempts: 1\n\n",
-    "Drill 002/012\nPrompt:\n\nprintln!(\"Rust Reps\");\n\n>QUIT\n",
+    "Drill 002/012\nPrompt:\n\nCopy this line exactly:\nprintln!(\"Rust Reps\");\n\n>QUIT\n",
     "Summary:\n",
     "Passed: 1/12\n",
     "Skipped: 0\n",
@@ -256,13 +245,13 @@ const PRACTICE_SKIP_THEN_STATUS_THEN_QUIT_OUTPUT: &str = concat!(
     "Exact typing practice.\n",
     "Answers must match exactly.\n",
     "Type :help for commands and :q to quit.\n\n",
-    "Drill 001/012\nPrompt:\n\nfn main() {}\n\n>SKIP\n\n",
-    "Drill 002/012\nPrompt:\n\nprintln!(\"Rust Reps\");\n\n>Status:\n",
+    "Drill 001/012\nPrompt:\n\nCopy this line exactly:\nfn main() {}\n\n>SKIP\n\n",
+    "Drill 002/012\nPrompt:\n\nCopy this line exactly:\nprintln!(\"Rust Reps\");\n\n>Status:\n",
     "Current: 002/012\n",
     "Passed: 0/12\n",
     "Skipped: 1\n",
     "Attempts: 0\n\n",
-    "Drill 002/012\nPrompt:\n\nprintln!(\"Rust Reps\");\n\n>QUIT\n",
+    "Drill 002/012\nPrompt:\n\nCopy this line exactly:\nprintln!(\"Rust Reps\");\n\n>QUIT\n",
     "Summary:\n",
     "Passed: 0/12\n",
     "Skipped: 1\n",
@@ -275,8 +264,8 @@ const PRACTICE_UNKNOWN_THEN_QUIT_OUTPUT: &str = concat!(
     "Exact typing practice.\n",
     "Answers must match exactly.\n",
     "Type :help for commands and :q to quit.\n\n",
-    "Drill 001/012\nPrompt:\n\nfn main() {}\n\n>UNKNOWN COMMAND\nType :help for commands.\n\n",
-    "Drill 001/012\nPrompt:\n\nfn main() {}\n\n>QUIT\n",
+    "Drill 001/012\nPrompt:\n\nCopy this line exactly:\nfn main() {}\n\n>UNKNOWN COMMAND\nType :help for commands.\n\n",
+    "Drill 001/012\nPrompt:\n\nCopy this line exactly:\nfn main() {}\n\n>QUIT\n",
     "Summary:\n",
     "Passed: 0/12\n",
     "Skipped: 0\n",
@@ -289,13 +278,13 @@ const PRACTICE_UNKNOWN_THEN_STATUS_THEN_QUIT_OUTPUT: &str = concat!(
     "Exact typing practice.\n",
     "Answers must match exactly.\n",
     "Type :help for commands and :q to quit.\n\n",
-    "Drill 001/012\nPrompt:\n\nfn main() {}\n\n>UNKNOWN COMMAND\nType :help for commands.\n\n",
-    "Drill 001/012\nPrompt:\n\nfn main() {}\n\n>Status:\n",
+    "Drill 001/012\nPrompt:\n\nCopy this line exactly:\nfn main() {}\n\n>UNKNOWN COMMAND\nType :help for commands.\n\n",
+    "Drill 001/012\nPrompt:\n\nCopy this line exactly:\nfn main() {}\n\n>Status:\n",
     "Current: 001/012\n",
     "Passed: 0/12\n",
     "Skipped: 0\n",
     "Attempts: 0\n\n",
-    "Drill 001/012\nPrompt:\n\nfn main() {}\n\n>QUIT\n",
+    "Drill 001/012\nPrompt:\n\nCopy this line exactly:\nfn main() {}\n\n>QUIT\n",
     "Summary:\n",
     "Passed: 0/12\n",
     "Skipped: 0\n",
@@ -308,13 +297,13 @@ const PRACTICE_BLANK_LINE_THEN_STATUS_THEN_QUIT_OUTPUT: &str = concat!(
     "Exact typing practice.\n",
     "Answers must match exactly.\n",
     "Type :help for commands and :q to quit.\n\n",
-    "Drill 001/012\nPrompt:\n\nfn main() {}\n\n>TRY AGAIN\nExpected:\nfn main() {}\n\n",
-    "Drill 001/012\nPrompt:\n\nfn main() {}\n\n>Status:\n",
+    "Drill 001/012\nPrompt:\n\nCopy this line exactly:\nfn main() {}\n\n>TRY AGAIN\nExpected:\nfn main() {}\n\n",
+    "Drill 001/012\nPrompt:\n\nCopy this line exactly:\nfn main() {}\n\n>Status:\n",
     "Current: 001/012\n",
     "Passed: 0/12\n",
     "Skipped: 0\n",
     "Attempts: 1\n\n",
-    "Drill 001/012\nPrompt:\n\nfn main() {}\n\n>QUIT\n",
+    "Drill 001/012\nPrompt:\n\nCopy this line exactly:\nfn main() {}\n\n>QUIT\n",
     "Summary:\n",
     "Passed: 0/12\n",
     "Skipped: 0\n",
@@ -330,8 +319,8 @@ const PRACTICE_CRLF_CORRECT_THEN_QUIT_OUTPUT: &str = concat!(
     "Exact typing practice.\n",
     "Answers must match exactly.\n",
     "Type :help for commands and :q to quit.\n\n",
-    "Drill 001/012\nPrompt:\n\nfn main() {}\n\n>PASS\n\n",
-    "Drill 002/012\nPrompt:\n\nprintln!(\"Rust Reps\");\n\n>QUIT\n",
+    "Drill 001/012\nPrompt:\n\nCopy this line exactly:\nfn main() {}\n\n>PASS\n\n",
+    "Drill 002/012\nPrompt:\n\nCopy this line exactly:\nprintln!(\"Rust Reps\");\n\n>QUIT\n",
     "Summary:\n",
     "Passed: 1/12\n",
     "Skipped: 0\n",
@@ -344,9 +333,9 @@ const PRACTICE_UNKNOWN_THEN_CORRECT_THEN_QUIT_OUTPUT: &str = concat!(
     "Exact typing practice.\n",
     "Answers must match exactly.\n",
     "Type :help for commands and :q to quit.\n\n",
-    "Drill 001/012\nPrompt:\n\nfn main() {}\n\n>UNKNOWN COMMAND\nType :help for commands.\n\n",
-    "Drill 001/012\nPrompt:\n\nfn main() {}\n\n>PASS\n\n",
-    "Drill 002/012\nPrompt:\n\nprintln!(\"Rust Reps\");\n\n>QUIT\n",
+    "Drill 001/012\nPrompt:\n\nCopy this line exactly:\nfn main() {}\n\n>UNKNOWN COMMAND\nType :help for commands.\n\n",
+    "Drill 001/012\nPrompt:\n\nCopy this line exactly:\nfn main() {}\n\n>PASS\n\n",
+    "Drill 002/012\nPrompt:\n\nCopy this line exactly:\nprintln!(\"Rust Reps\");\n\n>QUIT\n",
     "Summary:\n",
     "Passed: 1/12\n",
     "Skipped: 0\n",
@@ -373,18 +362,18 @@ const PRACTICE_SKIP_FINAL_OUTPUT: &str = concat!(
     "Exact typing practice.\n",
     "Answers must match exactly.\n",
     "Type :help for commands and :q to quit.\n\n",
-    "Drill 001/012\nPrompt:\n\nfn main() {}\n\n>PASS\n\n",
-    "Drill 002/012\nPrompt:\n\nprintln!(\"Rust Reps\");\n\n>PASS\n\n",
-    "Drill 003/012\nPrompt:\n\nlet answer = 42;\n\n>PASS\n\n",
-    "Drill 004/012\nPrompt:\n\nlet name = \"Rust Reps\";\n\n>PASS\n\n",
-    "Drill 005/012\nPrompt:\n\nlet mut score = 0;\n\n>PASS\n\n",
-    "Drill 006/012\nPrompt:\n\nscore += 1;\n\n>PASS\n\n",
-    "Drill 007/012\nPrompt:\n\nlet passed = true;\n\n>PASS\n\n",
-    "Drill 008/012\nPrompt:\n\nlet score: i32 = 0;\n\n>PASS\n\n",
-    "Drill 009/012\nPrompt:\n\nlet scores = [1, 2, 3];\n\n>PASS\n\n",
-    "Drill 010/012\nPrompt:\n\nfn add_one(x: i32) -> i32 { x + 1 }\n\n>PASS\n\n",
-    "Drill 011/012\nPrompt:\n\nif score > 0 {}\n\n>PASS\n\n",
-    "Drill 012/012\nPrompt:\n\nwhile score < 10 {}\n\n>SKIP\n",
+    "Drill 001/012\nPrompt:\n\nCopy this line exactly:\nfn main() {}\n\n>PASS\n\n",
+    "Drill 002/012\nPrompt:\n\nCopy this line exactly:\nprintln!(\"Rust Reps\");\n\n>PASS\n\n",
+    "Drill 003/012\nPrompt:\n\nCopy this line exactly:\nlet answer = 42;\n\n>PASS\n\n",
+    "Drill 004/012\nPrompt:\n\nCopy this line exactly:\nlet name = \"Rust Reps\";\n\n>PASS\n\n",
+    "Drill 005/012\nPrompt:\n\nCopy this line exactly:\nlet mut score = 0;\n\n>PASS\n\n",
+    "Drill 006/012\nPrompt:\n\nCopy this line exactly:\nscore += 1;\n\n>PASS\n\n",
+    "Drill 007/012\nPrompt:\n\nCopy this line exactly:\nlet passed = true;\n\n>PASS\n\n",
+    "Drill 008/012\nPrompt:\n\nCopy this line exactly:\nlet score: i32 = 0;\n\n>PASS\n\n",
+    "Drill 009/012\nPrompt:\n\nCopy this line exactly:\nlet scores = [1, 2, 3];\n\n>PASS\n\n",
+    "Drill 010/012\nPrompt:\n\nCopy this line exactly:\nfn add_one(x: i32) -> i32 { x + 1 }\n\n>PASS\n\n",
+    "Drill 011/012\nPrompt:\n\nCopy this line exactly:\nif score > 0 {}\n\n>PASS\n\n",
+    "Drill 012/012\nPrompt:\n\nCopy this line exactly:\nwhile score < 10 {}\n\n>SKIP\n",
     "COMPLETE\n",
     "Summary:\n",
     "Passed: 11/12\n",
@@ -403,18 +392,18 @@ const PRACTICE_ALL_SKIP_OUTPUT: &str = concat!(
     "Exact typing practice.\n",
     "Answers must match exactly.\n",
     "Type :help for commands and :q to quit.\n\n",
-    "Drill 001/012\nPrompt:\n\nfn main() {}\n\n>SKIP\n\n",
-    "Drill 002/012\nPrompt:\n\nprintln!(\"Rust Reps\");\n\n>SKIP\n\n",
-    "Drill 003/012\nPrompt:\n\nlet answer = 42;\n\n>SKIP\n\n",
-    "Drill 004/012\nPrompt:\n\nlet name = \"Rust Reps\";\n\n>SKIP\n\n",
-    "Drill 005/012\nPrompt:\n\nlet mut score = 0;\n\n>SKIP\n\n",
-    "Drill 006/012\nPrompt:\n\nscore += 1;\n\n>SKIP\n\n",
-    "Drill 007/012\nPrompt:\n\nlet passed = true;\n\n>SKIP\n\n",
-    "Drill 008/012\nPrompt:\n\nlet score: i32 = 0;\n\n>SKIP\n\n",
-    "Drill 009/012\nPrompt:\n\nlet scores = [1, 2, 3];\n\n>SKIP\n\n",
-    "Drill 010/012\nPrompt:\n\nfn add_one(x: i32) -> i32 { x + 1 }\n\n>SKIP\n\n",
-    "Drill 011/012\nPrompt:\n\nif score > 0 {}\n\n>SKIP\n\n",
-    "Drill 012/012\nPrompt:\n\nwhile score < 10 {}\n\n>SKIP\n",
+    "Drill 001/012\nPrompt:\n\nCopy this line exactly:\nfn main() {}\n\n>SKIP\n\n",
+    "Drill 002/012\nPrompt:\n\nCopy this line exactly:\nprintln!(\"Rust Reps\");\n\n>SKIP\n\n",
+    "Drill 003/012\nPrompt:\n\nCopy this line exactly:\nlet answer = 42;\n\n>SKIP\n\n",
+    "Drill 004/012\nPrompt:\n\nCopy this line exactly:\nlet name = \"Rust Reps\";\n\n>SKIP\n\n",
+    "Drill 005/012\nPrompt:\n\nCopy this line exactly:\nlet mut score = 0;\n\n>SKIP\n\n",
+    "Drill 006/012\nPrompt:\n\nCopy this line exactly:\nscore += 1;\n\n>SKIP\n\n",
+    "Drill 007/012\nPrompt:\n\nCopy this line exactly:\nlet passed = true;\n\n>SKIP\n\n",
+    "Drill 008/012\nPrompt:\n\nCopy this line exactly:\nlet score: i32 = 0;\n\n>SKIP\n\n",
+    "Drill 009/012\nPrompt:\n\nCopy this line exactly:\nlet scores = [1, 2, 3];\n\n>SKIP\n\n",
+    "Drill 010/012\nPrompt:\n\nCopy this line exactly:\nfn add_one(x: i32) -> i32 { x + 1 }\n\n>SKIP\n\n",
+    "Drill 011/012\nPrompt:\n\nCopy this line exactly:\nif score > 0 {}\n\n>SKIP\n\n",
+    "Drill 012/012\nPrompt:\n\nCopy this line exactly:\nwhile score < 10 {}\n\n>SKIP\n",
     "COMPLETE\n",
     "Summary:\n",
     "Passed: 0/12\n",
@@ -445,21 +434,21 @@ const PRACTICE_MIXED_COMPLETE_OUTPUT: &str = concat!(
     "Exact typing practice.\n",
     "Answers must match exactly.\n",
     "Type :help for commands and :q to quit.\n\n",
-    "Drill 001/012\nPrompt:\n\nfn main() {}\n\n>TRY AGAIN\n",
+    "Drill 001/012\nPrompt:\n\nCopy this line exactly:\nfn main() {}\n\n>TRY AGAIN\n",
     "Expected:\n",
     "fn main() {}\n\n",
-    "Drill 001/012\nPrompt:\n\nfn main() {}\n\n>PASS\n\n",
-    "Drill 002/012\nPrompt:\n\nprintln!(\"Rust Reps\");\n\n>SKIP\n\n",
-    "Drill 003/012\nPrompt:\n\nlet answer = 42;\n\n>SKIP\n\n",
-    "Drill 004/012\nPrompt:\n\nlet name = \"Rust Reps\";\n\n>SKIP\n\n",
-    "Drill 005/012\nPrompt:\n\nlet mut score = 0;\n\n>SKIP\n\n",
-    "Drill 006/012\nPrompt:\n\nscore += 1;\n\n>SKIP\n\n",
-    "Drill 007/012\nPrompt:\n\nlet passed = true;\n\n>SKIP\n\n",
-    "Drill 008/012\nPrompt:\n\nlet score: i32 = 0;\n\n>SKIP\n\n",
-    "Drill 009/012\nPrompt:\n\nlet scores = [1, 2, 3];\n\n>SKIP\n\n",
-    "Drill 010/012\nPrompt:\n\nfn add_one(x: i32) -> i32 { x + 1 }\n\n>SKIP\n\n",
-    "Drill 011/012\nPrompt:\n\nif score > 0 {}\n\n>SKIP\n\n",
-    "Drill 012/012\nPrompt:\n\nwhile score < 10 {}\n\n>SKIP\n",
+    "Drill 001/012\nPrompt:\n\nCopy this line exactly:\nfn main() {}\n\n>PASS\n\n",
+    "Drill 002/012\nPrompt:\n\nCopy this line exactly:\nprintln!(\"Rust Reps\");\n\n>SKIP\n\n",
+    "Drill 003/012\nPrompt:\n\nCopy this line exactly:\nlet answer = 42;\n\n>SKIP\n\n",
+    "Drill 004/012\nPrompt:\n\nCopy this line exactly:\nlet name = \"Rust Reps\";\n\n>SKIP\n\n",
+    "Drill 005/012\nPrompt:\n\nCopy this line exactly:\nlet mut score = 0;\n\n>SKIP\n\n",
+    "Drill 006/012\nPrompt:\n\nCopy this line exactly:\nscore += 1;\n\n>SKIP\n\n",
+    "Drill 007/012\nPrompt:\n\nCopy this line exactly:\nlet passed = true;\n\n>SKIP\n\n",
+    "Drill 008/012\nPrompt:\n\nCopy this line exactly:\nlet score: i32 = 0;\n\n>SKIP\n\n",
+    "Drill 009/012\nPrompt:\n\nCopy this line exactly:\nlet scores = [1, 2, 3];\n\n>SKIP\n\n",
+    "Drill 010/012\nPrompt:\n\nCopy this line exactly:\nfn add_one(x: i32) -> i32 { x + 1 }\n\n>SKIP\n\n",
+    "Drill 011/012\nPrompt:\n\nCopy this line exactly:\nif score > 0 {}\n\n>SKIP\n\n",
+    "Drill 012/012\nPrompt:\n\nCopy this line exactly:\nwhile score < 10 {}\n\n>SKIP\n",
     "COMPLETE\n",
     "Summary:\n",
     "Passed: 1/12\n",
@@ -836,10 +825,11 @@ fn explicit_drill_001_input_exits_successfully_and_prints_pass() {
     let output = run_rust_reps(&["001"], "fn main() {}\n");
 
     assert!(output.status.success());
-    assert_eq!(
-        String::from_utf8(output.stdout).unwrap(),
-        DRILL_001_PASS_OUTPUT
-    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert_eq!(stdout, DRILL_001_PASS_OUTPUT);
+    assert_eq!(stdout.matches("Copy this line exactly:").count(), 1);
+    assert_eq!(stdout.matches("fn main() {}").count(), 1);
+    assert_eq!(String::from_utf8(output.stderr).unwrap(), "");
 }
 
 #[test]
@@ -847,10 +837,10 @@ fn one_shot_wrong_answer_exits_successfully_and_prints_try_again() {
     let output = run_rust_reps(&["001"], "wrong\n");
 
     assert!(output.status.success());
-    assert_eq!(
-        String::from_utf8(output.stdout).unwrap(),
-        DRILL_001_TRY_AGAIN_OUTPUT
-    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert_eq!(stdout, DRILL_001_TRY_AGAIN_OUTPUT);
+    assert_eq!(stdout.matches("Copy this line exactly:").count(), 1);
+    assert_eq!(stdout.matches("fn main() {}").count(), 2);
     assert_eq!(String::from_utf8(output.stderr).unwrap(), "");
 }
 

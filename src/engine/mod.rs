@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use crate::{catalog, curriculum, lab, validators};
+use crate::{curriculum, lab, validators};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ExerciseKind {
@@ -8,7 +8,7 @@ pub enum ExerciseKind {
 }
 
 impl ExerciseKind {
-    fn from_task_type(task_type: curriculum::TaskType) -> Self {
+    pub(crate) fn from_task_type(task_type: curriculum::TaskType) -> Self {
         match task_type {
             curriculum::TaskType::TypeExact => Self::TypeExact,
         }
@@ -22,17 +22,17 @@ pub enum ExerciseValidator {
 }
 
 impl ExerciseValidator {
-    fn from_validator(validator: curriculum::Validator) -> Self {
+    pub(crate) fn from_validator(validator: curriculum::Validator) -> Self {
         match validator {
             curriculum::Validator::Exact => Self::Exact,
             curriculum::Validator::RustfmtExact => Self::RustfmtExact,
         }
     }
 
-    fn validator_kind(self) -> validators::ValidatorKind {
+    fn validator(self) -> curriculum::Validator {
         match self {
-            Self::Exact => validators::ValidatorKind::Exact,
-            Self::RustfmtExact => validators::ValidatorKind::RustfmtExact,
+            Self::Exact => curriculum::Validator::Exact,
+            Self::RustfmtExact => curriculum::Validator::RustfmtExact,
         }
     }
 }
@@ -44,7 +44,7 @@ pub enum ExerciseAnswerRule {
 }
 
 impl ExerciseAnswerRule {
-    fn from_answer_rule(answer_rule: curriculum::AnswerRule) -> Self {
+    pub(crate) fn from_answer_rule(answer_rule: curriculum::AnswerRule) -> Self {
         match answer_rule {
             curriculum::AnswerRule::ExactTrimFinalNewline => Self::ExactTrimFinalNewline,
             curriculum::AnswerRule::RustfmtExact => Self::RustfmtExact,
@@ -64,20 +64,49 @@ pub struct ExercisePacket {
     pub id: Cow<'static, str>,
     pub position: usize,
     pub total: usize,
-    pub prompt: Cow<'static, str>,
-    pub expected_answer: Cow<'static, str>,
     pub instruction: Cow<'static, str>,
+    pub stimulus: Cow<'static, str>,
+    expected_answer: Cow<'static, str>,
     pub kind: ExerciseKind,
     pub validator: ExerciseValidator,
     pub answer_rule: ExerciseAnswerRule,
 }
 
 impl ExercisePacket {
+    pub(crate) fn new(
+        id: Cow<'static, str>,
+        position: usize,
+        total: usize,
+        instruction: Cow<'static, str>,
+        stimulus: Cow<'static, str>,
+        expected_answer: Cow<'static, str>,
+        kind: ExerciseKind,
+        validator: ExerciseValidator,
+        answer_rule: ExerciseAnswerRule,
+    ) -> Self {
+        Self {
+            id,
+            position,
+            total,
+            instruction,
+            stimulus,
+            expected_answer,
+            kind,
+            validator,
+            answer_rule,
+        }
+    }
+
     fn validator_spec(&self) -> validators::ValidatorSpec {
-        validators::ValidatorSpec::new(
-            self.validator.validator_kind(),
+        validators::ValidatorSpec::from_catalog(
+            self.validator.validator(),
             self.answer_rule.answer_rule(),
         )
+    }
+
+    #[cfg(test)]
+    pub(crate) fn expected_answer(&self) -> &str {
+        self.expected_answer.as_ref()
     }
 }
 
@@ -110,29 +139,38 @@ pub struct SessionSnapshot {
     pub is_complete: bool,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 enum ExerciseSource {
-    Catalog,
-    Lab,
+    Product(Vec<ExercisePacket>),
+    Lab {
+        product_exercises: Vec<ExercisePacket>,
+    },
 }
 
 impl ExerciseSource {
-    fn len(self) -> usize {
+    fn len(&self) -> usize {
         match self {
-            Self::Catalog => catalog::drills().len(),
-            Self::Lab => usize::MAX,
+            Self::Product(exercises) => exercises.len(),
+            Self::Lab { .. } => usize::MAX,
         }
     }
 
-    fn get(self, index: usize) -> Option<ExercisePacket> {
+    fn get(&self, index: usize) -> Option<ExercisePacket> {
         match self {
-            Self::Catalog => catalog_exercise_packet_at(index),
-            Self::Lab => Some(lab::exercise_packet_at(index)),
+            Self::Product(exercises) => exercises.get(index).cloned(),
+            Self::Lab { .. } => Some(lab::exercise_packet_at(index)),
         }
     }
 
-    fn is_endless(self) -> bool {
-        matches!(self, Self::Lab)
+    fn product_exercises(&self) -> &[ExercisePacket] {
+        match self {
+            Self::Product(exercises) => exercises,
+            Self::Lab { product_exercises } => product_exercises,
+        }
+    }
+
+    fn is_endless(&self) -> bool {
+        matches!(self, Self::Lab { .. })
     }
 }
 
@@ -142,37 +180,60 @@ pub struct Session {
     passed: usize,
     skipped: usize,
     attempts: usize,
+    wrong_answer_feedback: Option<Cow<'static, str>>,
 }
 
 impl Session {
-    pub fn new() -> Self {
+    pub(crate) fn from_exercises(exercises: Vec<ExercisePacket>) -> Self {
         Self {
-            source: ExerciseSource::Catalog,
+            source: ExerciseSource::Product(exercises),
             index: 0,
             passed: 0,
             skipped: 0,
             attempts: 0,
+            wrong_answer_feedback: None,
         }
     }
 
-    pub fn lab() -> Self {
+    pub(crate) fn lab_with_product_exercises(product_exercises: Vec<ExercisePacket>) -> Self {
         Self {
-            source: ExerciseSource::Lab,
+            source: ExerciseSource::Lab { product_exercises },
             index: 0,
             passed: 0,
             skipped: 0,
             attempts: 0,
+            wrong_answer_feedback: None,
         }
+    }
+
+    #[cfg(test)]
+    pub fn new() -> Self {
+        Self::from_exercises(
+            crate::orchestration::current_product_exercise_packets()
+                .expect("test product exercises must resolve"),
+        )
+    }
+
+    #[cfg(test)]
+    pub fn lab() -> Self {
+        Self::lab_with_product_exercises(
+            crate::orchestration::current_product_exercise_packets()
+                .expect("test product exercises must resolve"),
+        )
     }
 
     #[cfg(test)]
     pub fn lab_at(index: usize) -> Self {
         Self {
-            source: ExerciseSource::Lab,
+            source: ExerciseSource::Lab {
+                product_exercises: crate::orchestration::current_product_exercise_packets()
+                    .expect("test product exercises must resolve"),
+            },
             index,
             passed: 0,
             skipped: 0,
             attempts: 0,
+            wrong_answer_feedback: None,
         }
     }
 
@@ -192,6 +253,14 @@ impl Session {
         self.attempts
     }
 
+    pub fn product_exercises(&self) -> &[ExercisePacket] {
+        self.source.product_exercises()
+    }
+
+    pub fn wrong_answer_feedback(&self) -> Option<&str> {
+        self.wrong_answer_feedback.as_deref()
+    }
+
     pub fn is_complete(&self) -> bool {
         !self.source.is_endless() && self.index >= self.total_drills()
     }
@@ -201,7 +270,9 @@ impl Session {
     }
 
     pub fn first_exercise_packet(&self) -> ExercisePacket {
-        self.source.get(0).unwrap_or_else(first_exercise_packet)
+        self.source
+            .get(0)
+            .expect("session source contains at least one exercise")
     }
 
     pub fn stats(&self) -> SessionStats {
@@ -226,6 +297,7 @@ impl Session {
             return SubmitResult::NoActiveDrill;
         };
 
+        self.wrong_answer_feedback = None;
         let outcome = validators::validate(
             validators::ValidationInput::new(input, exercise.expected_answer.as_ref()),
             exercise.validator_spec(),
@@ -239,6 +311,7 @@ impl Session {
             }
             validators::ValidationOutcome::Wrong => {
                 self.attempts += 1;
+                self.wrong_answer_feedback = Some(exercise.expected_answer.clone());
                 SubmitResult::TryAgain
             }
             validators::ValidationOutcome::UnsupportedValidator => {
@@ -252,35 +325,11 @@ impl Session {
             return SkipResult::NoActiveDrill;
         }
 
+        self.wrong_answer_feedback = None;
         self.skipped += 1;
         self.index = self.index.saturating_add(1);
         SkipResult::Skipped
     }
-}
-
-pub fn exercise_packets() -> Vec<ExercisePacket> {
-    (0..catalog::drills().len())
-        .filter_map(catalog_exercise_packet_at)
-        .collect()
-}
-
-pub fn first_exercise_packet() -> ExercisePacket {
-    catalog_exercise_packet_at(0).expect("catalog contains at least one exercise")
-}
-
-fn catalog_exercise_packet_at(index: usize) -> Option<ExercisePacket> {
-    let drill = catalog::drills().get(index)?;
-    Some(ExercisePacket {
-        id: Cow::Borrowed(drill.id),
-        position: index + 1,
-        total: catalog::drills().len(),
-        prompt: Cow::Borrowed(drill.stimulus),
-        expected_answer: Cow::Borrowed(drill.expected),
-        instruction: Cow::Borrowed("Copy this line exactly:"),
-        kind: ExerciseKind::from_task_type(drill.task_type),
-        validator: ExerciseValidator::from_validator(drill.validator),
-        answer_rule: ExerciseAnswerRule::from_answer_rule(drill.metadata.answer_rule),
-    })
 }
 
 #[cfg(test)]
@@ -580,7 +629,7 @@ mod tests {
         assert_eq!(exercise.id, "001");
         assert_eq!(exercise.position, 1);
         assert_eq!(exercise.total, 12);
-        assert_eq!(exercise.prompt, "fn main() {}");
+        assert_eq!(exercise.stimulus, "fn main() {}");
         assert_eq!(exercise.expected_answer, "fn main() {}");
         assert_eq!(exercise.instruction, "Copy this line exactly:");
         assert_eq!(exercise.kind, ExerciseKind::TypeExact);
@@ -596,8 +645,10 @@ mod tests {
         let validator = ExerciseValidator::from_validator(curriculum::Validator::RustfmtExact);
         let answer_rule =
             ExerciseAnswerRule::from_answer_rule(curriculum::AnswerRule::RustfmtExact);
-        let spec =
-            validators::ValidatorSpec::new(validator.validator_kind(), answer_rule.answer_rule());
+        let spec = validators::ValidatorSpec::from_catalog(
+            validator.validator(),
+            answer_rule.answer_rule(),
+        );
 
         assert_eq!(validator, ExerciseValidator::RustfmtExact);
         assert_eq!(answer_rule, ExerciseAnswerRule::RustfmtExact);
@@ -687,6 +738,43 @@ mod tests {
         );
         assert_eq!(session.passed(), 1);
         assert_eq!(session.attempts(), 3);
+    }
+
+    #[test]
+    fn wrong_answer_feedback_is_engine_owned_and_clears_on_navigation() {
+        let mut session = Session::new();
+
+        assert_eq!(session.wrong_answer_feedback(), None);
+        assert_eq!(session.submit_answer("wrong"), SubmitResult::TryAgain);
+        assert_eq!(session.wrong_answer_feedback(), Some("fn main() {}"));
+        assert_eq!(session.skip(), SkipResult::Skipped);
+        assert_eq!(session.wrong_answer_feedback(), None);
+    }
+
+    #[test]
+    fn production_engine_has_no_catalog_guidance_or_copy_instruction_owner() {
+        let production_source = include_str!("mod.rs")
+            .split("\n#[cfg(test)]\nmod tests")
+            .next()
+            .expect("expected production engine source");
+
+        for forbidden in [
+            "catalog::",
+            "find_drill",
+            "resolve_guidance",
+            "GUIDANCE_PACKS",
+            "copy.exact_line",
+            "Copy this line exactly:",
+        ] {
+            assert!(
+                !production_source.contains(forbidden),
+                "engine must not own product task source {forbidden}"
+            );
+        }
+        assert!(production_source.contains("pub instruction:"));
+        assert!(production_source.contains("pub stimulus:"));
+        assert!(production_source.contains("expected_answer:"));
+        assert!(!production_source.contains("pub expected_answer:"));
     }
 
     #[test]

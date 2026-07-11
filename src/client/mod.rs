@@ -991,7 +991,8 @@ pub struct GameWindowFrame {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ProblemView {
-    pub prompt: String,
+    pub instruction: String,
+    pub stimulus: String,
     pub lines: Vec<ProblemDisplayLine>,
     pub viewport: ProblemViewport,
 }
@@ -1089,14 +1090,18 @@ pub fn project_client_frame_for_layout(
     let failure = ui_state.failure_frame_at(now);
     let skip = ui_state.skip_frame_at(now);
     let format = ui_state.format_frame_at(now);
-    let problem_lines =
-        problem_display_lines("do this:", exercise.prompt.as_ref(), problem_wrap_width);
+    let problem_lines = problem_display_lines(
+        exercise.instruction.as_ref(),
+        exercise.stimulus.as_ref(),
+        problem_wrap_width,
+    );
     let problem_viewport = ui_state.problem_viewport().clamped(problem_lines.len());
 
     ClientFrame {
         game_window: GameWindowFrame {
             problem: ProblemView {
-                prompt: exercise.prompt.to_string(),
+                instruction: exercise.instruction.to_string(),
+                stimulus: exercise.stimulus.to_string(),
                 lines: problem_lines,
                 viewport: problem_viewport,
             },
@@ -1126,20 +1131,22 @@ pub fn project_client_frame_for_layout(
 
 fn problem_display_lines(
     instruction: &str,
-    prompt: &str,
+    stimulus: &str,
     wrap_width: usize,
 ) -> Vec<ProblemDisplayLine> {
     let mut lines = Vec::new();
-    if should_render_problem_instruction(prompt) {
+    if should_render_problem_instruction(stimulus) {
         lines.extend([
             ProblemDisplayLine::blank(),
             ProblemDisplayLine::header(instruction),
-            ProblemDisplayLine::blank(),
         ]);
+        if !stimulus.is_empty() {
+            lines.push(ProblemDisplayLine::blank());
+        }
     } else {
         lines.push(ProblemDisplayLine::blank());
     }
-    for line in prompt.lines() {
+    for line in stimulus.lines() {
         if line.is_empty() {
             lines.push(ProblemDisplayLine::blank());
         } else {
@@ -1149,27 +1156,11 @@ fn problem_display_lines(
     lines
 }
 
-fn should_render_problem_instruction(prompt: &str) -> bool {
-    if is_simple_exact_copy_prompt(prompt) {
-        return false;
-    }
-
-    prompt
+fn should_render_problem_instruction(stimulus: &str) -> bool {
+    stimulus
         .lines()
         .find(|line| !line.trim().is_empty())
         .is_none_or(|line| !is_problem_header(line.trim()))
-}
-
-fn is_simple_exact_copy_prompt(prompt: &str) -> bool {
-    let mut meaningful = prompt.lines().filter_map(|line| {
-        let trimmed = line.trim();
-        (!trimmed.is_empty()).then_some(trimmed)
-    });
-    let Some(first) = meaningful.next() else {
-        return false;
-    };
-
-    meaningful.next().is_none() && looks_like_rust_code(first)
 }
 
 fn problem_display_lines_for_source_line(line: &str, wrap_width: usize) -> Vec<ProblemDisplayLine> {
@@ -1643,6 +1634,7 @@ fn is_type_name(identifier: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
+    use std::borrow::Cow;
     use std::time::{Duration, Instant};
 
     use super::{
@@ -1655,7 +1647,9 @@ mod tests {
         REWARD_SWEEP_DURATION, SKIP_TOAST_DURATION, StatusTone, project_client_frame,
         project_client_frame_at, project_client_frame_for_layout, tokenize_rust_line,
     };
-    use crate::engine;
+    use crate::engine::{
+        self, ExerciseAnswerRule, ExerciseKind, ExercisePacket, ExerciseValidator,
+    };
 
     fn token_text(tokens: &[super::CodeToken]) -> String {
         tokens
@@ -1673,6 +1667,24 @@ mod tests {
 
     fn test_now() -> Instant {
         Instant::now()
+    }
+
+    fn projection_session(
+        instruction: &'static str,
+        stimulus: &'static str,
+        expected: &'static str,
+    ) -> engine::Session {
+        engine::Session::from_exercises(vec![ExercisePacket::new(
+            Cow::Borrowed("TEST-PROJECTION"),
+            1,
+            1,
+            Cow::Borrowed(instruction),
+            Cow::Borrowed(stimulus),
+            Cow::Borrowed(expected),
+            ExerciseKind::TypeExact,
+            ExerciseValidator::Exact,
+            ExerciseAnswerRule::ExactTrimFinalNewline,
+        )])
     }
 
     #[test]
@@ -1869,7 +1881,11 @@ mod tests {
 
         let frame = project_client_frame(&session, &ui_state);
 
-        assert_eq!(frame.game_window.problem.prompt, "fn main() {}");
+        assert_eq!(
+            frame.game_window.problem.instruction,
+            "Copy this line exactly:"
+        );
+        assert_eq!(frame.game_window.problem.stimulus, "fn main() {}");
         assert_eq!(frame.game_window.problem.viewport.scroll_offset, 0);
         assert_eq!(
             frame
@@ -1881,8 +1897,84 @@ mod tests {
                 .collect::<Vec<_>>(),
             vec![
                 (&ProblemLineKind::Blank, ""),
+                (&ProblemLineKind::Header, "Copy this line exactly:"),
+                (&ProblemLineKind::Blank, ""),
                 (&ProblemLineKind::Code, "fn main() {}")
             ]
+        );
+    }
+
+    #[test]
+    fn five_operation_shapes_project_exact_instruction_and_stimulus_only() {
+        let fixtures = [
+            (
+                "Copy this line exactly:",
+                "fn five() -> i32 { 5 }",
+                "fn five() -> i32 { 5 }",
+            ),
+            (
+                "Complete the missing return value:",
+                "fn five() -> i32 { ___ }",
+                "fn five() -> i32 { 5 }",
+            ),
+            (
+                "Write a Rust function named five with no parameters that returns the i32 value 5 using a tail expression:",
+                "",
+                "fn five() -> i32 { 5 }",
+            ),
+            (
+                "Repair the return-type syntax:",
+                "fn five(): i32 { 5 }",
+                "fn five() -> i32 { 5 }",
+            ),
+            (
+                "Rewrite the function to use a tail expression:",
+                "fn five() -> i32 { return 5; }",
+                "fn five() -> i32 { 5 }",
+            ),
+        ];
+
+        for (index, (instruction, stimulus, expected)) in fixtures.iter().enumerate() {
+            let session = projection_session(instruction, stimulus, expected);
+            let frame =
+                project_client_frame_for_layout(&session, &ClientUiState::new(), test_now(), 28);
+            let problem = frame.game_window.problem;
+            let rendered = problem
+                .lines
+                .iter()
+                .map(|line| line.text.as_str())
+                .collect::<Vec<_>>()
+                .join("\n");
+
+            assert_eq!(problem.instruction, *instruction);
+            assert_eq!(problem.stimulus, *stimulus);
+            if index > 0 {
+                assert!(!rendered.contains(expected));
+            }
+        }
+    }
+
+    #[test]
+    fn empty_stimulus_has_no_fake_source_line_and_long_instruction_stays_exact() {
+        let instruction = "Write a Rust function named five with no parameters that returns the i32 value 5 using a tail expression:";
+        let session = projection_session(instruction, "", "fn five() -> i32 { 5 }");
+        let frame =
+            project_client_frame_for_layout(&session, &ClientUiState::new(), test_now(), 24);
+        let problem = frame.game_window.problem;
+
+        assert_eq!(problem.instruction, instruction);
+        assert!(problem.stimulus.is_empty());
+        assert_eq!(problem.lines[0].kind, ProblemLineKind::Blank);
+        assert!(
+            problem
+                .lines
+                .iter()
+                .skip(1)
+                .all(|line| line.kind == ProblemLineKind::Header)
+        );
+        assert_ne!(
+            problem.lines.last().map(|line| line.kind.clone()),
+            Some(ProblemLineKind::Blank)
         );
     }
 
@@ -1930,7 +2022,8 @@ mod tests {
     #[test]
     fn visible_problem_lines_and_overflow_are_derived_from_viewport() {
         let problem = ProblemView {
-            prompt: "line 1".to_string(),
+            instruction: "Read these lines:".to_string(),
+            stimulus: "line 1".to_string(),
             lines: (1..=8)
                 .map(|index| ProblemDisplayLine::plain(format!("line {index}")))
                 .collect(),
@@ -1981,7 +2074,7 @@ mod tests {
         let frame = project_client_frame_for_layout(&session, &ui_state, test_now(), 48);
         let problem = &frame.game_window.problem;
 
-        assert!(problem.prompt.contains("lab case 1"));
+        assert!(problem.stimulus.contains("lab case 1"));
         assert!(problem.lines.len() > 20);
         assert_eq!(problem.viewport.scroll_offset, 0);
         let visible = problem
@@ -2278,7 +2371,11 @@ mod tests {
 
     #[test]
     fn prompt_that_already_has_task_label_omits_duplicate_instruction_header() {
-        let lines = super::problem_display_lines("do this:", "task:\nCopy this.", 40);
+        let lines = super::problem_display_lines(
+            "Complete this stress case exactly:",
+            "task:\nCopy this.",
+            40,
+        );
         let nonblank = lines
             .iter()
             .filter(|line| !line.text.is_empty())
@@ -2286,12 +2383,16 @@ mod tests {
             .collect::<Vec<_>>();
 
         assert_eq!(nonblank, vec!["task:", "Copy this."]);
-        assert!(!lines.iter().any(|line| line.text == "do this:"));
+        assert!(
+            !lines
+                .iter()
+                .any(|line| line.text == "Complete this stress case exactly:")
+        );
     }
 
     #[test]
-    fn simple_one_line_task_aligns_without_extra_instruction_header() {
-        let lines = super::problem_display_lines("do this:", "fn main() {}", 40);
+    fn simple_one_line_task_includes_exact_instruction_and_stimulus() {
+        let lines = super::problem_display_lines("Copy this line exactly:", "fn main() {}", 40);
         let visible = lines
             .iter()
             .map(|line| (&line.kind, line.text.as_str()))
@@ -2300,6 +2401,8 @@ mod tests {
         assert_eq!(
             visible,
             vec![
+                (&ProblemLineKind::Blank, ""),
+                (&ProblemLineKind::Header, "Copy this line exactly:"),
                 (&ProblemLineKind::Blank, ""),
                 (&ProblemLineKind::Code, "fn main() {}")
             ]
@@ -2340,7 +2443,11 @@ mod tests {
     #[test]
     fn problem_answer_shape_header_is_distinct_without_mutating_expected_answer() {
         let expected = "fn main() {}";
-        let lines = super::problem_display_lines("do this:", "answer shape:\nfn main() {}", 24);
+        let lines = super::problem_display_lines(
+            "Complete this stress case exactly:",
+            "answer shape:\nfn main() {}",
+            24,
+        );
 
         assert!(
             lines
@@ -2397,7 +2504,11 @@ mod tests {
 
     #[test]
     fn answer_shape_snippet_is_code_styled() {
-        let lines = super::problem_display_lines("do this:", "answer shape:\nscore += 1;", 24);
+        let lines = super::problem_display_lines(
+            "Complete this stress case exactly:",
+            "answer shape:\nscore += 1;",
+            24,
+        );
         let snippet = lines
             .iter()
             .find(|line| line.text == "score += 1;")
@@ -2740,7 +2851,10 @@ mod tests {
         let frame = project_client_frame(&session, &ui_state);
 
         assert_eq!(frame.completed_reps_this_run, 1);
-        assert_eq!(frame.game_window.problem.prompt, "println!(\"Rust Reps\");");
+        assert_eq!(
+            frame.game_window.problem.stimulus,
+            "println!(\"Rust Reps\");"
+        );
     }
 
     #[test]
@@ -2785,7 +2899,10 @@ mod tests {
         let frame = project_client_frame(&session, &ui_state);
 
         assert_eq!(frame.completed_reps_this_run, 0);
-        assert_eq!(frame.game_window.problem.prompt, "println!(\"Rust Reps\");");
+        assert_eq!(
+            frame.game_window.problem.stimulus,
+            "println!(\"Rust Reps\");"
+        );
     }
 
     #[test]
@@ -2867,7 +2984,7 @@ mod tests {
                 ),
             ]
         );
-        assert_eq!(frame.game_window.problem.prompt, "fn main() {}");
+        assert_eq!(frame.game_window.problem.stimulus, "fn main() {}");
         assert_eq!(frame.game_window.workbox.input, "");
     }
 
@@ -2928,7 +3045,7 @@ mod tests {
         let before_expected = session
             .current_exercise()
             .expect("expected current exercise")
-            .expected_answer
+            .expected_answer()
             .to_string();
         let mut ui_state = ClientUiState::new();
 
@@ -2946,7 +3063,7 @@ mod tests {
             session
                 .current_exercise()
                 .expect("expected current exercise")
-                .expected_answer,
+                .expected_answer(),
             before_expected
         );
     }

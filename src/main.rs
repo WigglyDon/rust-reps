@@ -6,13 +6,6 @@ mod curriculum;
 mod engine;
 mod formatter;
 mod lab;
-#[cfg_attr(
-    not(test),
-    expect(
-        dead_code,
-        reason = "resolved core-task orchestration is intentionally inert until the later truthful task-projection boundary"
-    )
-)]
 mod orchestration;
 mod practice;
 mod presentation;
@@ -42,10 +35,10 @@ fn main() {
 
     match command {
         cli::DrillCommand::Practice => {
-            practice::run_practice_session();
+            practice::run_practice_session(current_product_session_or_exit());
             return;
         }
-        cli::DrillCommand::Run(drill) => practice::run_one_shot_drill(drill),
+        cli::DrillCommand::Run(exercise) => practice::run_one_shot_drill(exercise),
         cli::DrillCommand::List => {
             cli::print_drill_list();
             return;
@@ -82,9 +75,19 @@ fn should_launch_tui_for(no_args: bool, stdin_is_terminal: bool, stdout_is_termi
 }
 
 fn run_tui_or_exit() {
-    if let Err(err) = tui::run_tui() {
+    if let Err(err) = tui::run_tui_with_session(current_product_session_or_exit()) {
         eprintln!("error: {}", err);
         process::exit(1);
+    }
+}
+
+fn current_product_session_or_exit() -> engine::Session {
+    match orchestration::current_product_session() {
+        Ok(session) => session,
+        Err(err) => {
+            eprintln!("error: {}", err);
+            process::exit(1);
+        }
     }
 }
 
@@ -94,7 +97,16 @@ fn run_lab_or_exit() {
         process::exit(1);
     }
 
-    if let Err(err) = tui::run_tui_with_session(engine::Session::lab()) {
+    let product_exercises = match orchestration::current_product_exercise_packets() {
+        Ok(exercises) => exercises,
+        Err(err) => {
+            eprintln!("error: {}", err);
+            process::exit(1);
+        }
+    };
+    if let Err(err) = tui::run_tui_with_session(engine::Session::lab_with_product_exercises(
+        product_exercises,
+    )) {
         eprintln!("error: {}", err);
         process::exit(1);
     }
@@ -181,7 +193,8 @@ mod tests {
         match cli::select_command(&["001"]).unwrap() {
             cli::DrillCommand::Run(drill) => {
                 assert_eq!(drill.id, "001");
-                assert_eq!(drill.expected, "fn main() {}");
+                assert_eq!(drill.stimulus, "fn main() {}");
+                assert_eq!(drill.expected_answer(), "fn main() {}");
             }
             cli::DrillCommand::Practice => panic!("expected Drill 001"),
             cli::DrillCommand::List => panic!("expected Drill 001"),
@@ -197,7 +210,8 @@ mod tests {
         match cli::select_command(&["012"]).unwrap() {
             cli::DrillCommand::Run(drill) => {
                 assert_eq!(drill.id, "012");
-                assert_eq!(drill.expected, "while score < 10 {}");
+                assert_eq!(drill.stimulus, "while score < 10 {}");
+                assert_eq!(drill.expected_answer(), "while score < 10 {}");
             }
             cli::DrillCommand::Practice => panic!("expected Drill 012"),
             cli::DrillCommand::List => panic!("expected Drill 012"),

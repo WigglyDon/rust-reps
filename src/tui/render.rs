@@ -1017,6 +1017,7 @@ fn line_text(line: &Line<'_>) -> String {
 
 #[cfg(test)]
 mod tests {
+    use std::borrow::Cow;
     use std::time::{Duration, Instant};
 
     use super::{
@@ -1038,7 +1039,8 @@ mod tests {
             REWARD_PLUS_ONE_BODY_DURATION, REWARD_PLUS_ONE_DURATION, RewardFrame, SkipFrame,
             StatusTone, ViewportOverflow,
         },
-        engine, lab,
+        engine::{self, ExerciseAnswerRule, ExerciseKind, ExercisePacket, ExerciseValidator},
+        lab,
         tui::{
             TuiApp,
             theme::{
@@ -1062,6 +1064,24 @@ mod tests {
 
     fn lab_app() -> TuiApp {
         TuiApp::with_session(engine::Session::lab())
+    }
+
+    fn projection_app(
+        instruction: &'static str,
+        stimulus: &'static str,
+        expected: &'static str,
+    ) -> TuiApp {
+        TuiApp::with_session(engine::Session::from_exercises(vec![ExercisePacket::new(
+            Cow::Borrowed("TEST-PROJECTION"),
+            1,
+            1,
+            Cow::Borrowed(instruction),
+            Cow::Borrowed(stimulus),
+            Cow::Borrowed(expected),
+            ExerciseKind::TypeExact,
+            ExerciseValidator::Exact,
+            ExerciseAnswerRule::ExactTrimFinalNewline,
+        )]))
     }
 
     fn type_text(app: &mut TuiApp, text: &str) {
@@ -1196,6 +1216,11 @@ mod tests {
         let app = TuiApp::new();
         let frame = app.frame();
         let snapshot = render_snapshot(&frame);
+        let instruction_position = snapshot
+            .game
+            .iter()
+            .position(|line| line == "Copy this line exactly:")
+            .expect("expected instruction in game snapshot");
         let prompt_value_position = snapshot
             .game
             .iter()
@@ -1207,8 +1232,8 @@ mod tests {
             .position(|line| line == " 1 │ ")
             .expect("expected editor gutter in game snapshot");
 
+        assert!(instruction_position < prompt_value_position);
         assert!(prompt_value_position < input_position);
-        assert!(!snapshot.game.iter().any(|line| line == "do this:"));
         assert!(!snapshot.game.iter().any(|line| line == "Problem"));
         assert!(!snapshot.game.iter().any(|line| line == "Workbox"));
         assert!(!snapshot.game.iter().any(|line| line.contains("Drill")));
@@ -1453,7 +1478,7 @@ mod tests {
     }
 
     #[test]
-    fn render_snapshot_simple_prompt_aligns_without_problem_instruction_offset() {
+    fn render_snapshot_projects_instruction_before_simple_stimulus() {
         let app = TuiApp::new();
         let frame = app.frame();
         let problem = problem_lines(&frame)
@@ -1465,18 +1490,80 @@ mod tests {
             .map(line_text)
             .collect::<Vec<_>>();
 
-        let prompt_position = problem
+        let instruction_position = problem
+            .iter()
+            .position(|line| line == "Copy this line exactly:")
+            .expect("expected instruction line");
+        let stimulus_position = problem
             .iter()
             .position(|line| line == "fn main() {}")
-            .expect("expected prompt line");
+            .expect("expected stimulus line");
         let editor_line_position = editor
             .iter()
             .position(|line| line == " 1 │ ")
             .expect("expected editor line 1");
 
-        assert_eq!(prompt_position, editor_line_position);
-        assert_eq!(prompt_position, 1);
-        assert!(!problem.iter().any(|line| line == "do this:"));
+        assert_eq!(instruction_position, editor_line_position);
+        assert_eq!(instruction_position, 1);
+        assert!(instruction_position < stimulus_position);
+    }
+
+    #[test]
+    fn five_operation_task_panels_never_render_non_copy_expected_answers() {
+        let fixtures = [
+            (
+                "Copy this line exactly:",
+                "fn five() -> i32 { 5 }",
+                "fn five() -> i32 { 5 }",
+            ),
+            (
+                "Complete the missing return value:",
+                "fn five() -> i32 { ___ }",
+                "fn five() -> i32 { 5 }",
+            ),
+            (
+                "Write a Rust function named five with no parameters that returns the i32 value 5 using a tail expression:",
+                "",
+                "fn five() -> i32 { 5 }",
+            ),
+            (
+                "Repair the return-type syntax:",
+                "fn five(): i32 { 5 }",
+                "fn five() -> i32 { 5 }",
+            ),
+            (
+                "Rewrite the function to use a tail expression:",
+                "fn five() -> i32 { return 5; }",
+                "fn five() -> i32 { 5 }",
+            ),
+        ];
+
+        for (index, (instruction, stimulus, expected)) in fixtures.iter().enumerate() {
+            let frame = projection_app(instruction, stimulus, expected)
+                .frame_at_for_layout(test_now(), 160);
+            let lines = problem_lines(&frame)
+                .iter()
+                .map(line_text)
+                .collect::<Vec<_>>();
+            let rendered = lines.join("\n");
+            let instruction_position = lines
+                .iter()
+                .position(|line| line == instruction)
+                .expect("task panel must contain exact instruction");
+
+            if stimulus.is_empty() {
+                assert_eq!(lines.last(), Some(&instruction.to_string()));
+            } else {
+                let stimulus_position = lines
+                    .iter()
+                    .position(|line| line == stimulus)
+                    .expect("task panel must contain exact stimulus");
+                assert!(instruction_position < stimulus_position);
+            }
+            if index > 0 {
+                assert!(!rendered.contains(expected));
+            }
+        }
     }
 
     #[test]
