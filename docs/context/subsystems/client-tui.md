@@ -25,6 +25,17 @@ The accepted client boundary is sealed. Smart pairs/newline, independent
 scrolling, mouse cursor placement, F1/F5/F7/Esc mapping, and minimal counter
 shell are live behavior, but plain mode remains the proof baseline.
 
+Client task rows carry exact instruction/stimulus projection plus hard-line
+versus soft-wrap identity without expected-answer truth. TUI reserves an
+out-of-source `↪ ` gutter for soft stimulus continuations, equalizes effective
+editor/stimulus source widths, and shares their source baseline.
+
+Format capability is explicit packet data projected as availability only.
+Current normal Exact Copy tasks dim F1 and pressing it leaves the editor
+unchanged with `format off for exact task`; explicitly Rustfmt-enabled lab tasks
+retain ordinary formatter behavior. F1 never submits, validates, or reads
+expected-answer truth.
+
 ## Proof And Limits
 
 Accepted automated proof includes portable editor actions, projections, render
@@ -40,11 +51,9 @@ Frame pacing is bounded by the scheduler; no performance telemetry exists.
 
 ## Gate And Unknowns
 
-Truthful Task Projection Contract V1 is the active, narrowly authorized
-prompt-integration change. It may replace generic `do this:` wording with exact
-resolved instruction/stimulus task truth and must keep expected answers out of
-task render models. Layout, controls, editor behavior, feedback, counters,
-scrolling architecture, and lifecycle remain sealed. Automated render proof is
-required, but terminal feel stays PENDING_DON until the installed real-TTY
-playtest. Update for ownership, layout, controls, lifecycle, or proven feel
-changes.
+Truthful Task Projection Contract V1 is accepted and integrated after automated
+render proof and Don's installed real-TTY playtest. Generic `do this:` is gone;
+resolved instruction precedes exact stimulus, and expected answers remain out
+of task render models. Controls, editor behavior, counters, independent
+scrolling, and lifecycle remain sealed. No implementation lane is active.
+Update for ownership, layout, controls, lifecycle, or proven feel changes.

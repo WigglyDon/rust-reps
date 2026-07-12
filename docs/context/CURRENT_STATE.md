@@ -38,6 +38,10 @@ Update triggers: Accepted-main change, lane transition, authority change, blocke
   accepted and fast-forwarded through candidate
   `e4ab24cf9447601abc79f8a2bcead2e588252483`; its lane worktree was
   removed and its branch deleted after integration.
+- `LIVE_REPO_FACT`: Truthful Task Projection Contract V1 was accepted and
+  fast-forwarded through candidate
+  `ad56f9725eab16203f44e8518e31e230c2d3987b`; its lane worktree was removed
+  and its branch deleted after integration.
 - `UNKNOWN`: no remote is configured, so remote-tracking identity and remote
   currentness are unavailable. `gh` exists but was not authenticated during discovery.
 - `USER_DECISION`: Cross-Lingual Guidance and Presentation Architecture V1 is
@@ -51,9 +55,10 @@ Update triggers: Accepted-main change, lane transition, authority change, blocke
   capability/SetPlan source, pure deterministic PracticePlan construction, and
   one checked five-task materialization. Those accepted boundaries remain
   inert; product behavior and authority remain unchanged.
-- `USER_DECISION`: Product Integration Decision V1 and its first prerequisite,
-  Resolved Core Task And Orchestration Contract V1, are accepted and integrated.
-  No active implementation lane remains; product behavior is unchanged.
+- `USER_DECISION`: Product Integration Decision V1 and both prerequisites,
+  Resolved Core Task And Orchestration Contract V1 and Truthful Task Projection
+  Contract V1, are accepted and integrated. No active implementation lane
+  remains.
 
 ## Accepted Product State
 
@@ -63,6 +68,14 @@ Update triggers: Accepted-main change, lane transition, authority change, blocke
   baseline oracle; interactive default is the sealed fullscreen TUI client.
 - `LIVE_REPO_FACT`: exact checking removes at most one final LF or CRLF and
   normalizes nothing else.
+- `LIVE_REPO_FACT`: current product task packets keep resolved instruction,
+  exact stimulus, and private expected-answer truth separate. Current normal
+  reps 001-012 explicitly disable formatting; synthetic lab packets explicitly
+  enable `Rustfmt` formatting.
+- `LIVE_REPO_FACT`: plain, one-shot, client, and TUI task projection reads
+  instruction and stimulus, never expected-answer truth. The TUI aligns editor
+  and stimulus source geometry and marks soft stimulus continuations with an
+  out-of-source `↪ ` gutter.
 - `LIVE_REPO_FACT`: correct and wrong submissions increment attempts; skip
   advances without becoming a skill attempt. XP remains undisplayed metadata.
 - `LIVE_REPO_FACT`: approved direct product dependencies are only `ratatui`
@@ -75,8 +88,9 @@ curriculum/catalog own normal content, admission, and locale-independent core
 task records; procgen owns inert source and pure expansion; planner owns inert
 capability/SetPlan source and pure deterministic planning over supplied candidate
 summaries; guidance owns authored instruction source and pure instruction
-resolution only; orchestration owns inert pure resolved-core-task construction;
-engine owns session truth; answer owns Exact; validators and tool runner own
+resolution only; orchestration owns current product lookup, resolution, and
+packet construction; engine owns session truth over resolved packets; answer
+owns Exact; validators and tool runner own
 closed non-exact capability seams; client owns portable UI state; TUI owns
 terminal projection; CLI/practice/presentation/main own launch and plain terminal
 adaptation; lab owns synthetic stress data only.
@@ -108,11 +122,13 @@ adaptation; lab owns synthetic stress data only.
   metadata, stimulus, and expected bytes. Each uses `copy.exact_line`, an empty
   assignment slice, `capability_id: None`, and `generated_provenance: None`.
 - `LIVE_REPO_FACT`: `src/orchestration.rs` defines explicit initial `en@v1`
-  guidance constants and pure `resolve_core_task` construction. `ResolvedCoreTask`
-  separates stable identity, localized instruction, exact stimulus, exact
-  expected response, unchanged metadata, and guidance provenance.
+  guidance constants, pure `resolve_core_task` construction, and current
+  product lookup/collection/session construction. `ResolvedCoreTask` separates
+  stable identity, localized instruction, exact stimulus, exact expected
+  response, unchanged metadata, and guidance provenance.
 - `LIVE_REPO_FACT`: the initial guidance constants are neither fallback nor
-  user settings. `resolve_core_task` remains inert and has no product caller.
+  user settings. Orchestration is the sole current product caller for guidance
+  resolution and supplies already-resolved packets to engine sessions.
 - `LIVE_REPO_FACT`: `GuidanceError` explicitly classifies missing or duplicate
   packs and instructions, duplicate assignments, missing slots or meaning keys,
   and missing or duplicate glosses. There is no fallback, locale normalization,
@@ -121,27 +137,26 @@ adaptation; lab owns synthetic stress data only.
   proof locales. Core identity, content seed, assignments, stimulus, expected
   response, answer rule, concepts, constraints, XP, and transition do not change
   by guidance locale. Guidance owns no expected-answer bytes.
-- `LIVE_REPO_FACT`: no catalog, engine, CLI, practice, client, TUI, lab,
-  formatter, validator, tool-runner, or presentation product caller admits
-  expanded output or resolves guidance.
+- `LIVE_REPO_FACT`: no expanded/materialized output is admitted by catalog,
+  engine, CLI, practice, client, TUI, lab, formatter, validator, tool runner,
+  presentation, or orchestration. Only current admitted catalog reps are
+  resolved for product use.
 - `LIVE_REPO_FACT`: `src/curriculum/procgen/materialized.rs` contains exactly
   five inert checked tasks in Copy, Fill, Produce, Repair, Transform order.
   Every materialized field is tested against pure seed-zero expansion; generated
   IDs and task signatures are unique, and no task has a short ID or catalog
   order.
 - `LIVE_REPO_FACT`: no French curriculum, guidance-language setting,
-  interface-language setting, fallback, catalog admission, or product guidance
-  caller exists. The accepted resolver and Ukrainian proof source remain inert.
-- `LIVE_REPO_FACT`: `engine::catalog_exercise_packet_at` hard-codes the Copy
-  instruction, and `presentation::print_one_shot_prompt` prints `expected`
-  instead of the task stimulus. Non-Copy admission is blocked until a separately
-  authorized, transcript-tested prompt propagation boundary addresses both.
-- `LIVE_REPO_FACT`: `client::project_client_frame_for_layout` substitutes
-  `do this:` instead of faithfully projecting the packet instruction. This is
-  the third binding blocker for any future product admission.
-- `USER_DECISION`: Pure Guidance Resolution V1 is accepted only as an inert
-  foundation. Catalog admission, settings, fallback, translation, and product
-  callers remain unauthorized.
+  interface-language setting, fallback, or generated catalog admission exists.
+  The Ukrainian proof source remains product-inert.
+- `LIVE_REPO_FACT`: engine performs no catalog or guidance lookup and does not
+  hard-code Copy instruction. Presentation's shared task-block writer receives
+  instruction and stimulus only; one-shot no longer substitutes expected-answer
+  data, and client no longer substitutes `do this:`.
+- `USER_DECISION`: Pure Guidance Resolution V1 remains the narrow guidance
+  foundation. Truthful projection authorizes orchestration as its sole current
+  product caller; catalog admission, settings, fallback, and translation remain
+  unauthorized.
 
 ## Capability Planning State
 
@@ -195,18 +210,15 @@ adaptation; lab owns synthetic stress data only.
   is authorized; planning remains static and deterministic. Tiny Multi-Operation
   Rust Set Materialization V1 is accepted and integrated as inert source.
   Its five tasks remain outside the catalog. Proposed IDs 013-017 are unassigned,
-  PracticePlan execution remains deferred, and generated admission remains
-  blocked behind the remaining truthful-projection prerequisite.
+  PracticePlan execution remains deferred, and generated admission requires a
+  separately accepted player-visible product boundary.
 
 ## Lanes
 
-- Active implementation lane:
-  [`truthful-task-projection-v1`](../lanes/truthful-task-projection-v1.md).
-  It may route only current reps 001-012 through resolved orchestration and
-  correct instruction/stimulus projection in plain, one-shot, client, and TUI.
-  Catalog size, identity, expected answers, Exact, controls, and unrelated
-  output must remain unchanged. Don's real-TTY playtest is mandatory before
-  integration.
+- No active implementation lane exists.
+- Retired: [`truthful-task-projection-v1`](../lanes/truthful-task-projection-v1.md),
+  accepted and integrated into local canonical master; worktree removed and
+  branch deleted after Don's accepted real-TTY playtest.
 - Retired: [`resolved-core-task-orchestration-v1`](../lanes/resolved-core-task-orchestration-v1.md),
   accepted and integrated into local canonical master; worktree removed and
   branch deleted.
@@ -224,10 +236,10 @@ adaptation; lab owns synthetic stress data only.
   branch deleted.
 - Retired: [`static-guidance-schema-v1`](../lanes/static-guidance-schema-v1.md),
   accepted and integrated into local canonical master.
-- Later and blocked: Tiny Generated Catalog Admission V1; IDs 013-017 remain
-  proposed and unassigned.
-- Later if required: Five-Step Product Flow V1.
-- Planned design-only: Guidance-Locale Settings Decision.
+- Sole next planned product boundary, not active: Varied Deterministic Rust
+  Practice Flow V1. It must provide reviewed player-visible variety and
+  deterministic interactive continuation while plain and one-shot remain
+  finite proof surfaces.
 - Paused: new Ukrainian/French curriculum, validator integration, lab cleanup,
   product settings, interface localization, persistence, and scheduling.
 - No guidance language setting currently exists.
@@ -252,3 +264,29 @@ Required existing project gates are `cargo fmt --check`, `cargo test`,
 Accepted infrastructure authority remains documentation and standalone local
 diagnostics only. Product behavior, dependencies, runtime authority, and release
 authority are unchanged; the fleet tool has no product runtime integration.
+
+## Validator And Formatting Policy
+
+- `USER_DECISION`: Exact is a narrow operation-specific rule that removes at
+  most one final LF or CRLF and normalizes nothing else; it is not the universal
+  validator for future generated Rust exercises.
+- `USER_DECISION`: current normal reps 001-012 are literal Copy tasks with
+  `ExactTrimFinalNewline` and formatting `Disabled`. Exact Copy is appropriate
+  for literal surface reproduction.
+- `USER_DECISION`: every future task must choose answer rule and format
+  capability explicitly. Neither may be inferred from generated identity,
+  source length, stimulus/expected equality, rustfmt output, or operation name
+  alone.
+- `USER_DECISION`: initial future direction is Exact with formatting disabled
+  for Copy; Exact with formatting not applicable for controlled-label
+  Recognize/Read; Exact for token-scoped Fill when the stated target is one
+  exact token or label; and `RustfmtExact` as a candidate for formatting-tolerant
+  full-code Fill, Produce, Repair, and Transform tasks when their required code
+  form remains structurally explicit.
+- `USER_DECISION`: `RustfmtExact` means formatting equivalence, not semantic
+  equivalence. Broader `RustCheck` or `VisibleTests` semantics require a separate
+  permanent validator boundary. The existing `RustfmtExact` core remains
+  product-inert.
+- `LIVE_REPO_FACT`: F1 is formatter-only and never submits, validates, or reads
+  expected-answer truth. Current normal Exact tasks disable it; explicitly
+  format-enabled synthetic lab tasks use ordinary rustfmt.

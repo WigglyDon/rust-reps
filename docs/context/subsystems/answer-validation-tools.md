@@ -17,7 +17,7 @@ validation capability and failures; they may not weaken Exact. Tool runner owns
 fixed local execution requests; formatter owns explicit F1 editor formatting.
 
 Allowed dependencies: validators call answer and the fixed runner boundary;
-explicit TUI format action calls formatter. Forbidden: answer invoking tools,
+an explicitly format-enabled TUI task may call formatter. Forbidden: answer invoking tools,
 formatter mutating submitted/expected answers, arbitrary product commands,
 catalog admission based on formatting, and any classifier turning mismatch into
 pass.
@@ -34,14 +34,20 @@ fake request capture, real-runner allow-list behavior, timeout/output bounds,
 and explicit formatter buffer preservation. Full proof seals product transcripts.
 
 It does not authorize product RustfmtExact, prove every host rustfmt version,
-or make formatter output answer truth. Runtime integration is Exact only plus
-the separate user-invoked F1 helper. Rollback is fail-closed removal of an
+or make formatter output answer truth. Runtime integration is Exact only.
+Current normal Copy packets disable F1; explicitly enabled synthetic lab
+packets retain the separate user-invoked helper. Rollback is fail-closed removal of an
 unaccepted capability path. There is no persistence; stderr/status captures are
 test evidence. Runtime resource limits are explicit time and byte bounds.
 
 ## Gate And Unknowns
 
-Validator integration, new tools, dependencies, and broader commands are
-paused. A future gate needs product failure semantics, transcript proof, and
-Don judgment. Update for any normalization, caller, executable, limit, or
-failure-class change.
+Exact remains literal surface truth and removes only one final LF or CRLF.
+Answer rule and format capability are independent explicit task properties;
+F1 never submits, validates, or reads expected-answer truth. Future full-code
+Fill, Produce, Repair, or Transform work may consider RustfmtExact only as
+formatting equivalence through a separate product boundary. Broader RustCheck
+or VisibleTests semantic equivalence remains deferred. Validator integration,
+new tools, dependencies, and broader commands are paused. A future gate needs
+product failure semantics, transcript proof, and Don judgment. Update for any
+normalization, caller, executable, limit, or failure-class change.

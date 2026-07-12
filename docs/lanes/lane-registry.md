@@ -13,19 +13,17 @@ Update triggers: Lane creation, pause, block, integration, retirement, respawn, 
 
 | Lane ID | Page | Worktree | Branch | Status |
 | --- | --- | --- | --- | --- |
-| truthful-task-projection-v1 | [truthful-task-projection-v1](truthful-task-projection-v1.md) | /home/don/rust-reps-task-projection-v1 | lane/truthful-task-projection-v1 | active |
 
 Active lane records must use this five-column table because `lane-doctor`
 consumes it. Bullet-form active records are invalid coordination memory.
 
 ## Planned but not active
 
-- `USER_DECISION`: Tiny Generated Catalog Admission V1 remains later and
-  blocked; proposed IDs 013-017 are unassigned.
-- `USER_DECISION`: Five-Step Product Flow V1 remains later and is needed only
-  if generated admission does not already define the accepted flow.
-- `USER_DECISION`: Guidance-Locale Settings Decision remains design-only and
-  Ukrainian product guidance still requires human review.
+- `USER_DECISION`: Varied Deterministic Rust Practice Flow V1 is the sole next
+  planned product boundary. It must add reviewed player-visible variety and
+  deterministic interactive continuation while plain and one-shot remain
+  finite proof oracles. It is not active; proposed IDs 013-017 remain
+  unassigned.
 
 ## Paused lanes
 
@@ -59,6 +57,7 @@ not active lanes.
 | `pure-practiceplan-builder-v1` | [`pure-practiceplan-builder-v1.md`](pure-practiceplan-builder-v1.md) | `0521e448dfa204993c6a65edc51cb9018ef9b185` | Activated at `64ec59c185ca22387dd583b145fcb9c4ed8f15ed`, fast-forwarded to local canonical master; worktree removed and branch deleted; product behavior unchanged; no push or deploy |
 | `tiny-multi-operation-materialization-v1` | [`tiny-multi-operation-materialization-v1.md`](tiny-multi-operation-materialization-v1.md) | `67e0e55ee7ebc7970c81c41123c1c994eccbf12c` | Activated at `bbffd795733b1f23f99c121ed94951cdfff7581a`, fast-forwarded to local canonical master; worktree removed and branch deleted; pre-integration lane metadata was unavailable because the active entry used noncanonical bullet form; registry restored to canonical table form; product behavior unchanged; no push or deploy |
 | `resolved-core-task-orchestration-v1` | [`resolved-core-task-orchestration-v1.md`](resolved-core-task-orchestration-v1.md) | `e4ab24cf9447601abc79f8a2bcead2e588252483` | Activated at `7c1c45d32fa030e85d277983c125d73c2e9bca69`, fast-forwarded to local canonical master; worktree removed and branch deleted; IDs 013-017 remain unassigned; product behavior unchanged; no push or deploy |
+| `truthful-task-projection-v1` | [`truthful-task-projection-v1.md`](truthful-task-projection-v1.md) | `ad56f9725eab16203f44e8518e31e230c2d3987b` | Activated at `8b72ddb0b47261d8c34dcda18ea98cd65d96f664`, fast-forwarded to local canonical master after Don's accepted playtest; worktree removed and branch deleted; no push or deploy |
 
 ## Historical milestones
 
@@ -78,5 +77,7 @@ not active lanes.
   English/Ukrainian proof guidance and authored PracticePlan agreement.
 - Unified admitted core-task records, source-neutral guidance input, and one
   inert pure resolved-core-task orchestration seam for current reps 001-012.
+- Truthful resolved instruction/stimulus projection, aligned editor/task source
+  geometry, marked soft continuations, and explicit task-format capability.
 
 See [`../context/PROJECT_HISTORY.md`](../context/PROJECT_HISTORY.md) for evidence and transitions.

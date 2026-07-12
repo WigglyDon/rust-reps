@@ -13,7 +13,8 @@ Update triggers: Packet fields, transition semantics, source selection, or sessi
 
 Engine is pure session truth. It owns `ExercisePacket`, session index, passed,
 skipped, attempts, completion, submit results, skip results, and snapshots.
-Catalog supplies ordinary reps; lab supplies explicit synthetic packets.
+Orchestration supplies already-resolved ordinary packets; lab supplies explicit
+synthetic packets.
 
 Engine may call validator dispatch for a submission. It must not generate
 curriculum, assign catalog IDs, print terminal output, own editor state, award
@@ -26,13 +27,11 @@ structure, not mastery. Wrong answers are normal results, not errors.
 
 ## Integration And Proof
 
-Current catalog packets carry prompt, expected answer, fixed Copy instruction,
-task kind, validator, and answer rule. The catalog source field is now
-`stimulus`; `catalog_exercise_packet_at` mechanically reads it into the
-temporary `ExercisePacket.prompt` field without changing bytes or session
-behavior. `LIVE_REPO_FACT`: that function still hard-codes
-`Copy this line exactly:` and therefore cannot safely expose non-Copy
-curriculum yet. Engine does not call orchestration or guidance.
+Current packets carry ID/position, owned resolved instruction, exact stimulus,
+private expected answer, task kind, validator, answer rule, and explicit format
+capability. Engine exposes instruction/stimulus and format availability for
+projection while expected remains submission truth. It performs no catalog or
+guidance lookup and hard-codes no task instruction.
 
 Accepted proof: pure engine unit tests, adapter tests that use the same session,
 and full CLI proof. These tests do not prove learning quality, manual TUI feel,
@@ -45,10 +44,10 @@ indexing.
 
 ## Gate And Unknowns
 
-Truthful Task Projection Contract V1 is the active implementation lane. It may
-replace the temporary Copy-shaped construction with already-resolved packets,
-rename packet prompt to stimulus, and preserve expected-answer containment.
-Attempts, pass/wrong, skip, completion, validation, and lab truth remain sealed.
-Non-Copy admission stays blocked, and Don must accept the installed TTY
-presentation before integration. Update this page for packet, transition,
-source, or counter changes.
+Truthful Task Projection Contract V1 is accepted and integrated. Attempts,
+pass/wrong, skip, completion, validation, and lab truth remain sealed. Current
+normal packets are Exact and format-disabled; lab packets are explicitly
+Rustfmt-enabled. No implementation lane is active, and future non-Copy
+admission requires the separately planned Varied Deterministic Rust Practice
+Flow V1 boundary. Update this page for packet, transition, source, or counter
+changes.

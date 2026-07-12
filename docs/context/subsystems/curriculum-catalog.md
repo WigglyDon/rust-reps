@@ -28,9 +28,9 @@ Allowed authority: normal reps, metadata, `DRILL_SHARDS`, `DRILLS`, lookup, and
 catalog tests. Forbidden authority: attempts, pass/skip truth, terminal I/O,
 runtime generation, validation weakening, and lab admission.
 
-Allowed direction is catalog reading curriculum data and engine reading the
-ordinary catalog. Curriculum must not depend on engine, client, TUI, or
-practice. Generated-shaped data remains unplayable until a future explicit
+Allowed direction is catalog reading curriculum data and orchestration reading
+the ordinary catalog to construct resolved engine packets. Curriculum must not
+depend on engine, client, TUI, or practice. Generated-shaped data remains unplayable until a future explicit
 catalog admission boundary produces ordinary `RepSpec` data.
 Catalog never expands a template at runtime. Any future generated admission
 must preserve and test exact checked materialized provenance in the ordinary
@@ -84,8 +84,10 @@ there is no persistence or telemetry. Resource cost is static data only.
 
 Tiny Multi-Operation Rust Set Materialization V1 remains checked inert source;
 catalog admission and IDs 013-017 are absent. Resolved Core Task And
-Orchestration Contract V1 is integrated: the pure resolved seam exists but has
-no product caller. Truthful Task Projection Contract V1 remains the next
-prerequisite, and non-Copy admission remains blocked by the projection
-limitations recorded in current state. Update this page when schema, planning,
-ordering, admission, or visible catalog behavior changes.
+Orchestration Contract V1 and Truthful Task Projection Contract V1 are
+integrated: orchestration resolves the current twelve admitted Copy reps into
+product packets, assigns formatting `Disabled`, and preserves catalog order and
+identity. Varied Deterministic Rust Practice Flow V1 is the sole next planned
+boundary, remains inactive, and must separately prove any admission. Update
+this page when schema, planning, ordering, admission, or visible catalog
+behavior changes.

@@ -16,7 +16,8 @@ selected adapter and interactive default. Practice reads stdin, delegates to
 engine, and prints deterministic plain results. Presentation owns shared text
 formatting but not behavior truth.
 
-Allowed direction is adapters reading catalog and engine APIs. Forbidden is
+Allowed direction is orchestration reading catalog/guidance and adapters
+reading resolved engine APIs. Forbidden is
 duplicating session transitions, normalizing answers, generating curriculum,
 or allowing docs/TUI text to silently redefine plain output.
 
@@ -31,9 +32,10 @@ Accepted evidence is exact unit/CLI output, stdin, stderr, and exit status at an
 identified executable/source SHA. `scripts/proof.sh` also checks an installed
 temporary command. This does not prove interactive fullscreen feel.
 
-`LIVE_REPO_FACT`: `print_one_shot_prompt` currently prints `drill.expected`
-rather than `drill.prompt`. Existing Copy reps mask the distinction. It blocks
-non-Copy product admission alongside the engine instruction blocker.
+`LIVE_REPO_FACT`: current product launch paths obtain resolved packets through
+orchestration. One shared task-block writer receives instruction and stimulus
+only, preserves exact bytes and omits empty stimuli, and is used by plain and
+one-shot projection. Expected-answer truth does not enter task formatting.
 
 Rollback is restoring exact prior transcripts. Observability is stdout/stderr
 and exit status; there is no telemetry. Resource use is synchronous terminal
@@ -41,6 +43,8 @@ I/O over a small static catalog.
 
 ## Gate And Unknowns
 
-Selector and multilingual presentation work are paused. Prompt propagation
-requires an explicit product packet and exact transcript tests. Update on any
-argument, output, prompt, command, or launch-mode change.
+Selector and multilingual presentation work are paused. Plain and one-shot
+remain finite exact proof oracles; future multiline input framing requires a
+separate contract before multiline tasks enter those clients. Varied
+Deterministic Rust Practice Flow V1 is planned but inactive. Update on any
+argument, output, task block, command, or launch-mode change.
