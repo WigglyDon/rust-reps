@@ -92,11 +92,18 @@ pub enum ProblemLineKind {
     Plain,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum StimulusRowKind {
+    HardLineStart,
+    SoftContinuation,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ProblemDisplayLine {
     pub kind: ProblemLineKind,
     pub text: String,
     pub tokens: Vec<CodeToken>,
+    pub stimulus_row: Option<StimulusRowKind>,
 }
 
 impl ProblemDisplayLine {
@@ -105,6 +112,7 @@ impl ProblemDisplayLine {
             kind: ProblemLineKind::Blank,
             text: String::new(),
             tokens: Vec::new(),
+            stimulus_row: None,
         }
     }
 
@@ -113,6 +121,7 @@ impl ProblemDisplayLine {
             kind: ProblemLineKind::Header,
             text: text.into(),
             tokens: Vec::new(),
+            stimulus_row: None,
         }
     }
 
@@ -121,6 +130,7 @@ impl ProblemDisplayLine {
             kind: ProblemLineKind::AnswerShape,
             text: text.into(),
             tokens: Vec::new(),
+            stimulus_row: None,
         }
     }
 
@@ -129,6 +139,7 @@ impl ProblemDisplayLine {
             kind: ProblemLineKind::Bullet,
             text: text.into(),
             tokens: Vec::new(),
+            stimulus_row: None,
         }
     }
 
@@ -138,6 +149,7 @@ impl ProblemDisplayLine {
             kind: ProblemLineKind::Code,
             text: text.to_string(),
             tokens: tokenize_rust_line(text),
+            stimulus_row: None,
         }
     }
 
@@ -150,6 +162,7 @@ impl ProblemDisplayLine {
             kind: ProblemLineKind::Code,
             text,
             tokens,
+            stimulus_row: None,
         }
     }
 
@@ -159,7 +172,13 @@ impl ProblemDisplayLine {
             kind: ProblemLineKind::Plain,
             text: text.into(),
             tokens: Vec::new(),
+            stimulus_row: None,
         }
+    }
+
+    fn with_stimulus_row(mut self, stimulus_row: StimulusRowKind) -> Self {
+        self.stimulus_row = Some(stimulus_row);
+        self
     }
 }
 
@@ -1146,14 +1165,38 @@ fn problem_display_lines(
     } else {
         lines.push(ProblemDisplayLine::blank());
     }
+    let stimulus_wrap_width = wrap_width.saturating_sub(2).max(1);
     for line in stimulus.lines() {
-        if line.is_empty() {
-            lines.push(ProblemDisplayLine::blank());
-        } else {
-            lines.extend(problem_display_lines_for_source_line(line, wrap_width));
-        }
+        lines.extend(stimulus_display_lines_for_source_line(
+            line,
+            stimulus_wrap_width,
+        ));
     }
     lines
+}
+
+fn stimulus_display_lines_for_source_line(
+    line: &str,
+    wrap_width: usize,
+) -> Vec<ProblemDisplayLine> {
+    let display_lines = if line.is_empty() {
+        vec![ProblemDisplayLine::blank()]
+    } else {
+        problem_display_lines_for_source_line(line, wrap_width)
+    };
+
+    display_lines
+        .into_iter()
+        .enumerate()
+        .map(|(index, line)| {
+            let row_kind = if index == 0 {
+                StimulusRowKind::HardLineStart
+            } else {
+                StimulusRowKind::SoftContinuation
+            };
+            line.with_stimulus_row(row_kind)
+        })
+        .collect()
 }
 
 fn should_render_problem_instruction(stimulus: &str) -> bool {
@@ -1644,8 +1687,9 @@ mod tests {
         REWARD_DURATION, REWARD_GAME_ATTACK_DURATION, REWARD_GAME_BODY_DURATION,
         REWARD_GAME_GLOW_DELAY, REWARD_GAME_GLOW_MAX_INTENSITY, REWARD_GAME_RELEASE_DURATION,
         REWARD_PLUS_ONE_BODY_DURATION, REWARD_PLUS_ONE_DURATION, REWARD_RELEASE_DURATION,
-        REWARD_SWEEP_DURATION, SKIP_TOAST_DURATION, StatusTone, project_client_frame,
-        project_client_frame_at, project_client_frame_for_layout, tokenize_rust_line,
+        REWARD_SWEEP_DURATION, SKIP_TOAST_DURATION, StatusTone, StimulusRowKind,
+        project_client_frame, project_client_frame_at, project_client_frame_for_layout,
+        tokenize_rust_line,
     };
     use crate::engine::{
         self, ExerciseAnswerRule, ExerciseKind, ExercisePacket, ExerciseValidator,
@@ -1663,6 +1707,28 @@ mod tests {
             .iter()
             .map(|token| (token.kind.clone(), token.text.clone()))
             .collect()
+    }
+
+    fn stimulus_rows(lines: &[ProblemDisplayLine]) -> Vec<&ProblemDisplayLine> {
+        lines
+            .iter()
+            .filter(|line| line.stimulus_row.is_some())
+            .collect()
+    }
+
+    fn reconstruct_stimulus_lines(rows: &[&ProblemDisplayLine]) -> Vec<String> {
+        let mut hard_lines = Vec::new();
+        for row in rows {
+            match row.stimulus_row {
+                Some(StimulusRowKind::HardLineStart) => hard_lines.push(row.text.clone()),
+                Some(StimulusRowKind::SoftContinuation) => hard_lines
+                    .last_mut()
+                    .expect("soft continuation must follow a hard line")
+                    .push_str(&row.text),
+                None => panic!("stimulus row must carry source row identity"),
+            }
+        }
+        hard_lines
     }
 
     fn test_now() -> Instant {
@@ -2407,6 +2473,122 @@ mod tests {
                 (&ProblemLineKind::Code, "fn main() {}")
             ]
         );
+    }
+
+    #[test]
+    fn screenshot_shaped_one_line_wrap_marks_soft_continuation_without_changing_source() {
+        let stimulus = "fn add_one(x: i32) -> i32 { x + 1 }";
+        assert!(!stimulus.contains('\n'));
+
+        let lines = super::problem_display_lines("Copy this line exactly:", stimulus, 26);
+        let rows = stimulus_rows(&lines);
+
+        assert!(rows.len() > 1);
+        assert_eq!(rows[0].stimulus_row, Some(StimulusRowKind::HardLineStart));
+        assert!(rows[0].text.trim_end().ends_with("->"));
+        assert!(
+            rows[1..]
+                .iter()
+                .all(|row| { row.stimulus_row == Some(StimulusRowKind::SoftContinuation) })
+        );
+        assert_eq!(
+            rows.iter().map(|row| row.text.as_str()).collect::<String>(),
+            stimulus
+        );
+        assert!(rows.iter().all(|row| !row.text.contains('↪')));
+    }
+
+    #[test]
+    fn fitting_stimulus_has_one_uncontinued_source_row() {
+        let stimulus = "let n = 5;";
+        let lines = super::problem_display_lines("Copy this line exactly:", stimulus, 80);
+        let rows = stimulus_rows(&lines);
+
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].text, stimulus);
+        assert_eq!(rows[0].stimulus_row, Some(StimulusRowKind::HardLineStart));
+    }
+
+    #[test]
+    fn hard_source_lines_and_soft_continuations_remain_distinguishable() {
+        let stimulus = "let n = 5;\n\nfn add_one(x: i32) -> i32 { x + 1 }";
+        let lines = super::problem_display_lines("Copy this exactly:", stimulus, 26);
+        let rows = stimulus_rows(&lines);
+        let hard_starts = rows
+            .iter()
+            .filter(|row| row.stimulus_row == Some(StimulusRowKind::HardLineStart))
+            .count();
+        let continuations = rows
+            .iter()
+            .filter(|row| row.stimulus_row == Some(StimulusRowKind::SoftContinuation))
+            .count();
+
+        assert_eq!(hard_starts, 3);
+        assert!(continuations > 0);
+        assert_eq!(
+            reconstruct_stimulus_lines(&rows),
+            stimulus.lines().map(str::to_string).collect::<Vec<_>>()
+        );
+        assert!(rows.iter().any(|row| {
+            row.text.is_empty() && row.stimulus_row == Some(StimulusRowKind::HardLineStart)
+        }));
+    }
+
+    #[test]
+    fn empty_stimulus_produces_no_source_or_gutter_row() {
+        let lines = super::problem_display_lines("Write a function:", "", 1);
+
+        assert!(stimulus_rows(&lines).is_empty());
+        assert!(lines.iter().any(|line| line.text == "Write a function:"));
+        assert!(lines.iter().all(|line| !line.text.contains('↪')));
+    }
+
+    #[test]
+    fn very_narrow_stimulus_wrapping_is_deterministic_and_lossless() {
+        let stimulus = "fn add_one(x: i32) -> i32 { x + 1 }";
+        let first = super::problem_display_lines("Copy this line exactly:", stimulus, 1);
+        let second = super::problem_display_lines("Copy this line exactly:", stimulus, 1);
+        let rows = stimulus_rows(&first);
+
+        assert_eq!(first, second);
+        assert!(rows.len() > 1);
+        assert_eq!(
+            rows.iter().map(|row| row.text.as_str()).collect::<String>(),
+            stimulus
+        );
+        assert!(
+            rows[1..]
+                .iter()
+                .all(|row| { row.stimulus_row == Some(StimulusRowKind::SoftContinuation) })
+        );
+    }
+
+    #[test]
+    fn wrapped_stimulus_rows_participate_in_viewport_without_mutating_state() {
+        let stimulus = "fn add_one(x: i32) -> i32 { x + 1 }";
+        let session = projection_session("Copy this line exactly:", stimulus, stimulus);
+        let mut ui_state = ClientUiState::new();
+        ui_state.apply_action(ClientAction::TypeChar('x'));
+        let before_editor = ui_state.editor_view();
+        let top = project_client_frame_for_layout(&session, &ui_state, test_now(), 26);
+        let source_row_count = stimulus_rows(&top.game_window.problem.lines).len();
+
+        assert!(source_row_count > 1);
+        assert_eq!(top.game_window.problem.viewport.scroll_offset, 0);
+
+        ui_state.apply_action(ClientAction::ScrollProblemLineDown);
+        let scrolled = project_client_frame_for_layout(&session, &ui_state, test_now(), 26);
+        let rows = stimulus_rows(&scrolled.game_window.problem.lines);
+
+        assert_eq!(scrolled.game_window.problem.viewport.scroll_offset, 1);
+        assert_eq!(rows.len(), source_row_count);
+        assert_eq!(
+            reconstruct_stimulus_lines(&rows),
+            vec![stimulus.to_string()]
+        );
+        assert_eq!(scrolled.game_window.problem.stimulus, stimulus);
+        assert_eq!(ui_state.editor_view(), before_editor);
+        assert_eq!(scrolled.game_window.problem.visible_range(2).start, 1);
     }
 
     #[test]

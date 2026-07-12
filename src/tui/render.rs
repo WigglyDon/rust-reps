@@ -2,15 +2,16 @@ use crate::client::CursorPosition;
 use crate::{
     client::{
         ClientFrame, CodeToken, EditorAnchor, FailureFrame, ProblemDisplayLine, ProblemLineKind,
-        RewardFrame, StatusTone, ViewportOverflow,
+        RewardFrame, StatusTone, StimulusRowKind, ViewportOverflow,
     },
     tui::{
         app::TuiApp,
         input::MousePane,
         theme::{
             base_style, border_sweep_style, code_token_style, control_hint_style, counter_style,
-            editor_canvas_style, editor_gutter_feedback_style, editor_line_style, plus_one_style,
-            primary_action_style, problem_header_style, status_tone_style, surface_style,
+            editor_canvas_style, editor_gutter_feedback_style, editor_line_style, muted_style,
+            plus_one_style, primary_action_style, problem_header_style, status_tone_style,
+            surface_style,
         },
     },
 };
@@ -31,6 +32,8 @@ const FORMAT_ACTION_HINT: &str = "F1 format";
 const PRIMARY_ACTION_HINT: &str = "F5 submit";
 const SKIP_ACTION_HINT: &str = "F7 skip";
 const QUIT_ACTION_HINT: &str = "Esc quit";
+const STIMULUS_HARD_LINE_GUTTER: &str = "  ";
+const STIMULUS_CONTINUATION_GUTTER: &str = "↪ ";
 #[cfg(test)]
 const SNAPSHOT_PROBLEM_HEIGHT: u16 = 8;
 #[cfg(test)]
@@ -407,15 +410,26 @@ fn problem_lines_for_height(client_frame: &ClientFrame, problem_height: u16) -> 
 }
 
 fn problem_display_line(line: &ProblemDisplayLine) -> Line<'static> {
-    match line.kind {
-        ProblemLineKind::Blank => Line::from(""),
+    let mut spans = match line.kind {
+        ProblemLineKind::Blank => Vec::new(),
         ProblemLineKind::Header | ProblemLineKind::AnswerShape => {
-            Line::from(Span::styled(line.text.clone(), problem_header_style()))
+            vec![Span::styled(line.text.clone(), problem_header_style())]
         }
-        ProblemLineKind::Code => Line::from(code_spans(&line.tokens)),
-        ProblemLineKind::Bullet => Line::from(line.text.clone()),
-        ProblemLineKind::Plain => Line::from(line.text.clone()),
+        ProblemLineKind::Code => code_spans(&line.tokens),
+        ProblemLineKind::Bullet | ProblemLineKind::Plain => {
+            vec![Span::raw(line.text.clone())]
+        }
+    };
+
+    if let Some(row_kind) = line.stimulus_row {
+        let gutter = match row_kind {
+            StimulusRowKind::HardLineStart => STIMULUS_HARD_LINE_GUTTER,
+            StimulusRowKind::SoftContinuation => STIMULUS_CONTINUATION_GUTTER,
+        };
+        spans.insert(0, Span::styled(gutter, muted_style()));
     }
+
+    Line::from(spans)
 }
 
 #[cfg(test)]
@@ -1023,10 +1037,11 @@ mod tests {
     use super::{
         COMMAND_RAIL_HEIGHT, FEEDBACK_CHROME_HEIGHT, FORMAT_ACTION_HINT, PRIMARY_ACTION_HINT,
         QUIT_ACTION_HINT, SKIP_ACTION_HINT, SNAPSHOT_PROBLEM_HEIGHT, SNAPSHOT_WORKBOX_HEIGHT,
-        TOP_COUNTER_HEIGHT, border_sweep_cell_progress, command_chrome_alignment,
-        command_chrome_lines, editor_cursor_at, editor_horizontal_overflow, feedback_chrome_lines,
-        feedback_height, gutter_width, layout_chunks, line_text, problem_display_line,
-        problem_lines, render_client_frame, render_editor_controls, render_editor_cursor,
+        STIMULUS_CONTINUATION_GUTTER, STIMULUS_HARD_LINE_GUTTER, TOP_COUNTER_HEIGHT,
+        border_sweep_cell_progress, command_chrome_alignment, command_chrome_lines,
+        editor_cursor_at, editor_horizontal_overflow, feedback_chrome_lines, feedback_height,
+        gutter_width, layout_chunks, line_text, problem_display_line, problem_lines,
+        render_client_frame, render_editor_controls, render_editor_cursor,
         render_editor_horizontal_indicators, render_snapshot, render_snapshot_with_workbox_height,
         render_top_banner, reward_sweep_intensity_at, shell_layout, usize_to_u16,
         viewport_indicator_cells, visible_editor_rows, workbox_lines, workbox_lines_for_area,
@@ -1037,7 +1052,7 @@ mod tests {
             ClientAction, CursorPosition, EditorAnchor, FormatFrame, FormatNoticeKind,
             ProblemDisplayLine, ProblemViewport, REWARD_ATTACK_DURATION, REWARD_DURATION,
             REWARD_PLUS_ONE_BODY_DURATION, REWARD_PLUS_ONE_DURATION, RewardFrame, SkipFrame,
-            StatusTone, ViewportOverflow,
+            StatusTone, StimulusRowKind, ViewportOverflow,
         },
         engine::{self, ExerciseAnswerRule, ExerciseKind, ExercisePacket, ExerciseValidator},
         lab,
@@ -1045,7 +1060,7 @@ mod tests {
             TuiApp,
             theme::{
                 RUST_REPS_DARK, base_style, border_style, counter_style, editor_canvas_style,
-                plus_one_style, status_tone_style, surface_style,
+                muted_style, plus_one_style, status_tone_style, surface_style,
             },
         },
     };
@@ -1224,7 +1239,7 @@ mod tests {
         let prompt_value_position = snapshot
             .game
             .iter()
-            .position(|line| line == "fn main() {}")
+            .position(|line| line == "  fn main() {}")
             .expect("expected prompt in game snapshot");
         let input_position = snapshot
             .game
@@ -1249,7 +1264,7 @@ mod tests {
         let problem_position = snapshot
             .game
             .iter()
-            .position(|line| line == "fn main() {}")
+            .position(|line| line == "  fn main() {}")
             .expect("expected problem prompt");
         let editor_position = snapshot
             .game
@@ -1496,7 +1511,7 @@ mod tests {
             .expect("expected instruction line");
         let stimulus_position = problem
             .iter()
-            .position(|line| line == "fn main() {}")
+            .position(|line| line == "  fn main() {}")
             .expect("expected stimulus line");
         let editor_line_position = editor
             .iter()
@@ -1553,10 +1568,12 @@ mod tests {
 
             if stimulus.is_empty() {
                 assert_eq!(lines.last(), Some(&instruction.to_string()));
+                assert!(!rendered.contains(STIMULUS_CONTINUATION_GUTTER));
             } else {
+                let rendered_stimulus = format!("{STIMULUS_HARD_LINE_GUTTER}{stimulus}");
                 let stimulus_position = lines
                     .iter()
-                    .position(|line| line == stimulus)
+                    .position(|line| line == &rendered_stimulus)
                     .expect("task panel must contain exact stimulus");
                 assert!(instruction_position < stimulus_position);
             }
@@ -1800,12 +1817,12 @@ mod tests {
         app.handle_action(ClientAction::ScrollProblemDown);
         let scrolled_snapshot = render_snapshot(&app.frame());
 
-        assert!(top_snapshot.game.iter().any(|line| line == "task:"));
+        assert!(top_snapshot.game.iter().any(|line| line == "  task:"));
         assert!(
             top_snapshot
                 .game
                 .iter()
-                .any(|line| line.starts_with("Build the smallest Rust entry point"))
+                .any(|line| line.starts_with("  Build the smallest Rust entry point"))
         );
         assert!(
             top_snapshot
@@ -1817,9 +1834,9 @@ mod tests {
             scrolled_snapshot
                 .game
                 .iter()
-                .any(|line| line == "requirements:")
+                .any(|line| line == "  requirements:")
         );
-        assert!(!scrolled_snapshot.game.iter().any(|line| line == "task:"));
+        assert!(!scrolled_snapshot.game.iter().any(|line| line == "  task:"));
         assert_eq!(top_snapshot.game.len(), scrolled_snapshot.game.len());
         assert_eq!(
             top_snapshot.command_chrome,
@@ -2647,10 +2664,10 @@ mod tests {
         let lines = problem_lines(&frame);
         let prompt_line = lines
             .iter()
-            .find(|line| line_text(line) == "fn main() {}")
+            .find(|line| line_text(line) == "  fn main() {}")
             .expect("expected prompt line");
 
-        assert_eq!(line_text(prompt_line), "fn main() {}");
+        assert_eq!(line_text(prompt_line), "  fn main() {}");
         assert!(
             prompt_line
                 .spans
@@ -2677,6 +2694,75 @@ mod tests {
         assert!(line.spans.iter().any(|span| {
             span.content.as_ref() == "1" && span.style.fg == Some(RUST_REPS_DARK.number)
         }));
+    }
+
+    #[test]
+    fn wrapped_stimulus_continuation_has_a_distinct_non_source_gutter() {
+        let stimulus = "fn add_one(x: i32) -> i32 { x + 1 }";
+        let frame = projection_app("Copy this line exactly:", stimulus, stimulus)
+            .frame_at_for_layout(test_now(), 26);
+        let source_rows = frame
+            .game_window
+            .problem
+            .lines
+            .iter()
+            .filter(|line| line.stimulus_row.is_some())
+            .collect::<Vec<_>>();
+        let hard_start = source_rows
+            .iter()
+            .find(|line| line.stimulus_row == Some(StimulusRowKind::HardLineStart))
+            .expect("expected hard source-line start");
+        let continuation = source_rows
+            .iter()
+            .find(|line| line.stimulus_row == Some(StimulusRowKind::SoftContinuation))
+            .expect("expected soft continuation");
+
+        let hard_line = problem_display_line(hard_start);
+        let continuation_line = problem_display_line(continuation);
+        assert_eq!(
+            hard_line.spans[0].content.as_ref(),
+            STIMULUS_HARD_LINE_GUTTER
+        );
+        assert_eq!(
+            continuation_line.spans[0].content.as_ref(),
+            STIMULUS_CONTINUATION_GUTTER
+        );
+        assert_eq!(continuation_line.spans[0].style, muted_style());
+        assert_ne!(
+            continuation_line.spans[0].style,
+            continuation_line.spans[1].style
+        );
+        assert_eq!(
+            continuation_line
+                .spans
+                .iter()
+                .skip(1)
+                .map(|span| span.content.as_ref())
+                .collect::<String>(),
+            continuation.text
+        );
+        assert!(!continuation.text.contains('↪'));
+
+        let backend = TestBackend::new(40, 1);
+        let mut terminal = Terminal::new(backend).expect("expected test terminal");
+        terminal
+            .draw(|frame| {
+                frame.render_widget(
+                    Paragraph::new(problem_display_line(continuation)).style(surface_style()),
+                    Rect::new(0, 0, 40, 1),
+                );
+            })
+            .expect("expected continuation render");
+        let buffer = terminal.backend().buffer();
+
+        assert_eq!(buffer[(0, 0)].symbol(), "↪");
+        assert_eq!(buffer[(1, 0)].symbol(), " ");
+        assert_eq!(buffer[(2, 0)].symbol(), "i");
+        assert_eq!(
+            buffer[(0, 0)].fg,
+            muted_style().fg.expect("muted foreground")
+        );
+        assert_ne!(buffer[(0, 0)].fg, buffer[(2, 0)].fg);
     }
 
     #[test]
@@ -2930,7 +3016,7 @@ mod tests {
             snapshot
                 .game
                 .iter()
-                .any(|line| line == "println!(\"Rust Reps\");")
+                .any(|line| line == "  println!(\"Rust Reps\");")
         );
         assert!(snapshot.game.iter().any(|line| line == " 1 │ "));
         assert!(frame.reward.show_plus_one);
