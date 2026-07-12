@@ -80,6 +80,7 @@ pub const PROBLEM_WHEEL_SCROLL_LINES: usize = 1;
 pub const PROBLEM_SCROLL_LINES: usize = 4;
 pub const DEFAULT_PROBLEM_WRAP_WIDTH: usize = 80;
 pub const MIN_PROBLEM_WRAP_WIDTH: usize = 12;
+pub const STIMULUS_GUTTER_WIDTH: usize = 2;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ProblemLineKind {
@@ -350,6 +351,7 @@ pub struct SkipFrame {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum FormatNoticeKind {
     Formatted,
+    SkippedExactCopyDiffers,
     Unavailable,
     Failed,
     TimedOut,
@@ -359,6 +361,7 @@ impl FormatNoticeKind {
     pub fn message(self) -> &'static str {
         match self {
             Self::Formatted => "formatted",
+            Self::SkippedExactCopyDiffers => "format skipped: exact copy differs",
             Self::Unavailable => "rustfmt unavailable",
             Self::Failed => "format failed",
             Self::TimedOut => "format timed out",
@@ -1017,18 +1020,34 @@ pub struct ProblemView {
 }
 
 impl ProblemView {
+    pub fn instruction_lines(&self) -> &[ProblemDisplayLine] {
+        &self.lines[..self.stimulus_start()]
+    }
+
+    fn stimulus_lines(&self) -> &[ProblemDisplayLine] {
+        &self.lines[self.stimulus_start()..]
+    }
+
+    fn stimulus_start(&self) -> usize {
+        self.lines
+            .iter()
+            .position(|line| line.stimulus_row.is_some())
+            .unwrap_or(self.lines.len())
+    }
+
     pub fn visible_lines(&self, visible_lines: usize) -> &[ProblemDisplayLine] {
         let range = self.visible_range(visible_lines);
-        &self.lines[range.start..range.end]
+        &self.stimulus_lines()[range.start..range.end]
     }
 
     pub fn visible_range(&self, visible_lines: usize) -> ProblemVisibleRange {
-        self.viewport.visible_range(self.lines.len(), visible_lines)
+        self.viewport
+            .visible_range(self.stimulus_lines().len(), visible_lines)
     }
 
     pub fn overflow(&self, visible_lines: usize) -> ViewportOverflow {
         let range = self.visible_range(visible_lines);
-        ViewportOverflow::from_parts(self.lines.len(), visible_lines, range.start)
+        ViewportOverflow::from_parts(self.stimulus_lines().len(), visible_lines, range.start)
     }
 }
 
@@ -1114,7 +1133,11 @@ pub fn project_client_frame_for_layout(
         exercise.stimulus.as_ref(),
         problem_wrap_width,
     );
-    let problem_viewport = ui_state.problem_viewport().clamped(problem_lines.len());
+    let stimulus_line_count = problem_lines
+        .iter()
+        .filter(|line| line.stimulus_row.is_some())
+        .count();
+    let problem_viewport = ui_state.problem_viewport().clamped(stimulus_line_count);
 
     ClientFrame {
         game_window: GameWindowFrame {
@@ -1155,17 +1178,13 @@ fn problem_display_lines(
 ) -> Vec<ProblemDisplayLine> {
     let mut lines = Vec::new();
     if should_render_problem_instruction(stimulus) {
-        lines.extend([
-            ProblemDisplayLine::blank(),
-            ProblemDisplayLine::header(instruction),
-        ]);
-        if !stimulus.is_empty() {
-            lines.push(ProblemDisplayLine::blank());
-        }
-    } else {
-        lines.push(ProblemDisplayLine::blank());
+        lines.extend(
+            split_display_line(instruction, wrap_width)
+                .into_iter()
+                .map(ProblemDisplayLine::header),
+        );
     }
-    let stimulus_wrap_width = wrap_width.saturating_sub(2).max(1);
+    let stimulus_wrap_width = wrap_width.saturating_sub(STIMULUS_GUTTER_WIDTH).max(1);
     for line in stimulus.lines() {
         lines.extend(stimulus_display_lines_for_source_line(
             line,
@@ -1962,9 +1981,7 @@ mod tests {
                 .map(|line| (&line.kind, line.text.as_str()))
                 .collect::<Vec<_>>(),
             vec![
-                (&ProblemLineKind::Blank, ""),
                 (&ProblemLineKind::Header, "Copy this line exactly:"),
-                (&ProblemLineKind::Blank, ""),
                 (&ProblemLineKind::Code, "fn main() {}")
             ]
         );
@@ -2030,12 +2047,10 @@ mod tests {
 
         assert_eq!(problem.instruction, instruction);
         assert!(problem.stimulus.is_empty());
-        assert_eq!(problem.lines[0].kind, ProblemLineKind::Blank);
         assert!(
             problem
                 .lines
                 .iter()
-                .skip(1)
                 .all(|line| line.kind == ProblemLineKind::Header)
         );
         assert_ne!(
@@ -2091,7 +2106,10 @@ mod tests {
             instruction: "Read these lines:".to_string(),
             stimulus: "line 1".to_string(),
             lines: (1..=8)
-                .map(|index| ProblemDisplayLine::plain(format!("line {index}")))
+                .map(|index| {
+                    ProblemDisplayLine::plain(format!("line {index}"))
+                        .with_stimulus_row(StimulusRowKind::HardLineStart)
+                })
                 .collect(),
             viewport: ProblemViewport::with_offset(4),
         };
@@ -2116,8 +2134,10 @@ mod tests {
         let fitting_problem = ProblemView {
             viewport: ProblemViewport::new(),
             lines: vec![
-                ProblemDisplayLine::plain("line 1"),
-                ProblemDisplayLine::plain("line 2"),
+                ProblemDisplayLine::plain("line 1")
+                    .with_stimulus_row(StimulusRowKind::HardLineStart),
+                ProblemDisplayLine::plain("line 2")
+                    .with_stimulus_row(StimulusRowKind::HardLineStart),
             ],
             ..problem
         };
@@ -2148,8 +2168,8 @@ mod tests {
             .iter()
             .map(|line| line.text.as_str())
             .collect::<Vec<_>>();
-        assert_eq!(&visible[..2], &["", "task:"]);
-        assert!(visible[2].starts_with("Build the smallest Rust entry point"));
+        assert_eq!(visible[0], "task:");
+        assert!(visible[1].starts_with("Build the smallest Rust entry point"));
         assert_eq!(
             problem.overflow(5),
             super::ViewportOverflow {
@@ -2157,7 +2177,11 @@ mod tests {
                 below: true,
                 offset: 0,
                 visible: 5,
-                total: problem.lines.len(),
+                total: problem
+                    .lines
+                    .iter()
+                    .filter(|line| line.stimulus_row.is_some())
+                    .count(),
             }
         );
     }
@@ -2467,9 +2491,7 @@ mod tests {
         assert_eq!(
             visible,
             vec![
-                (&ProblemLineKind::Blank, ""),
                 (&ProblemLineKind::Header, "Copy this line exactly:"),
-                (&ProblemLineKind::Blank, ""),
                 (&ProblemLineKind::Code, "fn main() {}")
             ]
         );
@@ -2539,7 +2561,11 @@ mod tests {
         let lines = super::problem_display_lines("Write a function:", "", 1);
 
         assert!(stimulus_rows(&lines).is_empty());
-        assert!(lines.iter().any(|line| line.text == "Write a function:"));
+        assert!(
+            lines
+                .iter()
+                .all(|line| line.kind == ProblemLineKind::Header)
+        );
         assert!(lines.iter().all(|line| !line.text.contains('↪')));
     }
 
@@ -2588,7 +2614,7 @@ mod tests {
         );
         assert_eq!(scrolled.game_window.problem.stimulus, stimulus);
         assert_eq!(ui_state.editor_view(), before_editor);
-        assert_eq!(scrolled.game_window.problem.visible_range(2).start, 1);
+        assert_eq!(scrolled.game_window.problem.visible_range(1).start, 1);
     }
 
     #[test]

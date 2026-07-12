@@ -2,7 +2,7 @@ use crate::client::CursorPosition;
 use crate::{
     client::{
         ClientFrame, CodeToken, EditorAnchor, FailureFrame, ProblemDisplayLine, ProblemLineKind,
-        RewardFrame, StatusTone, StimulusRowKind, ViewportOverflow,
+        RewardFrame, STIMULUS_GUTTER_WIDTH, StatusTone, StimulusRowKind, ViewportOverflow,
     },
     tui::{
         app::TuiApp,
@@ -24,10 +24,13 @@ use ratatui::{
 };
 
 const FEEDBACK_CHROME_HEIGHT: u16 = 0;
-const EDITOR_PANEL_PERCENT: u16 = 56;
 const COMMAND_RAIL_HEIGHT: u16 = 1;
 const TOP_COUNTER_HEIGHT: u16 = 1;
 const MIN_GUTTER_WIDTH: usize = 2;
+const EDITOR_SOURCE_SEPARATOR_WIDTH: usize = 3;
+const EDITOR_TRAILING_INDICATOR_WIDTH: usize = 1;
+const PROBLEM_HORIZONTAL_PADDING: u16 = 1;
+const PROBLEM_TRAILING_RESERVE: usize = 3;
 const FORMAT_ACTION_HINT: &str = "F1 format";
 const PRIMARY_ACTION_HINT: &str = "F5 submit";
 const SKIP_ACTION_HINT: &str = "F7 skip";
@@ -42,30 +45,49 @@ const SNAPSHOT_WORKBOX_HEIGHT: u16 = 8;
 pub(crate) fn render_ui(frame: &mut Frame<'_>, app: &mut TuiApp, now: std::time::Instant) {
     let preliminary_frame = app.frame_at(now);
     let feedback_lines = feedback_chrome_lines(&preliminary_frame);
-    let layout = shell_layout(frame.area(), feedback_height(&feedback_lines));
-    app.set_editor_viewport_height(visible_editor_rows(layout.editor.height));
+    let feedback_height = feedback_height(&feedback_lines);
+    let width_layout = shell_layout_for_content(
+        frame.area(),
+        feedback_height,
+        preliminary_frame.game_window.workbox.lines.len().max(1),
+        TOP_COUNTER_HEIGHT,
+    );
     app.set_editor_viewport_width(editor_text_columns_for_area(
-        layout.editor,
+        width_layout.editor,
         preliminary_frame.game_window.workbox.lines.len().max(1),
     ));
 
-    let client_frame = app.frame_at_for_layout(
-        now,
-        problem_wrap_width(problem_content_area(layout.problem)),
-    );
+    let problem_wrap_width = problem_wrap_width(problem_content_area(width_layout.problem));
+    let projected_frame = app.frame_at_for_layout(now, problem_wrap_width);
+    let final_layout =
+        shell_layout_for_client_frame(frame.area(), feedback_height, &projected_frame);
+    app.set_editor_viewport_height(visible_editor_rows(final_layout.editor.height));
+
+    let client_frame = app.frame_at_for_layout(now, problem_wrap_width);
     render_client_frame(frame, &client_frame);
 }
 
 fn render_client_frame(frame: &mut Frame<'_>, client_frame: &ClientFrame) {
     let feedback_lines = feedback_chrome_lines(client_frame);
     let shell_area = frame.area();
-    let layout = shell_layout(shell_area, feedback_height(&feedback_lines));
+    let layout =
+        shell_layout_for_client_frame(shell_area, feedback_height(&feedback_lines), client_frame);
 
     frame.render_widget(Block::default().style(base_style()), shell_area);
 
     let game_block = Block::default().style(surface_style());
     frame.render_widget(game_block, shell_area);
     render_game_border(frame, shell_area, client_frame.reward);
+
+    let instruction_area = problem_content_area(layout.instruction);
+    frame.render_widget(
+        Paragraph::new(Text::from(instruction_lines_for_height(
+            client_frame,
+            instruction_area.height,
+        )))
+        .style(editor_canvas_style()),
+        instruction_area,
+    );
 
     let problem_area = problem_content_area(layout.problem);
     frame.render_widget(
@@ -117,8 +139,19 @@ fn render_client_frame(frame: &mut Frame<'_>, client_frame: &ClientFrame) {
 }
 
 pub(crate) fn input_layout(area: Rect, app: &TuiApp, now: std::time::Instant) -> ShellLayout {
-    let frame = app.frame_at(now);
-    shell_layout(area, feedback_height(&feedback_chrome_lines(&frame)))
+    let preliminary_frame = app.frame_at(now);
+    let feedback_height = feedback_height(&feedback_chrome_lines(&preliminary_frame));
+    let width_layout = shell_layout_for_content(
+        area,
+        feedback_height,
+        preliminary_frame.game_window.workbox.lines.len().max(1),
+        TOP_COUNTER_HEIGHT,
+    );
+    let client_frame = app.frame_at_for_layout(
+        now,
+        problem_wrap_width(problem_content_area(width_layout.problem)),
+    );
+    shell_layout_for_client_frame(area, feedback_height, &client_frame)
 }
 
 #[cfg(test)]
@@ -130,55 +163,136 @@ fn layout_chunks(area: Rect, feedback_height: u16) -> std::rc::Rc<[Rect]> {
         layout.controls,
         layout.feedback,
         layout.rail,
+        layout.instruction,
     ]
     .into()
 }
 
+#[cfg(test)]
 fn shell_layout(area: Rect, feedback_height: u16) -> ShellLayout {
+    shell_layout_for_content(area, feedback_height, 1, TOP_COUNTER_HEIGHT)
+}
+
+fn shell_layout_for_client_frame(
+    area: Rect,
+    feedback_height: u16,
+    client_frame: &ClientFrame,
+) -> ShellLayout {
+    shell_layout_for_content(
+        area,
+        feedback_height,
+        client_frame.game_window.workbox.lines.len().max(1),
+        shared_header_height(client_frame),
+    )
+}
+
+fn shared_header_height(client_frame: &ClientFrame) -> u16 {
+    usize_to_u16(
+        client_frame
+            .game_window
+            .problem
+            .instruction_lines()
+            .len()
+            .max(usize::from(TOP_COUNTER_HEIGHT)),
+    )
+}
+
+fn shell_layout_for_content(
+    area: Rect,
+    feedback_height: u16,
+    editor_line_count: usize,
+    header_rows: u16,
+) -> ShellLayout {
     let body = shell_body(area);
     let reserved_panes = body.height.min(2);
-    let rail_height = TOP_COUNTER_HEIGHT.min(body.height.saturating_sub(reserved_panes));
+    let header_height = header_rows
+        .max(TOP_COUNTER_HEIGHT)
+        .min(body.height.saturating_sub(reserved_panes));
     let feedback_height =
-        feedback_height.min(body.height.saturating_sub(rail_height + reserved_panes));
+        feedback_height.min(body.height.saturating_sub(header_height + reserved_panes));
     let controls_height = COMMAND_RAIL_HEIGHT.min(
         body.height
-            .saturating_sub(rail_height + feedback_height + reserved_panes),
+            .saturating_sub(header_height + feedback_height + reserved_panes),
     );
     let panel_height = body
         .height
-        .saturating_sub(rail_height + controls_height + feedback_height);
+        .saturating_sub(header_height + controls_height + feedback_height);
 
     let vertical = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(rail_height),
+            Constraint::Length(header_height),
             Constraint::Length(panel_height),
             Constraint::Length(controls_height),
             Constraint::Length(feedback_height),
         ])
         .split(body);
-    let panels = panel_layout(vertical[1]);
+    let panels = panel_layout(vertical[1], editor_line_count);
     let editor = panels[0];
     let controls = Rect::new(body.x, vertical[2].y, body.width, controls_height);
-    let rail = Rect::new(body.x, body.y, panels[0].width, rail_height);
+    let rail = Rect::new(panels[0].x, vertical[0].y, panels[0].width, header_height);
+    let instruction = Rect::new(panels[1].x, vertical[0].y, panels[1].width, header_height);
     ShellLayout {
         editor,
         problem: panels[1],
         controls,
         feedback: vertical[3],
         rail,
+        instruction,
     }
 }
 
-fn panel_layout(area: Rect) -> [Rect; 2] {
+fn panel_layout(area: Rect, editor_line_count: usize) -> [Rect; 2] {
     if area.width == 0 {
         return [area, area];
     }
 
-    let gap_width = if area.width >= 42 { 1 } else { 0 };
+    if area.width <= 1 {
+        let editor = Rect::new(area.x, area.y, area.width, area.height);
+        let problem = Rect::new(area.right(), area.y, 0, area.height);
+        return [editor, problem];
+    }
+
+    let mut editor_width = 1;
+    let mut gap_width = 0;
+    let mut best_difference = usize::MAX;
+    let mut best_shared_width = 0usize;
+    let mut best_total_width = 0usize;
+    let mut best_balance = u16::MAX;
+
+    let gap_candidates: &[u16] = if area.width >= 42 { &[1, 2] } else { &[0] };
+    for &candidate_gap_width in gap_candidates {
+        let content_width = area.width.saturating_sub(candidate_gap_width);
+        for candidate_editor_width in 1..content_width {
+            let candidate_problem_width = content_width - candidate_editor_width;
+            let editor_source = editor_source_capacity(candidate_editor_width, editor_line_count);
+            let problem_source = problem_source_capacity(candidate_problem_width);
+            let difference = editor_source.abs_diff(problem_source);
+            let shared_width = editor_source.min(problem_source);
+            let total_width = editor_source.saturating_add(problem_source);
+            let balance = candidate_editor_width.abs_diff(candidate_problem_width);
+            let is_better = difference < best_difference
+                || (difference == best_difference && shared_width > best_shared_width)
+                || (difference == best_difference
+                    && shared_width == best_shared_width
+                    && total_width > best_total_width)
+                || (difference == best_difference
+                    && shared_width == best_shared_width
+                    && total_width == best_total_width
+                    && balance < best_balance);
+
+            if is_better {
+                editor_width = candidate_editor_width;
+                gap_width = candidate_gap_width;
+                best_difference = difference;
+                best_shared_width = shared_width;
+                best_total_width = total_width;
+                best_balance = balance;
+            }
+        }
+    }
+
     let content_width = area.width.saturating_sub(gap_width);
-    let editor_width = ((u32::from(content_width) * u32::from(EDITOR_PANEL_PERCENT)) / 100)
-        .clamp(1, u32::from(content_width.saturating_sub(1).max(1))) as u16;
     let problem_width = content_width.saturating_sub(editor_width);
     let editor = Rect::new(area.x, area.y, editor_width, area.height);
     let problem = Rect::new(
@@ -194,6 +308,7 @@ fn panel_layout(area: Rect) -> [Rect; 2] {
 pub(crate) struct ShellLayout {
     pub problem: Rect,
     pub editor: Rect,
+    pub instruction: Rect,
     pub controls: Rect,
     pub feedback: Rect,
     pub rail: Rect,
@@ -201,7 +316,8 @@ pub(crate) struct ShellLayout {
 
 impl ShellLayout {
     pub(crate) fn mouse_pane_at(self, column: u16, row: u16) -> MousePane {
-        if rect_contains(self.problem, column, row) {
+        if rect_contains(self.problem, column, row) || rect_contains(self.instruction, column, row)
+        {
             MousePane::Problem
         } else if rect_contains(self.editor, column, row) {
             MousePane::Editor
@@ -225,12 +341,21 @@ fn shell_body(area: Rect) -> Rect {
 fn problem_content_area(area: Rect) -> Rect {
     area.inner(Margin {
         vertical: 0,
-        horizontal: if area.width > 4 { 1 } else { 0 },
+        horizontal: if area.width > 4 {
+            PROBLEM_HORIZONTAL_PADDING
+        } else {
+            0
+        },
     })
 }
 
 fn problem_wrap_width(area: Rect) -> usize {
-    usize::from(area.width).saturating_sub(3)
+    usize::from(area.width).saturating_sub(PROBLEM_TRAILING_RESERVE)
+}
+
+fn problem_source_capacity(area_width: u16) -> usize {
+    let area = Rect::new(0, 0, area_width, 1);
+    problem_wrap_width(problem_content_area(area)).saturating_sub(STIMULUS_GUTTER_WIDTH)
 }
 
 fn render_viewport_indicator(frame: &mut Frame<'_>, area: Rect, overflow: ViewportOverflow) {
@@ -392,7 +517,24 @@ fn smoothstep(progress: f32) -> f32 {
 
 #[cfg(test)]
 fn problem_lines(client_frame: &ClientFrame) -> Vec<Line<'static>> {
-    problem_lines_for_height(client_frame, SNAPSHOT_PROBLEM_HEIGHT)
+    let mut lines = instruction_lines_for_height(client_frame, SNAPSHOT_PROBLEM_HEIGHT);
+    let source_height = SNAPSHOT_PROBLEM_HEIGHT.saturating_sub(usize_to_u16(lines.len()));
+    lines.extend(problem_lines_for_height(client_frame, source_height));
+    lines
+}
+
+fn instruction_lines_for_height(
+    client_frame: &ClientFrame,
+    instruction_height: u16,
+) -> Vec<Line<'static>> {
+    client_frame
+        .game_window
+        .problem
+        .instruction_lines()
+        .iter()
+        .take(usize::from(instruction_height))
+        .map(problem_display_line)
+        .collect()
 }
 
 fn problem_lines_for_height(client_frame: &ClientFrame, problem_height: u16) -> Vec<Line<'static>> {
@@ -462,7 +604,7 @@ fn workbox_lines_for_width(
         .min(editor_text_columns(workbox_width, total_lines))
         .max(1);
     let first_column = source_viewport.first_column;
-    let mut lines = vec![Line::from("").style(editor_canvas_style())];
+    let mut lines = Vec::new();
 
     for line_index in first_line..visible_end {
         let tokens = client_frame
@@ -496,10 +638,14 @@ fn editor_text_columns_for_area(area: Rect, total_lines: usize) -> usize {
 }
 
 fn editor_text_columns(area_width: u16, total_lines: usize) -> usize {
+    editor_source_capacity(area_width, total_lines).max(1)
+}
+
+fn editor_source_capacity(area_width: u16, total_lines: usize) -> usize {
     usize::from(area_width)
         .saturating_sub(gutter_width(total_lines.max(1)))
-        .saturating_sub(4)
-        .max(1)
+        .saturating_sub(EDITOR_SOURCE_SEPARATOR_WIDTH)
+        .saturating_sub(EDITOR_TRAILING_INDICATOR_WIDTH)
 }
 
 fn render_editor_cursor(frame: &mut Frame<'_>, area: Rect, client_frame: &ClientFrame) {
@@ -557,7 +703,7 @@ pub(crate) fn editor_cursor_at(
     column: u16,
     row: u16,
 ) -> Option<CursorPosition> {
-    if !rect_contains(area, column, row) || area.height <= 1 {
+    if !rect_contains(area, column, row) || area.height == 0 {
         return None;
     }
 
@@ -574,7 +720,7 @@ pub(crate) fn editor_cursor_at(
         .viewport
         .first_line
         .min(total_lines.saturating_sub(visible_lines));
-    let clicked_row = usize::from(row.saturating_sub(area.top().saturating_add(1)));
+    let clicked_row = usize::from(row.saturating_sub(area.top()));
     let line_index = first_line.saturating_add(clicked_row).min(total_lines - 1);
     let content_left = area
         .left()
@@ -712,24 +858,66 @@ fn render_editor_toast(
         return;
     };
     let text_width = text.chars().count().max(1);
-    let Some((mut x, y)) = editor_anchor_position(area, client_frame, anchor, text_width) else {
+    let Some((anchor_x, y)) = editor_anchor_position(area, client_frame, anchor, 1) else {
         return;
     };
     let right_limit = area.right().saturating_sub(1);
-    if x >= right_limit {
+    let total_lines = client_frame.game_window.workbox.lines.len().max(1);
+    let content_left = editor_content_left(area, total_lines);
+    if content_left >= right_limit {
         return;
     }
+    let row_width = usize::from(right_limit.saturating_sub(content_left));
     if placement == ToastPlacement::AfterVisibleLine {
-        let max_x = right_limit.saturating_sub(usize_to_u16(text_width));
-        let after_cursor = x.saturating_add(1);
+        let after_cursor = anchor_x.saturating_add(1);
         let after_line = editor_visible_line_end_x(area, client_frame, anchor)
             .map(|line_end| line_end.saturating_add(1))
             .unwrap_or(after_cursor);
-        x = after_cursor.max(after_line).min(max_x);
+        let preferred_x = after_cursor.max(after_line);
+        if text_width <= row_width {
+            let max_x = right_limit.saturating_sub(usize_to_u16(text_width));
+            let x = preferred_x.min(max_x).max(content_left);
+            render_editor_toast_text(frame, x, y, right_limit, area.bottom(), text, style);
+            return;
+        }
     }
-    let text_width = text_width.min(usize::from(right_limit.saturating_sub(x)));
+
+    let wrapped_y = if y.saturating_add(1) < area.bottom() {
+        y + 1
+    } else {
+        y
+    };
+    render_editor_toast_text(
+        frame,
+        content_left,
+        wrapped_y,
+        right_limit,
+        area.bottom(),
+        text,
+        style,
+    );
+}
+
+fn render_editor_toast_text(
+    frame: &mut Frame<'_>,
+    start_x: u16,
+    start_y: u16,
+    right_limit: u16,
+    bottom_limit: u16,
+    text: &str,
+    style: ratatui::style::Style,
+) {
+    let mut x = start_x;
+    let mut y = start_y;
     let buffer = frame.buffer_mut();
-    for ch in text.chars().take(text_width) {
+    for ch in text.chars() {
+        if x >= right_limit {
+            x = start_x;
+            y = y.saturating_add(1);
+        }
+        if y >= bottom_limit {
+            break;
+        }
         buffer[(x, y)].set_symbol(&ch.to_string()).set_style(style);
         x = x.saturating_add(1);
     }
@@ -741,13 +929,13 @@ fn editor_anchor_position(
     anchor: EditorAnchor,
     text_width: usize,
 ) -> Option<(u16, u16)> {
-    if area.width == 0 || area.height <= 1 {
+    if area.width == 0 || area.height == 0 {
         return None;
     }
 
-    let max_row = usize::from(area.height.saturating_sub(2));
+    let max_row = usize::from(area.height.saturating_sub(1));
     let row = usize_to_u16(anchor.row.min(max_row));
-    let y = area.top().saturating_add(1).saturating_add(row);
+    let y = area.top().saturating_add(row);
     if y >= area.bottom() {
         return None;
     }
@@ -836,7 +1024,7 @@ fn render_editor_controls(frame: &mut Frame<'_>, area: Rect) {
 }
 
 pub(crate) fn visible_editor_rows(workbox_height: u16) -> usize {
-    usize::from(workbox_height.saturating_sub(1).max(1))
+    usize::from(workbox_height.max(1))
 }
 
 fn gutter_width(total_lines: usize) -> usize {
@@ -1099,6 +1287,32 @@ mod tests {
         )]))
     }
 
+    fn project_app_for_area(
+        app: &mut TuiApp,
+        area: Rect,
+    ) -> (crate::client::ClientFrame, super::ShellLayout) {
+        let now = test_now();
+        let preliminary = app.frame_at(now);
+        let feedback_height = feedback_height(&feedback_chrome_lines(&preliminary));
+        let width_layout = super::shell_layout_for_content(
+            area,
+            feedback_height,
+            preliminary.game_window.workbox.lines.len().max(1),
+            super::TOP_COUNTER_HEIGHT,
+        );
+        let editor_width = super::editor_source_capacity(
+            width_layout.editor.width,
+            preliminary.game_window.workbox.lines.len().max(1),
+        );
+        app.set_editor_viewport_width(editor_width);
+        let wrap_width =
+            super::problem_wrap_width(super::problem_content_area(width_layout.problem));
+        let projected = app.frame_at_for_layout(now, wrap_width);
+        let layout = super::shell_layout_for_client_frame(area, feedback_height, &projected);
+        app.set_editor_viewport_height(visible_editor_rows(layout.editor.height));
+        (app.frame_at_for_layout(now, wrap_width), layout)
+    }
+
     fn type_text(app: &mut TuiApp, text: &str) {
         for ch in text.chars() {
             if ch == '\n' {
@@ -1131,7 +1345,10 @@ mod tests {
     fn frame_with_long_problem(scroll_offset: usize) -> crate::client::ClientFrame {
         let mut frame = TuiApp::new().frame();
         frame.game_window.problem.lines = (1..=10)
-            .map(|index| ProblemDisplayLine::plain(format!("problem line {index}")))
+            .map(|index| ProblemDisplayLine {
+                stimulus_row: Some(StimulusRowKind::HardLineStart),
+                ..ProblemDisplayLine::plain(format!("problem line {index}"))
+            })
             .collect();
         frame.game_window.problem.viewport = ProblemViewport::with_offset(scroll_offset);
         frame
@@ -1217,7 +1434,7 @@ mod tests {
             .expect("expected editor render");
         let buffer = terminal.backend().buffer();
         (0..area.width)
-            .map(|x| buffer[(x, 1)].symbol())
+            .map(|x| buffer[(x, 0)].symbol())
             .collect::<Vec<_>>()
             .concat()
     }
@@ -1295,7 +1512,10 @@ mod tests {
         assert_eq!(layout.problem.height, layout.editor.height);
         assert!(layout.editor.width > 45);
         assert!(layout.problem.width > 30);
-        assert!(layout.editor.width > layout.problem.width);
+        assert_eq!(
+            super::editor_source_capacity(layout.editor.width, 1),
+            super::problem_source_capacity(layout.problem.width)
+        );
         assert!(layout.editor.right() < layout.problem.left());
         assert_eq!(layout.rail.height, TOP_COUNTER_HEIGHT);
         assert!(layout.rail.bottom() <= layout.editor.top());
@@ -1307,6 +1527,34 @@ mod tests {
         assert_eq!(layout.controls.top(), layout.editor.bottom());
         assert_eq!(layout.problem.bottom(), layout.controls.top());
         assert!(layout.feedback.top() >= layout.problem.bottom());
+    }
+
+    #[test]
+    fn normal_panel_widths_keep_equal_source_capacity_across_terminal_parities() {
+        for panel_width in 42..=120 {
+            for editor_line_count in [1, 9, 100] {
+                let panels =
+                    super::panel_layout(Rect::new(0, 0, panel_width, 8), editor_line_count);
+                assert_eq!(
+                    super::editor_source_capacity(panels[0].width, editor_line_count),
+                    super::problem_source_capacity(panels[1].width),
+                    "source capacity differs at panel width {panel_width} with {editor_line_count} editor lines"
+                );
+                assert!(panels[0].right() < panels[1].left());
+            }
+        }
+    }
+
+    #[test]
+    fn narrow_panel_fallback_is_deterministic_and_non_overlapping() {
+        for panel_width in 0..42 {
+            let first = super::panel_layout(Rect::new(0, 0, panel_width, 8), 1);
+            let second = super::panel_layout(Rect::new(0, 0, panel_width, 8), 1);
+
+            assert_eq!(first, second);
+            assert!(first[0].right() <= first[1].left());
+            assert!(first[1].right() <= panel_width);
+        }
     }
 
     #[test]
@@ -1334,6 +1582,10 @@ mod tests {
             crate::tui::input::MousePane::Problem
         );
         assert_eq!(
+            layout.mouse_pane_at(layout.instruction.left(), layout.instruction.top()),
+            crate::tui::input::MousePane::Problem
+        );
+        assert_eq!(
             layout.mouse_pane_at(layout.editor.left(), layout.editor.top()),
             crate::tui::input::MousePane::Editor
         );
@@ -1350,7 +1602,7 @@ mod tests {
         let frame = app.frame();
         let area = Rect::new(10, 4, 40, 8);
         let content_left = area.left() + usize_to_u16(gutter_width(2)) + 3;
-        let first_row = area.top() + 1;
+        let first_row = area.top();
 
         assert_eq!(
             editor_cursor_at(area, &frame, content_left, first_row),
@@ -1393,7 +1645,7 @@ mod tests {
 
         assert_eq!(frame.game_window.workbox.viewport.first_line, 2);
         assert_eq!(
-            editor_cursor_at(area, &frame, content_left, area.top() + 1),
+            editor_cursor_at(area, &frame, content_left, area.top()),
             Some(CursorPosition { line: 2, column: 0 })
         );
     }
@@ -1422,7 +1674,7 @@ mod tests {
             .expect("expected editor input line");
 
         assert!(input_position > 0);
-        assert_eq!(snapshot.game[input_position - 1], "");
+        assert_eq!(line_text(&workbox_lines(&frame, 1)[0]), " 1 │ ");
         assert!(!snapshot.game.iter().any(|line| line == " 2 │ "));
         assert!(
             !snapshot.game.iter().any(|line| line.contains('─')),
@@ -1445,8 +1697,8 @@ mod tests {
         let lines = workbox_lines(&frame, SNAPSHOT_WORKBOX_HEIGHT);
         let rendered: Vec<String> = lines.iter().map(line_text).collect();
 
-        assert_eq!(rendered[0], "");
-        assert_eq!(rendered[1], " 1 │ ");
+        assert_eq!(rendered[0], " 1 │ ");
+        assert_eq!(rendered[1], "");
         assert_eq!(rendered[2], "");
         assert_eq!(rendered[3], "");
         assert!(!rendered.iter().any(|line| line == " 2 │ "));
@@ -1458,8 +1710,8 @@ mod tests {
         let app = TuiApp::new();
         let frame = app.frame();
         let lines = workbox_lines(&frame, SNAPSHOT_WORKBOX_HEIGHT);
-        let active_line = &lines[1];
-        let blank_line = &lines[2];
+        let active_line = &lines[0];
+        let blank_line = &lines[1];
 
         assert_eq!(
             active_line.style.bg,
@@ -1518,9 +1770,153 @@ mod tests {
             .position(|line| line == " 1 │ ")
             .expect("expected editor line 1");
 
-        assert_eq!(instruction_position, editor_line_position);
-        assert_eq!(instruction_position, 1);
+        assert_eq!(instruction_position, 0);
+        assert_eq!(editor_line_position, 0);
         assert!(instruction_position < stimulus_position);
+    }
+
+    #[test]
+    fn screenshot_width_gives_editor_and_stimulus_equal_source_columns() {
+        let source = "let scores = [1, 2, 3];";
+        let area = Rect::new(0, 0, 70, 18);
+        let mut app = projection_app("Copy this line exactly:", source, source);
+        load_text(&mut app, source);
+
+        let (frame, layout) = project_app_for_area(&mut app, area);
+        let editor_width = super::editor_source_capacity(
+            layout.editor.width,
+            frame.game_window.workbox.lines.len(),
+        );
+        let stimulus_width = super::problem_source_capacity(layout.problem.width);
+        let source_rows = frame
+            .game_window
+            .problem
+            .lines
+            .iter()
+            .filter(|line| line.stimulus_row.is_some())
+            .collect::<Vec<_>>();
+
+        assert_eq!(editor_width, stimulus_width);
+        assert_eq!(editor_width, 26);
+        assert!(source.chars().count() <= editor_width);
+        assert_eq!(frame.game_window.workbox.lines, vec![source.to_string()]);
+        assert_eq!(frame.game_window.workbox.viewport.first_column, 0);
+        assert_eq!(source_rows.len(), 1);
+        assert_eq!(source_rows[0].text, source);
+        assert_eq!(
+            source_rows[0].stimulus_row,
+            Some(StimulusRowKind::HardLineStart)
+        );
+    }
+
+    #[test]
+    fn narrower_equal_source_columns_keep_soft_continuation_unambiguous() {
+        let source = "fn add_one(x: i32) -> i32 { x + 1 }";
+        let area = Rect::new(0, 0, 52, 18);
+        let mut app = projection_app("Copy this line exactly:", source, source);
+        load_text(&mut app, source);
+
+        let (frame, layout) = project_app_for_area(&mut app, area);
+        let editor_width = super::editor_source_capacity(
+            layout.editor.width,
+            frame.game_window.workbox.lines.len(),
+        );
+        let stimulus_width = super::problem_source_capacity(layout.problem.width);
+        let source_rows = frame
+            .game_window
+            .problem
+            .lines
+            .iter()
+            .filter(|line| line.stimulus_row.is_some())
+            .collect::<Vec<_>>();
+
+        assert_eq!(editor_width, stimulus_width);
+        assert!(source_rows.len() > 1);
+        assert_eq!(
+            source_rows[0].stimulus_row,
+            Some(StimulusRowKind::HardLineStart)
+        );
+        assert!(source_rows[1..].iter().all(|line| {
+            line.stimulus_row == Some(StimulusRowKind::SoftContinuation)
+                && !line.text.contains(STIMULUS_CONTINUATION_GUTTER)
+        }));
+        assert_eq!(
+            source_rows
+                .iter()
+                .map(|line| line.text.as_str())
+                .collect::<String>(),
+            source
+        );
+        assert_eq!(
+            line_text(&problem_display_line(source_rows[1])),
+            format!("{STIMULUS_CONTINUATION_GUTTER}{}", source_rows[1].text)
+        );
+    }
+
+    #[test]
+    fn shared_header_band_aligns_editor_and_first_stimulus_source_rows() {
+        let source = "fn main() {}";
+        let area = Rect::new(0, 0, 70, 18);
+        let mut app = projection_app("Copy this line exactly:", source, source);
+        load_text(&mut app, source);
+
+        let (frame, layout) = project_app_for_area(&mut app, area);
+        assert_eq!(layout.editor.y, layout.problem.y);
+        assert_eq!(layout.rail.y, layout.instruction.y);
+        assert_eq!(layout.rail.bottom(), layout.editor.y);
+        assert_eq!(layout.instruction.bottom(), layout.problem.y);
+
+        let backend = TestBackend::new(area.width, area.height);
+        let mut terminal = Terminal::new(backend).expect("expected test terminal");
+        terminal
+            .draw(|draw_frame| render_client_frame(draw_frame, &frame))
+            .expect("expected frame render");
+        let buffer = terminal.backend().buffer();
+        let editor_source_x = layout.editor.left()
+            + usize_to_u16(gutter_width(frame.game_window.workbox.lines.len()))
+            + usize_to_u16(super::EDITOR_SOURCE_SEPARATOR_WIDTH);
+        let stimulus_source_x = super::problem_content_area(layout.problem).left()
+            + usize_to_u16(crate::client::STIMULUS_GUTTER_WIDTH);
+
+        assert_eq!(buffer[(editor_source_x, layout.editor.y)].symbol(), "f");
+        assert_eq!(buffer[(stimulus_source_x, layout.problem.y)].symbol(), "f");
+        assert_eq!(layout.editor.y, layout.problem.y);
+    }
+
+    #[test]
+    fn wrapped_instruction_moves_both_source_origins_without_changing_width() {
+        let instruction = "Write a Rust function named five with no parameters that returns the i32 value 5 using a tail expression:";
+        let source = "fn five() -> i32 { 5 }";
+        let area = Rect::new(0, 0, 52, 18);
+        let mut long = projection_app(instruction, source, source);
+        load_text(&mut long, source);
+        let (long_frame, long_layout) = project_app_for_area(&mut long, area);
+        let mut short = projection_app("Copy this line exactly:", source, source);
+        load_text(&mut short, source);
+        let (short_frame, short_layout) = project_app_for_area(&mut short, area);
+
+        assert!(long_frame.game_window.problem.instruction_lines().len() > 1);
+        assert!(long_layout.editor.y > short_layout.editor.y);
+        assert_eq!(long_layout.editor.y, long_layout.problem.y);
+        assert_eq!(long_layout.rail.height, long_layout.instruction.height);
+        assert_eq!(
+            super::editor_source_capacity(
+                long_layout.editor.width,
+                long_frame.game_window.workbox.lines.len()
+            ),
+            super::problem_source_capacity(long_layout.problem.width)
+        );
+        assert_eq!(
+            super::editor_source_capacity(
+                long_layout.editor.width,
+                long_frame.game_window.workbox.lines.len()
+            ),
+            super::editor_source_capacity(
+                short_layout.editor.width,
+                short_frame.game_window.workbox.lines.len()
+            )
+        );
+        assert_eq!(long_frame.game_window.problem.stimulus, source);
     }
 
     #[test]
@@ -1712,9 +2108,9 @@ mod tests {
     fn render_snapshot_shows_long_problem_visible_subset() {
         let snapshot = render_snapshot(&frame_with_long_problem(4));
 
-        assert!(snapshot.game.iter().any(|line| line == "problem line 5"));
-        assert!(snapshot.game.iter().any(|line| line == "problem line 10"));
-        assert!(!snapshot.game.iter().any(|line| line == "problem line 1"));
+        assert!(snapshot.game.iter().any(|line| line == "  problem line 5"));
+        assert!(snapshot.game.iter().any(|line| line == "  problem line 10"));
+        assert!(!snapshot.game.iter().any(|line| line == "  problem line 1"));
         assert!(!snapshot.game.iter().any(|line| line.contains("PgUp/PgDn")));
     }
 
@@ -2024,6 +2420,26 @@ mod tests {
         assert!(snapshot.command_chrome[0].contains(FORMAT_ACTION_HINT));
         assert!(!snapshot.command_chrome[0].contains("formatted"));
         assert!(!snapshot.command_chrome[0].contains("format failed"));
+    }
+
+    #[test]
+    fn exact_copy_format_skip_feedback_renders_exactly_and_locally() {
+        let mut frame = TuiApp::new().frame();
+        frame.format = FormatFrame {
+            active: true,
+            intensity: 100,
+            kind: Some(FormatNoticeKind::SkippedExactCopyDiffers),
+            anchor: Some(EditorAnchor { row: 0, column: 0 }),
+        };
+        frame.format_active = true;
+
+        let rendered = render_frame_text(&frame, 70, 18);
+        let snapshot = render_snapshot(&frame);
+
+        assert!(rendered.contains("format skipped: exact copy"));
+        assert!(rendered.contains(" differs"));
+        assert!(snapshot.feedback.is_empty());
+        assert!(!snapshot.command_chrome[0].contains("format skipped"));
     }
 
     #[test]
@@ -2474,6 +2890,7 @@ mod tests {
         assert_eq!(chunks[2], idle_layout.controls);
         assert_eq!(chunks[3], idle_layout.feedback);
         assert_eq!(chunks[4], idle_layout.rail);
+        assert_eq!(chunks[5], idle_layout.instruction);
     }
 
     #[test]
@@ -2846,7 +3263,7 @@ mod tests {
             .expect("expected editor render");
         terminal
             .backend_mut()
-            .assert_cursor_position(Position::new(usize_to_u16(gutter_width(1) + 3 + 2), 1));
+            .assert_cursor_position(Position::new(usize_to_u16(gutter_width(1) + 3 + 2), 0));
 
         assert!(snapshot.game.iter().any(|line| line == " 1 │ abc"));
         assert!(rendered.contains(" 1 │ abc"));
