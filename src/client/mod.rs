@@ -351,7 +351,7 @@ pub struct SkipFrame {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum FormatNoticeKind {
     Formatted,
-    SkippedExactCopyDiffers,
+    DisabledExactTask,
     Unavailable,
     Failed,
     TimedOut,
@@ -361,7 +361,7 @@ impl FormatNoticeKind {
     pub fn message(self) -> &'static str {
         match self {
             Self::Formatted => "formatted",
-            Self::SkippedExactCopyDiffers => "format skipped: exact copy differs",
+            Self::DisabledExactTask => "format off for exact task",
             Self::Unavailable => "rustfmt unavailable",
             Self::Failed => "format failed",
             Self::TimedOut => "format timed out",
@@ -1001,6 +1001,7 @@ pub struct ClientFrame {
     pub failure_active: bool,
     pub skip: SkipFrame,
     pub skip_active: bool,
+    pub format_available: bool,
     pub format: FormatFrame,
     pub format_active: bool,
 }
@@ -1166,6 +1167,7 @@ pub fn project_client_frame_for_layout(
         failure_active: failure.active,
         skip,
         skip_active: skip.active,
+        format_available: exercise.format_capability.is_available(),
         format,
         format_active: format.active,
     }
@@ -1711,7 +1713,7 @@ mod tests {
         tokenize_rust_line,
     };
     use crate::engine::{
-        self, ExerciseAnswerRule, ExerciseKind, ExercisePacket, ExerciseValidator,
+        self, ExerciseAnswerRule, ExerciseKind, ExercisePacket, ExerciseValidator, FormatCapability,
     };
 
     fn token_text(tokens: &[super::CodeToken]) -> String {
@@ -1766,6 +1768,7 @@ mod tests {
             Cow::Borrowed(instruction),
             Cow::Borrowed(stimulus),
             Cow::Borrowed(expected),
+            FormatCapability::Disabled,
             ExerciseKind::TypeExact,
             ExerciseValidator::Exact,
             ExerciseAnswerRule::ExactTrimFinalNewline,
@@ -1971,6 +1974,7 @@ mod tests {
             "Copy this line exactly:"
         );
         assert_eq!(frame.game_window.problem.stimulus, "fn main() {}");
+        assert!(!frame.format_available);
         assert_eq!(frame.game_window.problem.viewport.scroll_offset, 0);
         assert_eq!(
             frame
@@ -1985,6 +1989,13 @@ mod tests {
                 (&ProblemLineKind::Code, "fn main() {}")
             ]
         );
+    }
+
+    #[test]
+    fn lab_projection_explicitly_enables_formatting() {
+        let frame = project_client_frame(&engine::Session::lab(), &ClientUiState::new());
+
+        assert!(frame.format_available);
     }
 
     #[test]

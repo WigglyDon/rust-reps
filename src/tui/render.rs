@@ -19,6 +19,7 @@ use ratatui::{
     Frame,
     buffer::Buffer,
     layout::{Constraint, Direction, Layout, Margin, Position, Rect},
+    style::Modifier,
     text::{Line, Span, Text},
     widgets::{Block, Paragraph},
 };
@@ -126,7 +127,7 @@ fn render_client_frame(frame: &mut Frame<'_>, client_frame: &ClientFrame) {
             .workbox
             .overflow(visible_editor_rows(layout.editor.height)),
     );
-    render_editor_controls(frame, layout.controls);
+    render_editor_controls(frame, layout.controls, client_frame.format_available);
 
     if !feedback_lines.is_empty() {
         frame.render_widget(
@@ -1009,13 +1010,13 @@ fn render_top_banner(frame: &mut Frame<'_>, area: Rect, client_frame: &ClientFra
     );
 }
 
-fn render_editor_controls(frame: &mut Frame<'_>, area: Rect) {
+fn render_editor_controls(frame: &mut Frame<'_>, area: Rect, format_available: bool) {
     if area.height == 0 {
         return;
     }
 
     frame.render_widget(
-        Paragraph::new(Line::from(command_spans())).style(base_style()),
+        Paragraph::new(Line::from(command_spans(format_available))).style(base_style()),
         area.inner(Margin {
             vertical: 0,
             horizontal: if area.width > 4 { 1 } else { 0 },
@@ -1081,13 +1082,14 @@ fn editor_line_spans(
 
 #[cfg(test)]
 fn command_chrome_lines(client_frame: &ClientFrame) -> Vec<Line<'static>> {
-    let _ = client_frame;
-    vec![Line::from(command_rail_spans())]
+    vec![Line::from(command_rail_spans(
+        client_frame.format_available,
+    ))]
 }
 
 #[cfg(test)]
-fn command_rail_spans() -> Vec<Span<'static>> {
-    command_spans()
+fn command_rail_spans(format_available: bool) -> Vec<Span<'static>> {
+    command_spans(format_available)
 }
 
 fn counter_spans(client_frame: &ClientFrame) -> Vec<Span<'static>> {
@@ -1102,9 +1104,14 @@ fn counter_spans(client_frame: &ClientFrame) -> Vec<Span<'static>> {
     spans
 }
 
-fn command_spans() -> Vec<Span<'static>> {
+fn command_spans(format_available: bool) -> Vec<Span<'static>> {
+    let format_style = if format_available {
+        control_hint_style()
+    } else {
+        control_hint_style().add_modifier(Modifier::DIM)
+    };
     vec![
-        Span::styled(FORMAT_ACTION_HINT, control_hint_style()),
+        Span::styled(FORMAT_ACTION_HINT, format_style),
         Span::styled(" · ", control_hint_style()),
         Span::styled(PRIMARY_ACTION_HINT, primary_action_style()),
         Span::styled(" · ", control_hint_style()),
@@ -1242,7 +1249,10 @@ mod tests {
             REWARD_PLUS_ONE_BODY_DURATION, REWARD_PLUS_ONE_DURATION, RewardFrame, SkipFrame,
             StatusTone, StimulusRowKind, ViewportOverflow,
         },
-        engine::{self, ExerciseAnswerRule, ExerciseKind, ExercisePacket, ExerciseValidator},
+        engine::{
+            self, ExerciseAnswerRule, ExerciseKind, ExercisePacket, ExerciseValidator,
+            FormatCapability,
+        },
         lab,
         tui::{
             TuiApp,
@@ -1281,6 +1291,7 @@ mod tests {
             Cow::Borrowed(instruction),
             Cow::Borrowed(stimulus),
             Cow::Borrowed(expected),
+            FormatCapability::Disabled,
             ExerciseKind::TypeExact,
             ExerciseValidator::Exact,
             ExerciseAnswerRule::ExactTrimFinalNewline,
@@ -1383,11 +1394,13 @@ mod tests {
         (0..width).map(|x| buffer[(x, 0)].bg).collect()
     }
 
-    fn render_editor_controls_line(width: u16) -> String {
+    fn render_editor_controls_line(width: u16, format_available: bool) -> String {
         let backend = TestBackend::new(width, 1);
         let mut terminal = Terminal::new(backend).expect("expected test terminal");
         terminal
-            .draw(|frame| render_editor_controls(frame, Rect::new(0, 0, width, 1)))
+            .draw(|frame| {
+                render_editor_controls(frame, Rect::new(0, 0, width, 1), format_available)
+            })
             .expect("expected controls render");
         let buffer = terminal.backend().buffer();
         (0..width)
@@ -2364,7 +2377,7 @@ mod tests {
 
     #[test]
     fn editor_local_controls_render_under_editor_in_order() {
-        let controls = render_editor_controls_line(80);
+        let controls = render_editor_controls_line(80, false);
         let f1 = controls
             .find(FORMAT_ACTION_HINT)
             .expect("missing F1 format");
@@ -2387,7 +2400,7 @@ mod tests {
     #[test]
     fn command_row_uses_full_inner_width_to_keep_esc_visible() {
         let layout = shell_layout(Rect::new(0, 0, 72, 18), FEEDBACK_CHROME_HEIGHT);
-        let controls = render_editor_controls_line(layout.controls.width);
+        let controls = render_editor_controls_line(layout.controls.width, false);
 
         assert!(layout.controls.width > layout.editor.width);
         assert!(controls.contains(FORMAT_ACTION_HINT));
@@ -2423,12 +2436,12 @@ mod tests {
     }
 
     #[test]
-    fn exact_copy_format_skip_feedback_renders_exactly_and_locally() {
+    fn disabled_exact_task_format_feedback_renders_exactly_and_locally() {
         let mut frame = TuiApp::new().frame();
         frame.format = FormatFrame {
             active: true,
             intensity: 100,
-            kind: Some(FormatNoticeKind::SkippedExactCopyDiffers),
+            kind: Some(FormatNoticeKind::DisabledExactTask),
             anchor: Some(EditorAnchor { row: 0, column: 0 }),
         };
         frame.format_active = true;
@@ -2436,10 +2449,9 @@ mod tests {
         let rendered = render_frame_text(&frame, 70, 18);
         let snapshot = render_snapshot(&frame);
 
-        assert!(rendered.contains("format skipped: exact copy"));
-        assert!(rendered.contains(" differs"));
+        assert!(rendered.contains("format off for exact task"));
         assert!(snapshot.feedback.is_empty());
-        assert!(!snapshot.command_chrome[0].contains("format skipped"));
+        assert!(!snapshot.command_chrome[0].contains("format off"));
     }
 
     #[test]
@@ -2552,6 +2564,29 @@ mod tests {
             reward_line.spans[6].style.fg,
             Some(RUST_REPS_DARK.text_muted)
         );
+    }
+
+    #[test]
+    fn format_control_is_dimmed_only_when_task_formatting_is_disabled() {
+        let disabled = command_chrome_lines(&TuiApp::new().frame())
+            .into_iter()
+            .next()
+            .expect("expected disabled command row");
+        let enabled = command_chrome_lines(&lab_app().frame())
+            .into_iter()
+            .next()
+            .expect("expected enabled command row");
+
+        assert_eq!(line_text(&disabled), line_text(&enabled));
+        assert_eq!(
+            line_text(&disabled),
+            format!(
+                "{FORMAT_ACTION_HINT} · {PRIMARY_ACTION_HINT} · {SKIP_ACTION_HINT} · {QUIT_ACTION_HINT}"
+            )
+        );
+        assert!(disabled.spans[0].style.add_modifier.contains(Modifier::DIM));
+        assert!(!enabled.spans[0].style.add_modifier.contains(Modifier::DIM));
+        assert_eq!(&disabled.spans[1..], &enabled.spans[1..]);
     }
 
     #[test]

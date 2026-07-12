@@ -7,7 +7,9 @@ use crate::curriculum::guidance::resolution::{
     GuidanceAssignmentRef, GuidanceError, GuidanceProvenance, resolve_guidance,
 };
 use crate::curriculum::{DrillSpec, GeneratedTaskProvenanceSpec, RepMetadata};
-use crate::engine::{ExerciseAnswerRule, ExerciseKind, ExercisePacket, ExerciseValidator, Session};
+use crate::engine::{
+    ExerciseAnswerRule, ExerciseKind, ExercisePacket, ExerciseValidator, FormatCapability, Session,
+};
 
 pub(crate) const INITIAL_PRODUCT_GUIDANCE_LOCALE: &str = "en";
 pub(crate) const INITIAL_PRODUCT_GUIDANCE_PACK_VERSION: u16 = 1;
@@ -127,6 +129,7 @@ fn product_exercise_packet_from_drill(
         Cow::Owned(instruction),
         Cow::Borrowed(stimulus),
         Cow::Borrowed(expected),
+        FormatCapability::Disabled,
         ExerciseKind::from_task_type(drill.task_type),
         ExerciseValidator::from_validator(drill.validator),
         ExerciseAnswerRule::from_answer_rule(metadata.answer_rule),
@@ -281,6 +284,7 @@ mod tests {
             assert_eq!(packet.instruction, "Copy this line exactly:");
             assert_eq!(packet.stimulus, drill.stimulus);
             assert_eq!(packet.expected_answer(), drill.expected);
+            assert_eq!(packet.format_capability, FormatCapability::Disabled);
             assert_eq!(
                 packet.answer_rule,
                 ExerciseAnswerRule::from_answer_rule(drill.metadata.answer_rule)

@@ -151,49 +151,47 @@ impl TuiApp {
     }
 
     fn format_current_input(&mut self, now: Instant) {
+        self.format_current_input_with(now, formatter::format_rust_source);
+    }
+
+    fn format_current_input_with(
+        &mut self,
+        now: Instant,
+        format_source: impl FnOnce(&str) -> FormatResult,
+    ) {
         if self.completed {
             return;
         }
 
-        let result = formatter::format_rust_source(&self.ui_state.draft_input());
+        if !self.frame_at(now).format_available {
+            self.finish_format_action(now, FormatNoticeKind::DisabledExactTask);
+            return;
+        }
+
+        let result = format_source(&self.ui_state.draft_input());
         self.apply_format_result(now, result);
     }
 
     fn apply_format_result(&mut self, now: Instant, result: FormatResult) {
-        self.ui_state.clear_reward_event();
-        self.ui_state.clear_failure_pulse();
-        self.ui_state.clear_skip_toast();
-
         let notice = match result {
             FormatResult::Formatted(formatted) => {
-                let exercise = self.active_exercise();
-                if self.uses_current_exact_copy_policy(&exercise)
-                    && !answer::check_answer(&formatted, exercise.stimulus.as_ref())
-                {
-                    FormatNoticeKind::SkippedExactCopyDiffers
-                } else {
-                    self.ui_state.replace_draft_input(&formatted);
-                    FormatNoticeKind::Formatted
-                }
+                self.ui_state.replace_draft_input(&formatted);
+                FormatNoticeKind::Formatted
             }
             FormatResult::Unavailable => FormatNoticeKind::Unavailable,
             FormatResult::Failed(_) => FormatNoticeKind::Failed,
             FormatResult::TimedOut => FormatNoticeKind::TimedOut,
         };
 
-        self.ui_state.start_format_toast(now, notice);
-        self.ui_state.set_status_lines(Vec::new());
+        self.finish_format_action(now, notice);
     }
 
-    fn uses_current_exact_copy_policy(&self, exercise: &engine::ExercisePacket) -> bool {
-        exercise.kind == engine::ExerciseKind::TypeExact
-            && exercise.validator == engine::ExerciseValidator::Exact
-            && exercise.answer_rule == engine::ExerciseAnswerRule::ExactTrimFinalNewline
-            && self
-                .session
-                .product_exercises()
-                .iter()
-                .any(|product| product.id == exercise.id)
+    fn finish_format_action(&mut self, now: Instant, notice: FormatNoticeKind) {
+        self.ui_state.clear_reward_event();
+        self.ui_state.clear_failure_pulse();
+        self.ui_state.clear_skip_toast();
+        self.ui_state.start_format_toast(now, notice);
+        self.ui_state.set_status_lines(Vec::new());
     }
 
     fn submit_current_input(&mut self, now: Instant) {
@@ -629,7 +627,7 @@ mod tests {
 
     #[test]
     fn format_success_replaces_editor_buffer_without_session_transition() {
-        let mut app = TuiApp::new();
+        let mut app = lab_app();
         let now = test_now();
         type_text(&mut app, "fn main(){}");
 
@@ -645,7 +643,7 @@ mod tests {
         assert_eq!(app.session().passed(), 0);
         assert_eq!(app.session().skipped(), 0);
         assert_eq!(app.session().attempts(), 0);
-        assert_eq!(app.active_exercise().id, "001");
+        assert_eq!(app.active_exercise().id, "LAB-000001");
         assert!(!frame.reward_active);
         assert!(!frame.failure_active);
         assert!(!frame.skip_active);
@@ -660,16 +658,21 @@ mod tests {
     }
 
     #[test]
-    fn exact_copy_compatible_format_result_may_use_one_final_line_ending() {
-        let mut app = TuiApp::new();
+    fn enabled_f1_calls_formatter_once_and_applies_output_without_submission() {
+        let mut app = lab_app();
         let now = test_now();
-        type_text(&mut app, "fn main(){}");
+        type_text(&mut app, "unformatted input");
+        let before_stats = app.session().stats();
+        let mut calls = 0;
 
-        app.apply_format_result(now, FormatResult::Formatted("fn main() {}\n".to_string()));
+        app.format_current_input_with(now, |_| {
+            calls += 1;
+            FormatResult::Formatted("formatted output unrelated to the model".to_string())
+        });
 
-        assert_eq!(app.input(), "fn main() {}\n");
-        assert_eq!(app.session().attempts(), 0);
-        assert_eq!(app.session().passed(), 0);
+        assert_eq!(calls, 1);
+        assert_eq!(app.input(), "formatted output unrelated to the model");
+        assert_eq!(app.session().stats(), before_stats);
         assert_eq!(
             app.frame_at(now)
                 .format
@@ -681,16 +684,15 @@ mod tests {
     }
 
     #[test]
-    fn exact_copy_format_result_that_differs_from_stimulus_is_not_applied() {
+    fn disabled_exact_task_f1_does_not_call_formatter_or_mutate_session() {
         let model = "fn add_one(x: i32) -> i32 { x + 1 }";
-        let formatted = "fn add_one(x: i32) -> i32 {\n    x + 1\n}";
         let mut app = TuiApp::new();
         advance_to_product_id(&mut app, "010");
         load_text(&mut app, model);
         let before_stats = app.session().stats();
         let now = test_now();
 
-        app.apply_format_result(now, FormatResult::Formatted(formatted.to_string()));
+        app.format_current_input_with(now, |_| panic!("disabled F1 must not invoke rustfmt"));
 
         let frame = app.frame_at(now);
         assert_eq!(app.input(), model);
@@ -699,43 +701,11 @@ mod tests {
         assert!(!frame.failure_active);
         assert!(!frame.skip_active);
         assert!(frame.format_active);
-        assert_eq!(
-            frame.format.kind,
-            Some(FormatNoticeKind::SkippedExactCopyDiffers)
-        );
+        assert_eq!(frame.format.kind, Some(FormatNoticeKind::DisabledExactTask));
         assert_eq!(
             frame.format.kind.expect("expected format kind").message(),
-            "format skipped: exact copy differs"
+            "format off for exact task"
         );
-    }
-
-    #[test]
-    fn f1_invokes_rustfmt_but_preserves_one_line_exact_copy_model() {
-        let model = "fn add_one(x: i32) -> i32 { x + 1 }";
-        if matches!(
-            crate::formatter::format_rust_source(model),
-            FormatResult::Unavailable
-        ) {
-            return;
-        }
-
-        let mut app = TuiApp::new();
-        advance_to_product_id(&mut app, "010");
-        load_text(&mut app, model);
-
-        app.handle_action(ClientAction::Format);
-
-        assert_eq!(app.input(), model);
-        assert_eq!(
-            app.frame()
-                .format
-                .kind
-                .expect("expected format notice")
-                .message(),
-            "format skipped: exact copy differs"
-        );
-        assert_eq!(app.session().attempts(), 0);
-        assert_eq!(app.session().passed(), 0);
     }
 
     #[test]
@@ -772,35 +742,46 @@ mod tests {
     }
 
     #[test]
-    fn production_format_application_compares_only_candidate_and_visible_stimulus() {
+    fn production_f1_path_uses_capability_without_answer_truth() {
         let production = include_str!("app.rs")
             .split("#[cfg(test)]\nmod tests")
             .next()
             .expect("expected production app source");
         let format_application = production
-            .split("fn apply_format_result")
+            .split("fn format_current_input_with")
             .nth(1)
             .expect("expected format application")
             .split("fn submit_current_input")
             .next()
             .expect("expected format application boundary");
 
-        assert!(format_application.contains("answer::check_answer"));
-        assert!(format_application.contains("exercise.stimulus"));
-        assert!(!format_application.contains("expected_answer"));
-        assert!(!format_application.contains("submit_answer"));
-        assert!(!format_application.contains("RustfmtExact"));
+        assert!(format_application.contains("format_available"));
+        for forbidden in [
+            "active_exercise",
+            "stimulus",
+            "expected",
+            "answer_rule",
+            "validator",
+            "check_answer",
+            "submit_answer",
+            "RustfmtExact",
+        ] {
+            assert!(
+                !format_application.contains(forbidden),
+                "F1 application must not inspect {forbidden}"
+            );
+        }
     }
 
     #[test]
     fn format_failure_preserves_editor_buffer_and_session_state() {
-        let mut app = TuiApp::new();
+        let mut app = lab_app();
         let now = test_now();
         type_text(&mut app, "let = ;");
         app.handle_action(ClientAction::MoveCursorLeft);
         let before_cursor = app.frame().game_window.workbox.cursor;
 
-        app.apply_format_result(now, FormatResult::Failed("parse error".to_string()));
+        app.format_current_input_with(now, |_| FormatResult::Failed("parse error".to_string()));
 
         let frame = app.frame_at(now);
         assert_eq!(app.input(), "let = ;");
@@ -808,7 +789,7 @@ mod tests {
         assert_eq!(app.session().passed(), 0);
         assert_eq!(app.session().skipped(), 0);
         assert_eq!(app.session().attempts(), 0);
-        assert_eq!(app.active_exercise().id, "001");
+        assert_eq!(app.active_exercise().id, "LAB-000001");
         assert!(!frame.reward_active);
         assert!(!frame.failure_active);
         assert!(!frame.skip_active);
@@ -821,11 +802,11 @@ mod tests {
 
     #[test]
     fn format_unavailable_preserves_editor_buffer() {
-        let mut app = TuiApp::new();
+        let mut app = lab_app();
         let now = test_now();
         type_text(&mut app, "fn main(){}");
 
-        app.apply_format_result(now, FormatResult::Unavailable);
+        app.format_current_input_with(now, |_| FormatResult::Unavailable);
 
         let frame = app.frame_at(now);
         assert_eq!(app.input(), "fn main(){}");
@@ -839,11 +820,11 @@ mod tests {
 
     #[test]
     fn smart_enter_works_without_formatter_availability() {
-        let mut app = TuiApp::new();
+        let mut app = lab_app();
         let now = test_now();
         type_text(&mut app, "fn main() {");
 
-        app.apply_format_result(now, FormatResult::Unavailable);
+        app.format_current_input_with(now, |_| FormatResult::Unavailable);
         app.handle_action(ClientAction::InsertNewline);
 
         let frame = app.frame();

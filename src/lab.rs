@@ -1,6 +1,8 @@
 use std::borrow::Cow;
 
-use crate::engine::{ExerciseAnswerRule, ExerciseKind, ExercisePacket, ExerciseValidator};
+use crate::engine::{
+    ExerciseAnswerRule, ExerciseKind, ExercisePacket, ExerciseValidator, FormatCapability,
+};
 
 pub const STRESS_FAMILY_COUNT: usize = 9;
 #[cfg(test)]
@@ -79,6 +81,7 @@ pub fn exercise_packet_at(index: usize) -> ExercisePacket {
         Cow::Borrowed(LAB_INSTRUCTION),
         Cow::Owned(stimulus),
         Cow::Owned(expected_answer),
+        FormatCapability::Rustfmt,
         ExerciseKind::TypeExact,
         ExerciseValidator::Exact,
         ExerciseAnswerRule::ExactTrimFinalNewline,
@@ -295,7 +298,7 @@ mod tests {
         exercise_packet_at, stress_family_at,
     };
     use crate::client::{CodeTokenKind, tokenize_rust_line};
-    use crate::engine::{ExerciseAnswerRule, ExerciseKind, ExerciseValidator};
+    use crate::engine::{ExerciseAnswerRule, ExerciseKind, ExerciseValidator, FormatCapability};
     use crate::formatter::{FormatResult, format_rust_source};
 
     fn token_text(tokens: &[crate::client::CodeToken]) -> String {
@@ -321,6 +324,7 @@ mod tests {
             assert_eq!(packet.total, usize::MAX);
             assert!(!packet.stimulus.trim().is_empty());
             assert!(!packet.expected_answer().trim().is_empty());
+            assert_eq!(packet.format_capability, FormatCapability::Rustfmt);
             assert_eq!(packet.kind, ExerciseKind::TypeExact);
             assert_eq!(packet.validator, ExerciseValidator::Exact);
             assert_ne!(packet.validator, ExerciseValidator::RustfmtExact);

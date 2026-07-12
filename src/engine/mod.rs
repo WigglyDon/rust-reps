@@ -59,6 +59,18 @@ impl ExerciseAnswerRule {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum FormatCapability {
+    Disabled,
+    Rustfmt,
+}
+
+impl FormatCapability {
+    pub(crate) fn is_available(self) -> bool {
+        matches!(self, Self::Rustfmt)
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ExercisePacket {
     pub id: Cow<'static, str>,
@@ -67,6 +79,7 @@ pub struct ExercisePacket {
     pub instruction: Cow<'static, str>,
     pub stimulus: Cow<'static, str>,
     expected_answer: Cow<'static, str>,
+    pub(crate) format_capability: FormatCapability,
     pub kind: ExerciseKind,
     pub validator: ExerciseValidator,
     pub answer_rule: ExerciseAnswerRule,
@@ -80,6 +93,7 @@ impl ExercisePacket {
         instruction: Cow<'static, str>,
         stimulus: Cow<'static, str>,
         expected_answer: Cow<'static, str>,
+        format_capability: FormatCapability,
         kind: ExerciseKind,
         validator: ExerciseValidator,
         answer_rule: ExerciseAnswerRule,
@@ -91,6 +105,7 @@ impl ExercisePacket {
             instruction,
             stimulus,
             expected_answer,
+            format_capability,
             kind,
             validator,
             answer_rule,
@@ -335,7 +350,8 @@ impl Session {
 #[cfg(test)]
 mod tests {
     use super::{
-        ExerciseAnswerRule, ExerciseKind, ExerciseValidator, Session, SkipResult, SubmitResult,
+        ExerciseAnswerRule, ExerciseKind, ExerciseValidator, FormatCapability, Session, SkipResult,
+        SubmitResult,
     };
     use crate::{curriculum, lab, validators};
 
@@ -359,14 +375,12 @@ mod tests {
     #[test]
     fn lab_session_starts_from_generated_packet() {
         let session = Session::lab();
+        let exercise = session
+            .current_exercise()
+            .expect("expected first lab exercise");
 
-        assert_eq!(
-            session
-                .current_exercise()
-                .expect("expected first lab exercise")
-                .id,
-            "LAB-000001"
-        );
+        assert_eq!(exercise.id, "LAB-000001");
+        assert_eq!(exercise.format_capability, FormatCapability::Rustfmt);
         assert_eq!(session.total_drills(), usize::MAX);
         assert_eq!(session.stats().total_drills, usize::MAX);
         assert!(!session.is_complete());
@@ -632,12 +646,22 @@ mod tests {
         assert_eq!(exercise.stimulus, "fn main() {}");
         assert_eq!(exercise.expected_answer, "fn main() {}");
         assert_eq!(exercise.instruction, "Copy this line exactly:");
+        assert_eq!(exercise.format_capability, FormatCapability::Disabled);
         assert_eq!(exercise.kind, ExerciseKind::TypeExact);
         assert_eq!(exercise.validator, ExerciseValidator::Exact);
         assert_eq!(
             exercise.answer_rule,
             ExerciseAnswerRule::ExactTrimFinalNewline
         );
+    }
+
+    #[test]
+    fn format_capability_is_explicit_two_state_transport_without_answer_data() {
+        let capabilities = [FormatCapability::Disabled, FormatCapability::Rustfmt];
+
+        assert_eq!(capabilities.len(), 2);
+        assert!(!capabilities[0].is_available());
+        assert!(capabilities[1].is_available());
     }
 
     #[test]
