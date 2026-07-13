@@ -11,7 +11,7 @@ Update triggers: Base, worktree, branch, packet, authority, status, proof, candi
 
 - Lane ID: `varied-deterministic-flow-v1`
 - Purpose: provision one isolated lane for a later fresh packet implementing reviewed player-visible deterministic Rust practice variety and interactive continuation.
-- Current status: `REGISTERED; WORKTREE NOT YET PROVISIONED`
+- Current status: `PROVISIONED; AWAITING FRESH IMPLEMENTATION PACKET`
 - Supervisor destination: `Master Codex`
 - Supervisor expected reply type: `MASTER_CODEX_FINAL_REPORT_V1`
 - Latest packet ID: `RR-VARIED-FLOW-20260713-002`
@@ -20,14 +20,15 @@ Update triggers: Base, worktree, branch, packet, authority, status, proof, candi
 - Branch: `codex/varied-deterministic-flow-v1`
 - Accepted base source: `c933113f9610b60dc89003eeacab3e162c11dfd8` (`docs: close truthful task projection integration`)
 - Artifact references: `/home/don/rust-reps-fleet/outbox/RR-VARIED-FLOW-20260713-001-RESULT.md` at SHA-256 `61de38a4e33de3357310632703bef559aabe24c0080f6210cf44ad838a731194`
-- Authority state: registered active lane; implementation requires a fresh packet matching the final provisioning Context-SHA; future local implementation, proof, and one candidate commit are permitted only when explicitly authorized by that fresh packet
+- Authority state: provisioned active lane; implementation requires a fresh packet matching the final provisioning Context-SHA; future local implementation, proof, and one candidate commit are permitted only when explicitly authorized by that fresh packet
 - Prohibited authority: product implementation in this packet; integration; merge into master; push; publish; tag; release; deploy; dependency or tool addition; destructive reset or clean; donor mutation; unrelated cleanup
 - Expected proof: exact canonical entry gate; stopped-artifact integrity; context and queue verification; two truthful canonical context transitions; lane-doctor READY; full unchanged product regression; clean canonical and worker states
 - Unresolved risk: feature implementation is unstarted; live source paths, IDs 013-022, admitted content, validation dispatch, and endless-session design still require fresh inspection in the implementation lane
-- Exact next action: after successful provisioning, Master GPT issues a fresh implementation packet using the final canonical provisioning commit and Context-SHA
+- Exact next action: Master GPT issues a fresh implementation packet using the final canonical provisioning commit and Context-SHA
 - Stop conditions: canonical base or Context-SHA differs; registry schema differs; unknown work exists; authorized context paths are insufficient; context, queue, fleet, or product proof fails
 - Stale session identity: RR-VARIED-FLOW-20260713-001 stopped before branch or worktree creation
 - Deactivation instruction: preserve the stopped result artifact and assign no further work to the stopped attempt after this provisioning packet is acknowledged
+- Provisioning state: `LIVE_REPO_FACT` — at the provisioning gate the declared worktree and branch existed, both pointed to registration commit `41ee0b88799f9e66e03598af4c11e2798236a6dc`, the worker was clean, and lane-doctor reported `READY` with this exact lane ID and page.
 - Product behavior: unchanged; no implementation has begun and no candidate exists.
 - Integration authority: none; the integration queue remains empty until a separately authorized candidate exists.
 - Don playtest: not applicable to registration because no player behavior changed.

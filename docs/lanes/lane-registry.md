@@ -13,15 +13,15 @@ Update triggers: Lane creation, pause, block, integration, retirement, respawn, 
 
 | Lane ID | Page | Worktree | Branch | Status |
 | --- | --- | --- | --- | --- |
-| `varied-deterministic-flow-v1` | [`varied-deterministic-flow-v1.md`](varied-deterministic-flow-v1.md) | `/home/don/rust-reps-varied-flow-v1` | `codex/varied-deterministic-flow-v1` | REGISTERED; WORKTREE NOT YET PROVISIONED |
+| `varied-deterministic-flow-v1` | [`varied-deterministic-flow-v1.md`](varied-deterministic-flow-v1.md) | `/home/don/rust-reps-varied-flow-v1` | `codex/varied-deterministic-flow-v1` | PROVISIONED; AWAITING FRESH IMPLEMENTATION PACKET |
 
 Active lane records must use this five-column table because `lane-doctor`
 consumes it. Bullet-form active records are invalid coordination memory.
 
 ## Planned but not active
 
-No additional product boundary is planned while the registered active lane is
-awaiting provisioning and a fresh implementation packet.
+No additional product boundary is planned while the provisioned active lane is
+awaiting a fresh implementation packet.
 
 ## Paused lanes
 

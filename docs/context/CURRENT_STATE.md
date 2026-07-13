@@ -59,11 +59,15 @@ Update triggers: Accepted-main change, lane transition, authority change, blocke
   Contract V1, are accepted and integrated.
 - `USER_DECISION`: Varied Deterministic Rust Practice Flow V1 is the selected
   next product boundary.
-- `LIVE_REPO_FACT`: `varied-deterministic-flow-v1` is registered on canonical
-  master. At this registration commit its declared worktree and branch are not
-  yet provisioned, and no implementation or candidate exists.
+- `LIVE_REPO_FACT`: one active feature lane exists:
+  `varied-deterministic-flow-v1` at worktree
+  `/home/don/rust-reps-varied-flow-v1` and branch
+  `codex/varied-deterministic-flow-v1`. Provisioning was verified with the
+  clean worker at the registration commit, and lane-doctor reported `READY`
+  for its exact lane ID and page.
 - `LIVE_REPO_FACT`: the integration queue remains empty; product behavior and
-  the installed command are unchanged by lane registration.
+  the installed command are unchanged by lane provisioning. Feature
+  implementation remains unstarted, and no candidate exists.
 
 ## Accepted Product State
 
@@ -220,11 +224,12 @@ adaptation; lab owns synthetic stress data only.
 
 ## Lanes
 
-- Registered, not yet provisioned:
+- Provisioned and awaiting a fresh implementation packet:
   [`varied-deterministic-flow-v1`](../lanes/varied-deterministic-flow-v1.md).
-  Its declared worktree and branch do not exist at this registration commit;
-  implementation requires a fresh packet matching the final provisioning
-  Context-SHA, and no candidate or integration-queue row exists.
+  Its declared worktree and branch exist at the clean registration commit;
+  lane-doctor reported `READY`. Implementation requires a fresh packet matching
+  the final provisioning Context-SHA, and no candidate or integration-queue row
+  exists.
 - Retired: [`truthful-task-projection-v1`](../lanes/truthful-task-projection-v1.md),
   accepted and integrated into local canonical master; worktree removed and
   branch deleted after Don's accepted real-TTY playtest.
