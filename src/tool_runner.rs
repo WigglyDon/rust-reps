@@ -724,8 +724,12 @@ mod tests {
 
     #[test]
     fn runtime_product_modules_do_not_reference_fake_tool_runner() {
+        let engine_source = include_str!("engine/mod.rs")
+            .split("\n#[cfg(test)]\nmod tests")
+            .next()
+            .expect("production engine source must exist");
         let product_sources = [
-            include_str!("engine/mod.rs"),
+            engine_source,
             include_str!("practice.rs"),
             include_str!("formatter.rs"),
             include_str!("lab.rs"),

@@ -104,6 +104,7 @@ impl TuiApp {
         match action {
             ClientAction::Quit => self.quit(),
             ClientAction::Format => self.format_current_input(now),
+            ClientAction::Help => self.toggle_help(),
             ClientAction::Submit => self.submit_current_input(now),
             ClientAction::Skip => self.skip_current_exercise(now),
             ClientAction::Ignore => {}
@@ -152,6 +153,11 @@ impl TuiApp {
 
     fn format_current_input(&mut self, now: Instant) {
         self.format_current_input_with(now, formatter::format_rust_source);
+    }
+
+    fn toggle_help(&mut self) {
+        let available = self.active_exercise().support.is_some();
+        self.ui_state.toggle_help(available);
     }
 
     fn format_current_input_with(
@@ -229,21 +235,28 @@ impl TuiApp {
             self.ui_state.clear_skip_toast();
             self.ui_state.clear_format_toast();
             self.ui_state.clear_draft_input();
-            vec![
-                "STATUS".to_string(),
-                format!(
+            let mut lines = vec!["STATUS".to_string()];
+            if let Some((position, total)) = self.session.round_position() {
+                lines.push(format!(
+                    "Current: {} ({position}/{total})",
+                    self.active_exercise().id
+                ));
+                lines.push(format!("Passed: {}", self.session.passed()));
+            } else {
+                lines.push(format!(
                     "Current: {}/{}",
                     self.active_exercise().id,
                     self.session.total_drills()
-                ),
-                format!(
+                ));
+                lines.push(format!(
                     "Passed: {}/{}",
                     self.session.passed(),
                     self.session.total_drills()
-                ),
-                format!("Skipped: {}", self.session.skipped()),
-                format!("Attempts: {}", self.session.attempts()),
-            ]
+                ));
+            }
+            lines.push(format!("Skipped: {}", self.session.skipped()));
+            lines.push(format!("Attempts: {}", self.session.attempts()));
+            lines
         } else if command == ":list" {
             self.ui_state.clear_failure_pulse();
             self.ui_state.clear_skip_toast();
@@ -260,6 +273,7 @@ impl TuiApp {
             self.ui_state.start_skip_toast(now);
             self.ui_state.clear_draft_input();
             let _ = self.session.skip();
+            self.ui_state.reset_task_support_state();
             self.ui_state.reset_problem_scroll();
             if self.session.is_complete() {
                 self.completed = true;
@@ -284,6 +298,7 @@ impl TuiApp {
                     self.ui_state.clear_format_toast();
                     self.ui_state.start_reward_event(now);
                     self.ui_state.clear_draft_input();
+                    self.ui_state.reset_task_support_state();
                     self.ui_state.reset_problem_scroll();
                     if self.session.is_complete() {
                         self.completed = true;
@@ -298,27 +313,20 @@ impl TuiApp {
                     self.ui_state.clear_skip_toast();
                     self.ui_state.clear_format_toast();
                     self.ui_state.start_failure_pulse(now);
-                    let answer = self
-                        .session
-                        .wrong_answer_feedback()
-                        .expect("wrong result carries answer feedback");
-                    vec![
-                        "not quite".to_string(),
-                        "expected:".to_string(),
-                        answer.to_string(),
-                    ]
+                    vec!["not quite".to_string()]
                 }
-                engine::SubmitResult::UnsupportedValidator => {
+                engine::SubmitResult::ValidationUnavailable => {
+                    self.ui_state.clear_failure_pulse();
                     self.ui_state.clear_skip_toast();
                     self.ui_state.clear_format_toast();
-                    self.ui_state.start_failure_pulse(now);
-                    vec!["unsupported validator configuration".to_string()]
+                    vec!["validation unavailable".to_string()]
                 }
                 engine::SubmitResult::NoActiveDrill => {
                     self.ui_state.clear_failure_pulse();
                     self.ui_state.clear_skip_toast();
                     self.ui_state.clear_format_toast();
                     self.ui_state.clear_draft_input();
+                    self.ui_state.reset_task_support_state();
                     self.should_quit = true;
                     collect_summary_lines("QUIT", &self.session)
                 }
@@ -337,6 +345,7 @@ impl TuiApp {
         self.ui_state.clear_format_toast();
         self.ui_state.start_skip_toast(now);
         self.ui_state.clear_draft_input();
+        self.ui_state.reset_task_support_state();
         self.ui_state.reset_problem_scroll();
         let _ = self.session.skip();
         let status_lines = if self.session.is_complete() {
@@ -386,6 +395,13 @@ mod tests {
 
     fn lab_app() -> TuiApp {
         TuiApp::with_session(crate::engine::Session::lab())
+    }
+
+    fn interactive_app() -> TuiApp {
+        TuiApp::with_session(
+            crate::orchestration::current_interactive_product_session()
+                .expect("interactive product session must resolve"),
+        )
     }
 
     fn advance_lab_to_family(app: &mut TuiApp, family_index: usize) {
@@ -536,14 +552,7 @@ mod tests {
                 .id,
             "001"
         );
-        assert_eq!(
-            app.status_lines(),
-            &[
-                "not quite".to_string(),
-                "expected:".to_string(),
-                "fn main() {}".to_string(),
-            ]
-        );
+        assert_eq!(app.status_lines(), &["not quite".to_string()]);
     }
 
     #[test]
@@ -565,14 +574,7 @@ mod tests {
         assert!(!app.frame_at(now).reward.show_plus_one);
         assert_eq!(app.frame_at(now).reward.game_glow_intensity, 0);
         assert!(app.frame_at(now).failure_active);
-        assert_eq!(
-            app.status_lines(),
-            &[
-                "not quite".to_string(),
-                "expected:".to_string(),
-                "fn main() {}".to_string(),
-            ]
-        );
+        assert_eq!(app.status_lines(), &["not quite".to_string()]);
     }
 
     #[test]
@@ -709,6 +711,247 @@ mod tests {
     }
 
     #[test]
+    fn varied_copy_and_fill_keep_f1_disabled_without_attempts() {
+        for id in ["013", "014"] {
+            let mut app = TuiApp::new();
+            advance_to_product_id(&mut app, id);
+            load_text(&mut app, "unchanged learner text");
+            let before = app.session().stats();
+
+            app.format_current_input_with(test_now(), |_| {
+                panic!("exact varied task {id} must not invoke rustfmt")
+            });
+
+            assert_eq!(app.input(), "unchanged learner text");
+            assert_eq!(app.session().stats(), before);
+            assert_eq!(
+                app.frame().format.kind.unwrap().message(),
+                "format off for exact task"
+            );
+        }
+    }
+
+    #[test]
+    fn varied_full_code_tasks_enable_f1_without_submitting() {
+        for id in ["015", "016", "017"] {
+            let mut app = TuiApp::new();
+            advance_to_product_id(&mut app, id);
+            load_text(&mut app, "fn five()->i32{5}");
+            let before = app.session().stats();
+            let mut calls = 0;
+
+            app.format_current_input_with(test_now(), |_| {
+                calls += 1;
+                FormatResult::Formatted("fn five() -> i32 {\n    5\n}".to_string())
+            });
+
+            assert_eq!(calls, 1);
+            assert_eq!(app.input(), "fn five() -> i32 {\n    5\n}");
+            assert_eq!(app.session().stats(), before);
+            assert_eq!(app.active_exercise().id, id);
+        }
+    }
+
+    #[test]
+    fn interactive_counter_resets_and_no_completion_screen_appears_between_rows() {
+        let mut app = interactive_app();
+        assert_eq!(app.active_exercise().id, "013");
+        assert_eq!(app.frame().round_position, Some((1, 5)));
+
+        for expected_position in 2..=5 {
+            app.handle_action(ClientAction::Skip);
+            assert_eq!(app.frame().round_position, Some((expected_position, 5)));
+            assert!(!app.completed());
+        }
+        assert_eq!(app.active_exercise().id, "017");
+
+        app.handle_action(ClientAction::Skip);
+        assert_eq!(app.active_exercise().id, "018");
+        assert_eq!(app.frame().round_position, Some((1, 5)));
+        assert!(!app.completed());
+        assert!(!app.should_quit());
+    }
+
+    #[test]
+    fn varied_fill_contract_is_visible_empty_and_wrong_stays_at_two_of_five() {
+        let mut app = interactive_app();
+        app.handle_action(ClientAction::Skip);
+
+        let frame = app.frame();
+        let rendered_problem = frame
+            .game_window
+            .problem
+            .lines
+            .iter()
+            .map(|line| line.text.as_str())
+            .collect::<Vec<_>>()
+            .join("\n");
+        assert_eq!(app.active_exercise().id, "014");
+        assert_eq!(frame.round_position, Some((2, 5)));
+        assert_eq!(
+            frame.game_window.problem.instruction,
+            "Complete the missing return-type arrow: Type only the code replacing ___."
+        );
+        assert_eq!(
+            frame.game_window.problem.stimulus,
+            "fn five() ___ i32 { 5 }"
+        );
+        assert!(!rendered_problem.contains("fn five() -> i32 { 5 }"));
+        assert!(app.input().is_empty());
+        assert!(!frame.format_available);
+
+        let before = app.session().stats();
+        load_text(&mut app, "fn five() -> i32 { 5 }");
+        app.handle_action(ClientAction::Submit);
+
+        assert_eq!(app.active_exercise().id, "014");
+        assert_eq!(app.frame().round_position, Some((2, 5)));
+        assert_eq!(app.session().stats().attempts, before.attempts + 1);
+        assert_eq!(app.session().stats().passed, before.passed);
+
+        load_text(&mut app, "->");
+        app.handle_action(ClientAction::Submit);
+
+        assert_eq!(app.active_exercise().id, "015");
+        assert_eq!(app.frame().round_position, Some((3, 5)));
+        assert_eq!(app.session().stats().attempts, before.attempts + 2);
+        assert_eq!(app.session().stats().passed, before.passed + 1);
+    }
+
+    #[test]
+    fn f2_help_toggles_without_editor_cursor_or_session_evidence() {
+        let mut app = interactive_app();
+        advance_to_product_id(&mut app, "016");
+        app.set_editor_viewport_height(1);
+        load_text(&mut app, "first\nsecond\nlearner draft");
+        app.handle_action(ClientAction::MoveCursorLeft);
+        let before_input = app.input();
+        let before_frame = app.frame();
+        let before_cursor = before_frame.game_window.workbox.cursor;
+        let before_editor_viewport = before_frame.game_window.workbox.viewport;
+        let before_problem_viewport = before_frame.game_window.problem.viewport;
+        let before_stats = app.session().stats();
+        let before_id = app.active_exercise().id.clone();
+        let expected = app.active_exercise().expected_answer().to_owned();
+
+        app.handle_action(ClientAction::Help);
+        let open = app.frame();
+        let visible_problem = open
+            .game_window
+            .problem
+            .lines
+            .iter()
+            .map(|line| line.text.as_str())
+            .collect::<Vec<_>>()
+            .join("\n");
+        assert!(open.help_available);
+        assert!(open.help_open);
+        assert_eq!(app.input(), before_input);
+        assert_eq!(open.game_window.workbox.cursor, before_cursor);
+        assert_eq!(open.game_window.workbox.viewport, before_editor_viewport);
+        assert_eq!(open.game_window.problem.viewport, before_problem_viewport);
+        assert_eq!(app.session().stats(), before_stats);
+        assert_eq!(app.active_exercise().id, before_id);
+        assert!(!open.reward_active);
+        assert!(!visible_problem.contains(&expected));
+        assert!(
+            open.game_window
+                .problem
+                .lines
+                .iter()
+                .any(|line| line.kind == crate::client::ProblemLineKind::HelpExample)
+        );
+
+        app.handle_action(ClientAction::Help);
+        let closed = app.frame();
+        assert!(!closed.help_open);
+        assert_eq!(app.input(), before_input);
+        assert_eq!(closed.game_window.workbox.cursor, before_cursor);
+        assert_eq!(closed.game_window.workbox.viewport, before_editor_viewport);
+        assert_eq!(closed.game_window.problem.viewport, before_problem_viewport);
+        assert_eq!(app.session().stats(), before_stats);
+        assert_eq!(app.active_exercise().id, before_id);
+    }
+
+    #[test]
+    fn help_stays_after_wrong_and_resets_on_correct_skip_and_round_transition() {
+        let mut app = interactive_app();
+        advance_to_product_id(&mut app, "016");
+        app.handle_action(ClientAction::Help);
+        load_text(&mut app, "not valid Rust");
+        let before_wrong = app.session().stats();
+        app.handle_action(ClientAction::Submit);
+        assert_eq!(app.active_exercise().id, "016");
+        assert!(app.frame().help_open);
+        assert_eq!(app.session().stats().attempts, before_wrong.attempts + 1);
+        assert_eq!(app.session().stats().passed, before_wrong.passed);
+
+        let correct = app.active_exercise().expected_answer().to_owned();
+        load_text(&mut app, &correct);
+        app.handle_action(ClientAction::Submit);
+        assert_eq!(app.active_exercise().id, "017");
+        assert!(!app.frame().help_open);
+
+        app.handle_action(ClientAction::Help);
+        assert!(app.frame().help_open);
+        app.handle_action(ClientAction::Skip);
+        assert_eq!(app.active_exercise().id, "018");
+        assert_eq!(app.frame().round_position, Some((1, 5)));
+        assert!(!app.frame().help_open);
+
+        app.handle_action(ClientAction::Help);
+        assert!(app.frame().help_open);
+        app.handle_action(ClientAction::Quit);
+        assert!(app.should_quit());
+    }
+
+    #[test]
+    fn unsupported_f2_reports_exact_local_notice_and_changes_nothing_else() {
+        let mut app = TuiApp::new();
+        load_text(&mut app, "draft");
+        app.handle_action(ClientAction::MoveCursorLeft);
+        let before_input = app.input();
+        let before_cursor = app.frame().game_window.workbox.cursor;
+        let before_stats = app.session().stats();
+        let before_id = app.active_exercise().id.clone();
+
+        app.handle_action(ClientAction::Help);
+        let frame = app.frame();
+        assert!(!frame.help_available);
+        assert!(!frame.help_open);
+        assert!(frame.game_window.problem.lines.iter().any(|line| {
+            line.kind == crate::client::ProblemLineKind::HelpNotice
+                && line.text == "help unavailable"
+        }));
+        assert_eq!(app.input(), before_input);
+        assert_eq!(frame.game_window.workbox.cursor, before_cursor);
+        assert_eq!(app.session().stats(), before_stats);
+        assert_eq!(app.active_exercise().id, before_id);
+        assert!(!frame.reward_active);
+        assert!(!frame.failure_active);
+        assert!(!frame.skip_active);
+    }
+
+    #[test]
+    fn fill_help_does_not_change_exact_replacement_validation() {
+        let mut app = interactive_app();
+        app.handle_action(ClientAction::Skip);
+        assert_eq!(app.active_exercise().id, "014");
+        app.handle_action(ClientAction::Help);
+        assert!(app.frame().help_open);
+
+        load_text(&mut app, "fn five() -> i32 { 5 }");
+        app.handle_action(ClientAction::Submit);
+        assert_eq!(app.active_exercise().id, "014");
+        assert!(app.frame().help_open);
+
+        load_text(&mut app, "->");
+        app.handle_action(ClientAction::Submit);
+        assert_eq!(app.active_exercise().id, "015");
+        assert!(!app.frame().help_open);
+    }
+
+    #[test]
     fn f5_keeps_internal_newline_differences_wrong_and_exact_model_correct() {
         let model = "fn add_one(x: i32) -> i32 { x + 1 }";
         let formatted = "fn add_one(x: i32) -> i32 {\n    x + 1\n}";
@@ -769,6 +1012,21 @@ mod tests {
             assert!(
                 !format_application.contains(forbidden),
                 "F1 application must not inspect {forbidden}"
+            );
+        }
+    }
+
+    #[test]
+    fn production_tui_never_reads_expected_answer_truth() {
+        let production = include_str!("app.rs")
+            .split("#[cfg(test)]\nmod tests")
+            .next()
+            .expect("expected production app source");
+
+        for forbidden in ["expected_answer", "wrong_answer_feedback"] {
+            assert!(
+                !production.contains(forbidden),
+                "TUI production code must not read {forbidden}"
             );
         }
     }
@@ -1011,14 +1269,7 @@ mod tests {
             app.input(),
             format!("{}\n\n", crate::lab::MULTILINE_SOLUTION_EXPECTED)
         );
-        assert_eq!(
-            app.status_lines(),
-            &[
-                "not quite".to_string(),
-                "expected:".to_string(),
-                crate::lab::MULTILINE_SOLUTION_EXPECTED.to_string(),
-            ]
-        );
+        assert_eq!(app.status_lines(), &["not quite".to_string()]);
     }
 
     #[test]
@@ -1362,14 +1613,7 @@ mod tests {
                 .id,
             "001"
         );
-        assert_eq!(
-            app.status_lines(),
-            &[
-                "not quite".to_string(),
-                "expected:".to_string(),
-                "fn main() {}".to_string(),
-            ]
-        );
+        assert_eq!(app.status_lines(), &["not quite".to_string()]);
         assert_eq!(app.input(), "fn main() {}\n\n");
         assert_eq!(
             app.frame().game_window.workbox.lines,
@@ -1400,14 +1644,7 @@ mod tests {
                 .id,
             "001"
         );
-        assert_eq!(
-            app.status_lines(),
-            &[
-                "not quite".to_string(),
-                "expected:".to_string(),
-                "fn main() {}".to_string(),
-            ]
-        );
+        assert_eq!(app.status_lines(), &["not quite".to_string()]);
     }
 
     #[test]
@@ -1491,7 +1728,7 @@ mod tests {
     #[test]
     fn final_answer_marks_completion_state() {
         let mut app = TuiApp::new();
-        for drill_index in 0..12 {
+        for drill_index in 0..22 {
             let exercise = app
                 .session()
                 .current_exercise()
@@ -1500,12 +1737,12 @@ mod tests {
                 app.handle_action(ClientAction::TypeChar(ch));
             }
             app.handle_action(ClientAction::Submit);
-            if drill_index < 11 {
+            if drill_index < 21 {
                 continue;
             }
         }
 
-        assert_eq!(app.session().passed(), 12);
+        assert_eq!(app.session().passed(), 22);
         assert!(app.completed());
         assert!(app.session().is_complete());
         assert_eq!(

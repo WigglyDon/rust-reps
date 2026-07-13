@@ -1,4 +1,4 @@
-use super::{SlotDomain, SlotSpec, TemplatePart, TemplateSpec};
+use super::{CompatibilityRowSpec, SlotDomain, SlotSpec, TemplatePart, TemplateSpec};
 use crate::curriculum::{AnswerRule, Operation, StateTransition};
 
 #[cfg(test)]
@@ -44,16 +44,39 @@ pub(crate) struct ExpandedTask {
 
 #[derive(Debug, Eq, PartialEq)]
 pub(crate) enum ExpansionError {
-    UnknownDomain { id: String, version: u16 },
-    DuplicateDomain { id: String, version: u16 },
-    EmptyDomain { id: String, version: u16 },
+    UnknownDomain {
+        id: String,
+        version: u16,
+    },
+    DuplicateDomain {
+        id: String,
+        version: u16,
+    },
+    EmptyDomain {
+        id: String,
+        version: u16,
+    },
     CardinalityOverflow,
-    SeedOutOfRange { seed: u64, cardinality: u64 },
+    SeedOutOfRange {
+        seed: u64,
+        cardinality: u64,
+    },
     DuplicateTemplateSlot(String),
     MissingSlot(String),
     DuplicateAssignment(String),
     UnknownSlot(String),
-    InvalidIdentityComponent { field: &'static str, value: String },
+    DuplicateCompatibilityAssignment(String),
+    MissingCompatibilityAssignment(String),
+    CompatibilityDomainMismatch(String),
+    UnknownDomainValue {
+        domain_id: String,
+        domain_version: u16,
+        value_id: String,
+    },
+    InvalidIdentityComponent {
+        field: &'static str,
+        value: String,
+    },
     InvalidTemplateVersion(u16),
 }
 
@@ -122,15 +145,81 @@ pub(crate) fn expand_template(
         });
     }
 
+    build_expanded_task(template, assignments, seed)
+}
+
+pub(crate) fn expand_template_from_compatibility_row(
+    template: &TemplateSpec,
+    domains: &[SlotDomain],
+    row: &CompatibilityRowSpec,
+) -> Result<ExpandedTask, ExpansionError> {
+    validate_identity_source(template)?;
+    validate_unique_template_slots(template.slots)?;
+
+    for (index, assignment) in row.assignments.iter().enumerate() {
+        for earlier in &row.assignments[..index] {
+            if earlier.slot == assignment.slot {
+                return Err(ExpansionError::DuplicateCompatibilityAssignment(
+                    assignment.slot.to_owned(),
+                ));
+            }
+        }
+    }
+
+    let mut assignments = Vec::with_capacity(template.slots.len());
+    for slot in template.slots {
+        let Some(source) = row
+            .assignments
+            .iter()
+            .find(|assignment| assignment.slot == slot.name)
+        else {
+            return Err(ExpansionError::MissingCompatibilityAssignment(
+                slot.name.to_owned(),
+            ));
+        };
+        if source.domain_id != slot.domain_id || source.domain_version != slot.domain_version {
+            return Err(ExpansionError::CompatibilityDomainMismatch(
+                slot.name.to_owned(),
+            ));
+        }
+        let domain = &domains[find_domain_index(slot, domains)?];
+        let Some(value) = domain
+            .values
+            .iter()
+            .find(|value| value.id == source.value_id)
+        else {
+            return Err(ExpansionError::UnknownDomainValue {
+                domain_id: source.domain_id.to_owned(),
+                domain_version: source.domain_version,
+                value_id: source.value_id.to_owned(),
+            });
+        };
+        assignments.push(SlotAssignment {
+            slot: slot.name.to_owned(),
+            domain_id: domain.id.to_owned(),
+            domain_version: domain.version,
+            value_id: value.id.to_owned(),
+            rendered: value.rendered.to_owned(),
+            meaning_key: value.meaning_key.map(str::to_owned),
+        });
+    }
+
+    build_expanded_task(template, assignments, row.content_seed)
+}
+
+fn build_expanded_task(
+    template: &TemplateSpec,
+    assignments: Vec<SlotAssignment>,
+    content_seed: u64,
+) -> Result<ExpandedTask, ExpansionError> {
     let stimulus = render_parts(template.stimulus, template.slots, &assignments)?;
     let expected = render_parts(template.expected, template.slots, &assignments)?;
-    let generated_id = build_generated_id(template, seed);
 
     Ok(ExpandedTask {
-        generated_id,
+        generated_id: build_generated_id(template, content_seed),
         template_id: template.id.to_owned(),
         template_version: template.version,
-        content_seed: seed,
+        content_seed,
         stimulus_variant: 0,
         contrast_id: template.contrast_id.map(str::to_owned),
         instruction_key: template.instruction_key.to_owned(),
@@ -479,13 +568,14 @@ mod tests {
         assert_eq!(
             expanded,
             ExpandedTask {
-                generated_id: "gen:rust:function.return_literal:copy-line:v1:copy:s0".to_owned(),
-                template_id: "copy-line".to_owned(),
-                template_version: 1,
+                generated_id: "gen:rust:function.return_literal:copy-return-type:v2:copy:s0"
+                    .to_owned(),
+                template_id: "copy-return-type".to_owned(),
+                template_version: 2,
                 content_seed: 0,
                 stimulus_variant: 0,
                 contrast_id: None,
-                instruction_key: "copy.exact_line".to_owned(),
+                instruction_key: "copy.return_type_intro".to_owned(),
                 assignments: vec![
                     SlotAssignment {
                         slot: "NAME".to_owned(),
@@ -537,7 +627,7 @@ mod tests {
         assert!(!expanded.expected.ends_with('\r'));
         assert_eq!(expanded.content_seed, 0);
         assert_eq!(expanded.stimulus_variant, 0);
-        assert_eq!(expanded.instruction_key, "copy.exact_line");
+        assert_eq!(expanded.instruction_key, "copy.return_type_intro");
         assert!(
             expanded
                 .assignments
@@ -558,13 +648,14 @@ mod tests {
 
     #[test]
     fn current_cardinality_and_seed_range_are_exact() {
-        assert_eq!(template_cardinality(&TEMPLATES[0], SLOT_DOMAINS), Ok(1));
+        assert_eq!(template_cardinality(&TEMPLATES[0], SLOT_DOMAINS), Ok(8));
         assert!(expand_template(&TEMPLATES[0], SLOT_DOMAINS, 0).is_ok());
+        assert!(expand_template(&TEMPLATES[0], SLOT_DOMAINS, 7).is_ok());
         assert_eq!(
-            expand_template(&TEMPLATES[0], SLOT_DOMAINS, 1),
+            expand_template(&TEMPLATES[0], SLOT_DOMAINS, 8),
             Err(ExpansionError::SeedOutOfRange {
-                seed: 1,
-                cardinality: 1,
+                seed: 8,
+                cardinality: 8,
             })
         );
     }
@@ -835,7 +926,7 @@ mod tests {
             .expect("accepted source identity should expand");
         assert_eq!(
             expanded.generated_id,
-            "gen:rust:function.return_literal:copy-line:v1:copy:s0"
+            "gen:rust:function.return_literal:copy-return-type:v2:copy:s0"
         );
 
         for (operation, expected) in [

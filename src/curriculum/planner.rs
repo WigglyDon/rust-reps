@@ -23,6 +23,23 @@ pub(crate) enum SupportLevel {
     MinimalCue,
 }
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub(crate) enum SupportStage {
+    Introduce,
+    Guided,
+    Practice,
+}
+
+impl SupportLevel {
+    pub(crate) const fn stage(self) -> SupportStage {
+        match self {
+            Self::FullModel => SupportStage::Introduce,
+            Self::PartialModel | Self::ConstrainedCue => SupportStage::Guided,
+            Self::MinimalCue => SupportStage::Practice,
+        }
+    }
+}
+
 pub(crate) struct LearningTargetSpec {
     pub(crate) id: &'static str,
     pub(crate) focus_concepts: &'static [&'static str],
@@ -84,7 +101,7 @@ pub(crate) const LEARNING_TARGETS: &[LearningTargetSpec] = &[
 
 pub(crate) const CAPABILITIES: &[CapabilitySpec] = &[
     CapabilitySpec {
-        id: "rust.function.return_literal.copy.full_model",
+        id: "rust.function.return_literal.copy.return_type.introduce",
         semantic_frame: "function.no_params.return_literal",
         response_system: "rust",
         response_surface_frame: "function.return_literal",
@@ -94,10 +111,10 @@ pub(crate) const CAPABILITIES: &[CapabilitySpec] = &[
         cue_representation: RepresentationKind::CompleteSurface,
         response_representation: RepresentationKind::CompleteSurface,
         support: SupportLevel::FullModel,
-        learning_target_id: "rust.function.return_literal.whole_form",
+        learning_target_id: "rust.function.return_literal.return_type_arrow",
     },
     CapabilitySpec {
-        id: "rust.function.return_literal.fill.return_value",
+        id: "rust.function.return_literal.fill.return_type_arrow",
         semantic_frame: "function.no_params.return_literal",
         response_system: "rust",
         response_surface_frame: "function.return_literal",
@@ -105,12 +122,12 @@ pub(crate) const CAPABILITIES: &[CapabilitySpec] = &[
         cue_surface_frame: None,
         operation: Operation::Fill,
         cue_representation: RepresentationKind::PartialSurface,
-        response_representation: RepresentationKind::CompleteSurface,
+        response_representation: RepresentationKind::ArtifactFragment,
         support: SupportLevel::PartialModel,
-        learning_target_id: "rust.function.return_literal.return_value",
+        learning_target_id: "rust.function.return_literal.return_type_arrow",
     },
     CapabilitySpec {
-        id: "rust.function.return_literal.produce.constrained",
+        id: "rust.function.return_literal.produce.return_type.guided",
         semantic_frame: "function.no_params.return_literal",
         response_system: "rust",
         response_surface_frame: "function.return_literal",
@@ -120,7 +137,7 @@ pub(crate) const CAPABILITIES: &[CapabilitySpec] = &[
         cue_representation: RepresentationKind::SemanticIntent,
         response_representation: RepresentationKind::CompleteSurface,
         support: SupportLevel::ConstrainedCue,
-        learning_target_id: "rust.function.return_literal.whole_form",
+        learning_target_id: "rust.function.return_literal.return_type_arrow",
     },
     CapabilitySpec {
         id: "rust.function.return_literal.repair.return_type_arrow",
@@ -136,7 +153,7 @@ pub(crate) const CAPABILITIES: &[CapabilitySpec] = &[
         learning_target_id: "rust.function.return_literal.return_type_arrow",
     },
     CapabilitySpec {
-        id: "rust.function.return_literal.transform.tail_expression",
+        id: "rust.function.return_literal.transform.return_type.practice",
         semantic_frame: "function.no_params.return_literal",
         response_system: "rust",
         response_surface_frame: "function.return_literal",
@@ -145,38 +162,38 @@ pub(crate) const CAPABILITIES: &[CapabilitySpec] = &[
         operation: Operation::Transform,
         cue_representation: RepresentationKind::CompleteSurface,
         response_representation: RepresentationKind::CompleteSurface,
-        support: SupportLevel::ConstrainedCue,
-        learning_target_id: "rust.function.return_literal.return_value",
+        support: SupportLevel::MinimalCue,
+        learning_target_id: "rust.function.return_literal.return_type_arrow",
     },
 ];
 
 pub(crate) const SET_PLANS: &[SetPlan] = &[SetPlan {
     id: "rust.function.return_literal.five_step",
-    version: 1,
+    version: 2,
     system: "rust",
     track: "syntax_basics",
     semantic_frame: "function.no_params.return_literal",
     response_surface_frame: "function.return_literal",
     steps: &[
         SetStep {
-            id: "copy-full-form",
-            capability_id: "rust.function.return_literal.copy.full_model",
+            id: "copy-introduce-return-type",
+            capability_id: "rust.function.return_literal.copy.return_type.introduce",
         },
         SetStep {
-            id: "fill-return-value",
-            capability_id: "rust.function.return_literal.fill.return_value",
+            id: "fill-return-type-arrow",
+            capability_id: "rust.function.return_literal.fill.return_type_arrow",
         },
         SetStep {
-            id: "produce-from-intent",
-            capability_id: "rust.function.return_literal.produce.constrained",
+            id: "produce-return-type",
+            capability_id: "rust.function.return_literal.produce.return_type.guided",
         },
         SetStep {
             id: "repair-return-type-arrow",
             capability_id: "rust.function.return_literal.repair.return_type_arrow",
         },
         SetStep {
-            id: "transform-tail-expression",
-            capability_id: "rust.function.return_literal.transform.tail_expression",
+            id: "transform-add-return-type",
+            capability_id: "rust.function.return_literal.transform.return_type.practice",
         },
     ],
 }];
@@ -354,33 +371,40 @@ mod tests {
                     .any(|target| target.id == capability.learning_target_id),
                 "capability learning target must be known"
             );
-            assert_eq!(
-                capability.response_representation,
-                RepresentationKind::CompleteSurface
-            );
+            if capability.operation == Operation::Fill {
+                assert_eq!(
+                    capability.response_representation,
+                    RepresentationKind::ArtifactFragment
+                );
+            } else {
+                assert_eq!(
+                    capability.response_representation,
+                    RepresentationKind::CompleteSurface
+                );
+            }
         }
 
         let accepted = [
             (
-                "rust.function.return_literal.copy.full_model",
+                "rust.function.return_literal.copy.return_type.introduce",
                 Operation::Copy,
                 RepresentationKind::CompleteSurface,
                 SupportLevel::FullModel,
-                "rust.function.return_literal.whole_form",
+                "rust.function.return_literal.return_type_arrow",
             ),
             (
-                "rust.function.return_literal.fill.return_value",
+                "rust.function.return_literal.fill.return_type_arrow",
                 Operation::Fill,
                 RepresentationKind::PartialSurface,
                 SupportLevel::PartialModel,
-                "rust.function.return_literal.return_value",
+                "rust.function.return_literal.return_type_arrow",
             ),
             (
-                "rust.function.return_literal.produce.constrained",
+                "rust.function.return_literal.produce.return_type.guided",
                 Operation::Produce,
                 RepresentationKind::SemanticIntent,
                 SupportLevel::ConstrainedCue,
-                "rust.function.return_literal.whole_form",
+                "rust.function.return_literal.return_type_arrow",
             ),
             (
                 "rust.function.return_literal.repair.return_type_arrow",
@@ -390,11 +414,11 @@ mod tests {
                 "rust.function.return_literal.return_type_arrow",
             ),
             (
-                "rust.function.return_literal.transform.tail_expression",
+                "rust.function.return_literal.transform.return_type.practice",
                 Operation::Transform,
                 RepresentationKind::CompleteSurface,
-                SupportLevel::ConstrainedCue,
-                "rust.function.return_literal.return_value",
+                SupportLevel::MinimalCue,
+                "rust.function.return_literal.return_type_arrow",
             ),
         ];
         for (capability, (id, operation, cue, support, target)) in CAPABILITIES.iter().zip(accepted)
@@ -412,7 +436,11 @@ mod tests {
             assert_eq!(capability.cue_representation, cue);
             assert_eq!(
                 capability.response_representation,
-                RepresentationKind::CompleteSurface
+                if operation == Operation::Fill {
+                    RepresentationKind::ArtifactFragment
+                } else {
+                    RepresentationKind::CompleteSurface
+                }
             );
             assert_eq!(capability.support, support);
             assert_eq!(capability.learning_target_id, target);
@@ -479,7 +507,7 @@ mod tests {
 
         let set = &SET_PLANS[0];
         assert_eq!(set.id, "rust.function.return_literal.five_step");
-        assert_eq!(set.version, 1);
+        assert_eq!(set.version, 2);
         assert_eq!(set.system, "rust");
         assert_eq!(set.track, "syntax_basics");
         assert_eq!(set.semantic_frame, "function.no_params.return_literal");
@@ -487,11 +515,11 @@ mod tests {
         assert_eq!(
             set.steps.iter().map(|step| step.id).collect::<Vec<_>>(),
             vec![
-                "copy-full-form",
-                "fill-return-value",
-                "produce-from-intent",
+                "copy-introduce-return-type",
+                "fill-return-type-arrow",
+                "produce-return-type",
                 "repair-return-type-arrow",
-                "transform-tail-expression",
+                "transform-add-return-type",
             ]
         );
         assert_eq!(
@@ -541,11 +569,11 @@ mod tests {
                 .map(|capability| capability.id)
                 .collect::<Vec<_>>(),
             vec![
-                "rust.function.return_literal.copy.full_model",
-                "rust.function.return_literal.fill.return_value",
-                "rust.function.return_literal.produce.constrained",
+                "rust.function.return_literal.copy.return_type.introduce",
+                "rust.function.return_literal.fill.return_type_arrow",
+                "rust.function.return_literal.produce.return_type.guided",
                 "rust.function.return_literal.repair.return_type_arrow",
-                "rust.function.return_literal.transform.tail_expression",
+                "rust.function.return_literal.transform.return_type.practice",
             ]
         );
         assert_eq!(
@@ -555,11 +583,11 @@ mod tests {
                 .map(|step| step.id)
                 .collect::<Vec<_>>(),
             vec![
-                "copy-full-form",
-                "fill-return-value",
-                "produce-from-intent",
+                "copy-introduce-return-type",
+                "fill-return-type-arrow",
+                "produce-return-type",
                 "repair-return-type-arrow",
-                "transform-tail-expression",
+                "transform-add-return-type",
             ]
         );
         assert_eq!(
@@ -572,7 +600,7 @@ mod tests {
                 SupportLevel::PartialModel,
                 SupportLevel::ConstrainedCue,
                 SupportLevel::ConstrainedCue,
-                SupportLevel::ConstrainedCue,
+                SupportLevel::MinimalCue,
             ]
         );
         assert_eq!(
@@ -588,8 +616,18 @@ mod tests {
                 RepresentationKind::CompleteSurface,
             ]
         );
-        assert!(CAPABILITIES.iter().all(|capability| {
-            capability.response_representation == RepresentationKind::CompleteSurface
-        }));
+        assert_eq!(
+            CAPABILITIES
+                .iter()
+                .map(|capability| capability.response_representation)
+                .collect::<Vec<_>>(),
+            vec![
+                RepresentationKind::CompleteSurface,
+                RepresentationKind::ArtifactFragment,
+                RepresentationKind::CompleteSurface,
+                RepresentationKind::CompleteSurface,
+                RepresentationKind::CompleteSurface,
+            ]
+        );
     }
 }

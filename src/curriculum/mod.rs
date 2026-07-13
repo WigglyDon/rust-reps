@@ -22,6 +22,7 @@ pub(crate) mod planner;
     )
 )]
 pub(crate) mod procgen;
+pub(crate) mod support;
 mod syntax_basics;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -32,11 +33,16 @@ pub enum Track {
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum Stage {
     Copy,
+    Fill,
+    Produce,
+    Repair,
+    Transform,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum TaskType {
     TypeExact,
+    RustCode,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -94,6 +100,12 @@ pub enum AnswerRule {
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum Formatting {
+    Disabled,
+    Rustfmt,
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum StateTransition {
     None,
 }
@@ -141,6 +153,7 @@ pub struct DrillSpec {
     pub(crate) assignments: &'static [CoreTaskAssignmentSpec],
     pub stimulus: &'static str,
     pub expected: &'static str,
+    pub formatting: Formatting,
     pub(crate) capability_id: Option<&'static str>,
     pub(crate) generated_provenance: Option<GeneratedTaskProvenanceSpec>,
     pub track: Track,

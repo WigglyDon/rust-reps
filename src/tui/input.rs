@@ -21,6 +21,7 @@ pub fn classify_key_event(key: KeyEvent) -> ClientAction {
         KeyCode::F(5) => ClientAction::Submit,
         KeyCode::F(7) => ClientAction::Skip,
         KeyCode::F(1) => ClientAction::Format,
+        KeyCode::F(2) => ClientAction::Help,
         KeyCode::Backspace => ClientAction::Backspace,
         KeyCode::Delete => ClientAction::DeleteForward,
         KeyCode::Left => ClientAction::MoveCursorLeft,
@@ -184,6 +185,26 @@ mod tests {
     fn f1_classifies_as_format() {
         let intent = classify_key_event(KeyEvent::from(KeyCode::F(1)));
         assert_eq!(intent, ClientAction::Format);
+    }
+
+    #[test]
+    fn f2_classifies_as_help_without_replacing_other_controls() {
+        assert_eq!(
+            classify_key_event(KeyEvent::from(KeyCode::F(2))),
+            ClientAction::Help
+        );
+        assert_eq!(
+            classify_key_event(KeyEvent::from(KeyCode::F(5))),
+            ClientAction::Submit
+        );
+        assert_eq!(
+            classify_key_event(KeyEvent::from(KeyCode::F(7))),
+            ClientAction::Skip
+        );
+        assert_eq!(
+            classify_key_event(KeyEvent::from(KeyCode::Esc)),
+            ClientAction::Quit
+        );
     }
 
     #[test]

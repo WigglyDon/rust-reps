@@ -51,7 +51,11 @@ pub fn print_help() {
     presentation::print_help_text();
     println!("Current drills:");
     for drill in catalog::drills() {
-        println!("{}  {}", drill.id, drill.stimulus);
+        if drill.stimulus.is_empty() {
+            println!("{}", drill.id);
+        } else {
+            println!("{}  {}", drill.id, drill.stimulus);
+        }
     }
 }
 

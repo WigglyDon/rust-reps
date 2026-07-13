@@ -131,6 +131,16 @@ let scores = [1, 2, 3];
 fn add_one(x: i32) -> i32 { x + 1 }
 if score > 0 {}
 while score < 10 {}
+fn five() -> i32 { 5 }
+->
+fn five()->i32{5}
+fn five()->i32{5}
+fn five()->i32{5}
+fn seven() -> u64 { 7 }
+->
+fn seven()->u64{7}
+fn seven()->u64{7}
+fn seven()->u64{7}
 '
 
 drill_001_try_again_output='Rust Reps
@@ -174,11 +184,11 @@ practice_all_correct_output='Rust Reps
 ----------------
 
 Practice
-Exact typing practice.
-Answers must match exactly.
+Deterministic Rust practice.
+Follow the task instruction.
 Type :help for commands and :q to quit.
 
-Drill 001/012
+Drill 001/022
 Prompt:
 
 Copy this line exactly:
@@ -186,7 +196,7 @@ fn main() {}
 
 >PASS
 
-Drill 002/012
+Drill 002/022
 Prompt:
 
 Copy this line exactly:
@@ -194,7 +204,7 @@ println!("Rust Reps");
 
 >PASS
 
-Drill 003/012
+Drill 003/022
 Prompt:
 
 Copy this line exactly:
@@ -202,7 +212,7 @@ let answer = 42;
 
 >PASS
 
-Drill 004/012
+Drill 004/022
 Prompt:
 
 Copy this line exactly:
@@ -210,7 +220,7 @@ let name = "Rust Reps";
 
 >PASS
 
-Drill 005/012
+Drill 005/022
 Prompt:
 
 Copy this line exactly:
@@ -218,7 +228,7 @@ let mut score = 0;
 
 >PASS
 
-Drill 006/012
+Drill 006/022
 Prompt:
 
 Copy this line exactly:
@@ -226,7 +236,7 @@ score += 1;
 
 >PASS
 
-Drill 007/012
+Drill 007/022
 Prompt:
 
 Copy this line exactly:
@@ -234,7 +244,7 @@ let passed = true;
 
 >PASS
 
-Drill 008/012
+Drill 008/022
 Prompt:
 
 Copy this line exactly:
@@ -242,7 +252,7 @@ let score: i32 = 0;
 
 >PASS
 
-Drill 009/012
+Drill 009/022
 Prompt:
 
 Copy this line exactly:
@@ -250,7 +260,7 @@ let scores = [1, 2, 3];
 
 >PASS
 
-Drill 010/012
+Drill 010/022
 Prompt:
 
 Copy this line exactly:
@@ -258,7 +268,7 @@ fn add_one(x: i32) -> i32 { x + 1 }
 
 >PASS
 
-Drill 011/012
+Drill 011/022
 Prompt:
 
 Copy this line exactly:
@@ -266,7 +276,7 @@ if score > 0 {}
 
 >PASS
 
-Drill 012/012
+Drill 012/022
 Prompt:
 
 Copy this line exactly:
@@ -274,21 +284,101 @@ while score < 10 {}
 
 >PASS
 
+Drill 013/022
+Prompt:
+
+Copy this line exactly: Type the complete function exactly.
+fn five() -> i32 { 5 }
+
+>PASS
+
+Drill 014/022
+Prompt:
+
+Complete the missing return-type arrow: Type only the code replacing ___.
+fn five() ___ i32 { 5 }
+
+>PASS
+
+Drill 015/022
+Prompt:
+
+Use the shown parts to write the function with its return type: Submit the complete function.
+fn five() ___ i32 { 5 }
+
+>PASS
+
+Drill 016/022
+Prompt:
+
+Repair the return-type syntax in the highlighted region: Submit the complete corrected function.
+fn five(): i32 { 5 }
+
+>PASS
+
+Drill 017/022
+Prompt:
+
+Add the declared return type after the parameter list: Submit the complete transformed function.
+fn five() { 5 }
+
+>PASS
+
+Drill 018/022
+Prompt:
+
+Copy this line exactly: Type the complete function exactly.
+fn seven() -> u64 { 7 }
+
+>PASS
+
+Drill 019/022
+Prompt:
+
+Complete the missing return-type arrow: Type only the code replacing ___.
+fn seven() ___ u64 { 7 }
+
+>PASS
+
+Drill 020/022
+Prompt:
+
+Use the shown parts to write the function with its return type: Submit the complete function.
+fn seven() ___ u64 { 7 }
+
+>PASS
+
+Drill 021/022
+Prompt:
+
+Repair the return-type syntax in the highlighted region: Submit the complete corrected function.
+fn seven(): u64 { 7 }
+
+>PASS
+
+Drill 022/022
+Prompt:
+
+Add the declared return type after the parameter list: Submit the complete transformed function.
+fn seven() { 7 }
+
+>PASS
+
 COMPLETE
 Summary:
-Passed: 12/12
+Passed: 22/22
 Skipped: 0
-Attempts: 12'
+Attempts: 22'
 
 practice_quit_output='Rust Reps
 ----------------
 
 Practice
-Exact typing practice.
-Answers must match exactly.
+Deterministic Rust practice.
+Follow the task instruction.
 Type :help for commands and :q to quit.
 
-Drill 001/012
+Drill 001/022
 Prompt:
 
 Copy this line exactly:
@@ -296,7 +386,7 @@ fn main() {}
 
 >QUIT
 Summary:
-Passed: 0/12
+Passed: 0/22
 Skipped: 0
 Attempts: 0'
 
@@ -304,11 +394,11 @@ practice_unknown_then_quit_output='Rust Reps
 ----------------
 
 Practice
-Exact typing practice.
-Answers must match exactly.
+Deterministic Rust practice.
+Follow the task instruction.
 Type :help for commands and :q to quit.
 
-Drill 001/012
+Drill 001/022
 Prompt:
 
 Copy this line exactly:
@@ -317,7 +407,7 @@ fn main() {}
 >UNKNOWN COMMAND
 Type :help for commands.
 
-Drill 001/012
+Drill 001/022
 Prompt:
 
 Copy this line exactly:
@@ -325,7 +415,7 @@ fn main() {}
 
 >QUIT
 Summary:
-Passed: 0/12
+Passed: 0/22
 Skipped: 0
 Attempts: 0'
 
@@ -333,11 +423,11 @@ practice_unknown_then_status_then_quit_output='Rust Reps
 ----------------
 
 Practice
-Exact typing practice.
-Answers must match exactly.
+Deterministic Rust practice.
+Follow the task instruction.
 Type :help for commands and :q to quit.
 
-Drill 001/012
+Drill 001/022
 Prompt:
 
 Copy this line exactly:
@@ -346,19 +436,19 @@ fn main() {}
 >UNKNOWN COMMAND
 Type :help for commands.
 
-Drill 001/012
+Drill 001/022
 Prompt:
 
 Copy this line exactly:
 fn main() {}
 
 >Status:
-Current: 001/012
-Passed: 0/12
+Current: 001/022
+Passed: 0/22
 Skipped: 0
 Attempts: 0
 
-Drill 001/012
+Drill 001/022
 Prompt:
 
 Copy this line exactly:
@@ -366,7 +456,7 @@ fn main() {}
 
 >QUIT
 Summary:
-Passed: 0/12
+Passed: 0/22
 Skipped: 0
 Attempts: 0'
 
@@ -374,11 +464,11 @@ practice_blank_line_then_status_then_quit_output='Rust Reps
 ----------------
 
 Practice
-Exact typing practice.
-Answers must match exactly.
+Deterministic Rust practice.
+Follow the task instruction.
 Type :help for commands and :q to quit.
 
-Drill 001/012
+Drill 001/022
 Prompt:
 
 Copy this line exactly:
@@ -388,19 +478,19 @@ fn main() {}
 Expected:
 fn main() {}
 
-Drill 001/012
+Drill 001/022
 Prompt:
 
 Copy this line exactly:
 fn main() {}
 
 >Status:
-Current: 001/012
-Passed: 0/12
+Current: 001/022
+Passed: 0/22
 Skipped: 0
 Attempts: 1
 
-Drill 001/012
+Drill 001/022
 Prompt:
 
 Copy this line exactly:
@@ -408,7 +498,7 @@ fn main() {}
 
 >QUIT
 Summary:
-Passed: 0/12
+Passed: 0/22
 Skipped: 0
 Attempts: 1'
 
@@ -416,11 +506,11 @@ practice_trailing_space_then_status_then_quit_output='Rust Reps
 ----------------
 
 Practice
-Exact typing practice.
-Answers must match exactly.
+Deterministic Rust practice.
+Follow the task instruction.
 Type :help for commands and :q to quit.
 
-Drill 001/012
+Drill 001/022
 Prompt:
 
 Copy this line exactly:
@@ -430,19 +520,19 @@ fn main() {}
 Expected:
 fn main() {}
 
-Drill 001/012
+Drill 001/022
 Prompt:
 
 Copy this line exactly:
 fn main() {}
 
 >Status:
-Current: 001/012
-Passed: 0/12
+Current: 001/022
+Passed: 0/22
 Skipped: 0
 Attempts: 1
 
-Drill 001/012
+Drill 001/022
 Prompt:
 
 Copy this line exactly:
@@ -450,7 +540,7 @@ fn main() {}
 
 >QUIT
 Summary:
-Passed: 0/12
+Passed: 0/22
 Skipped: 0
 Attempts: 1'
 
@@ -458,11 +548,11 @@ practice_crlf_correct_then_quit_output='Rust Reps
 ----------------
 
 Practice
-Exact typing practice.
-Answers must match exactly.
+Deterministic Rust practice.
+Follow the task instruction.
 Type :help for commands and :q to quit.
 
-Drill 001/012
+Drill 001/022
 Prompt:
 
 Copy this line exactly:
@@ -470,7 +560,7 @@ fn main() {}
 
 >PASS
 
-Drill 002/012
+Drill 002/022
 Prompt:
 
 Copy this line exactly:
@@ -478,7 +568,7 @@ println!("Rust Reps");
 
 >QUIT
 Summary:
-Passed: 1/12
+Passed: 1/22
 Skipped: 0
 Attempts: 1'
 
@@ -486,11 +576,11 @@ practice_unknown_then_correct_then_quit_output='Rust Reps
 ----------------
 
 Practice
-Exact typing practice.
-Answers must match exactly.
+Deterministic Rust practice.
+Follow the task instruction.
 Type :help for commands and :q to quit.
 
-Drill 001/012
+Drill 001/022
 Prompt:
 
 Copy this line exactly:
@@ -499,7 +589,7 @@ fn main() {}
 >UNKNOWN COMMAND
 Type :help for commands.
 
-Drill 001/012
+Drill 001/022
 Prompt:
 
 Copy this line exactly:
@@ -507,7 +597,7 @@ fn main() {}
 
 >PASS
 
-Drill 002/012
+Drill 002/022
 Prompt:
 
 Copy this line exactly:
@@ -515,7 +605,7 @@ println!("Rust Reps");
 
 >QUIT
 Summary:
-Passed: 1/12
+Passed: 1/22
 Skipped: 0
 Attempts: 1'
 
@@ -523,11 +613,11 @@ practice_retry_then_quit_output='Rust Reps
 ----------------
 
 Practice
-Exact typing practice.
-Answers must match exactly.
+Deterministic Rust practice.
+Follow the task instruction.
 Type :help for commands and :q to quit.
 
-Drill 001/012
+Drill 001/022
 Prompt:
 
 Copy this line exactly:
@@ -537,7 +627,7 @@ fn main() {}
 Expected:
 fn main() {}
 
-Drill 001/012
+Drill 001/022
 Prompt:
 
 Copy this line exactly:
@@ -545,7 +635,7 @@ fn main() {}
 
 >PASS
 
-Drill 002/012
+Drill 002/022
 Prompt:
 
 Copy this line exactly:
@@ -553,7 +643,7 @@ println!("Rust Reps");
 
 >QUIT
 Summary:
-Passed: 1/12
+Passed: 1/22
 Skipped: 0
 Attempts: 2'
 
@@ -561,11 +651,11 @@ practice_help_then_quit_output='Rust Reps
 ----------------
 
 Practice
-Exact typing practice.
-Answers must match exactly.
+Deterministic Rust practice.
+Follow the task instruction.
 Type :help for commands and :q to quit.
 
-Drill 001/012
+Drill 001/022
 Prompt:
 
 Copy this line exactly:
@@ -579,7 +669,7 @@ fn main() {}
 :q       quit
 :quit    quit
 
-Drill 001/012
+Drill 001/022
 Prompt:
 
 Copy this line exactly:
@@ -587,7 +677,7 @@ fn main() {}
 
 >QUIT
 Summary:
-Passed: 0/12
+Passed: 0/22
 Skipped: 0
 Attempts: 0'
 
@@ -595,11 +685,11 @@ practice_wrong_then_quit_output='Rust Reps
 ----------------
 
 Practice
-Exact typing practice.
-Answers must match exactly.
+Deterministic Rust practice.
+Follow the task instruction.
 Type :help for commands and :q to quit.
 
-Drill 001/012
+Drill 001/022
 Prompt:
 
 Copy this line exactly:
@@ -609,7 +699,7 @@ fn main() {}
 Expected:
 fn main() {}
 
-Drill 001/012
+Drill 001/022
 Prompt:
 
 Copy this line exactly:
@@ -617,7 +707,7 @@ fn main() {}
 
 >QUIT
 Summary:
-Passed: 0/12
+Passed: 0/22
 Skipped: 0
 Attempts: 1'
 
@@ -625,23 +715,23 @@ practice_status_then_quit_output='Rust Reps
 ----------------
 
 Practice
-Exact typing practice.
-Answers must match exactly.
+Deterministic Rust practice.
+Follow the task instruction.
 Type :help for commands and :q to quit.
 
-Drill 001/012
+Drill 001/022
 Prompt:
 
 Copy this line exactly:
 fn main() {}
 
 >Status:
-Current: 001/012
-Passed: 0/12
+Current: 001/022
+Passed: 0/22
 Skipped: 0
 Attempts: 0
 
-Drill 001/012
+Drill 001/022
 Prompt:
 
 Copy this line exactly:
@@ -649,7 +739,7 @@ fn main() {}
 
 >QUIT
 Summary:
-Passed: 0/12
+Passed: 0/22
 Skipped: 0
 Attempts: 0'
 
@@ -657,11 +747,11 @@ practice_list_then_quit_output='Rust Reps
 ----------------
 
 Practice
-Exact typing practice.
-Answers must match exactly.
+Deterministic Rust practice.
+Follow the task instruction.
 Type :help for commands and :q to quit.
 
-Drill 001/012
+Drill 001/022
 Prompt:
 
 Copy this line exactly:
@@ -680,8 +770,18 @@ fn main() {}
 010  fn add_one(x: i32) -> i32 { x + 1 }
 011  if score > 0 {}
 012  while score < 10 {}
+013  fn five() -> i32 { 5 }
+014  fn five() ___ i32 { 5 }
+015  fn five() ___ i32 { 5 }
+016  fn five(): i32 { 5 }
+017  fn five() { 5 }
+018  fn seven() -> u64 { 7 }
+019  fn seven() ___ u64 { 7 }
+020  fn seven() ___ u64 { 7 }
+021  fn seven(): u64 { 7 }
+022  fn seven() { 7 }
 
-Drill 001/012
+Drill 001/022
 Prompt:
 
 Copy this line exactly:
@@ -689,7 +789,7 @@ fn main() {}
 
 >QUIT
 Summary:
-Passed: 0/12
+Passed: 0/22
 Skipped: 0
 Attempts: 0'
 
@@ -697,11 +797,11 @@ practice_skip_then_quit_output='Rust Reps
 ----------------
 
 Practice
-Exact typing practice.
-Answers must match exactly.
+Deterministic Rust practice.
+Follow the task instruction.
 Type :help for commands and :q to quit.
 
-Drill 001/012
+Drill 001/022
 Prompt:
 
 Copy this line exactly:
@@ -709,7 +809,7 @@ fn main() {}
 
 >SKIP
 
-Drill 002/012
+Drill 002/022
 Prompt:
 
 Copy this line exactly:
@@ -717,7 +817,7 @@ println!("Rust Reps");
 
 >QUIT
 Summary:
-Passed: 0/12
+Passed: 0/22
 Skipped: 1
 Attempts: 0'
 
@@ -725,11 +825,11 @@ practice_help_then_status_then_quit_output='Rust Reps
 ----------------
 
 Practice
-Exact typing practice.
-Answers must match exactly.
+Deterministic Rust practice.
+Follow the task instruction.
 Type :help for commands and :q to quit.
 
-Drill 001/012
+Drill 001/022
 Prompt:
 
 Copy this line exactly:
@@ -743,19 +843,19 @@ fn main() {}
 :q       quit
 :quit    quit
 
-Drill 001/012
+Drill 001/022
 Prompt:
 
 Copy this line exactly:
 fn main() {}
 
 >Status:
-Current: 001/012
-Passed: 0/12
+Current: 001/022
+Passed: 0/22
 Skipped: 0
 Attempts: 0
 
-Drill 001/012
+Drill 001/022
 Prompt:
 
 Copy this line exactly:
@@ -763,7 +863,7 @@ fn main() {}
 
 >QUIT
 Summary:
-Passed: 0/12
+Passed: 0/22
 Skipped: 0
 Attempts: 0'
 
@@ -771,11 +871,11 @@ practice_wrong_then_status_then_quit_output='Rust Reps
 ----------------
 
 Practice
-Exact typing practice.
-Answers must match exactly.
+Deterministic Rust practice.
+Follow the task instruction.
 Type :help for commands and :q to quit.
 
-Drill 001/012
+Drill 001/022
 Prompt:
 
 Copy this line exactly:
@@ -785,19 +885,19 @@ fn main() {}
 Expected:
 fn main() {}
 
-Drill 001/012
+Drill 001/022
 Prompt:
 
 Copy this line exactly:
 fn main() {}
 
 >Status:
-Current: 001/012
-Passed: 0/12
+Current: 001/022
+Passed: 0/22
 Skipped: 0
 Attempts: 1
 
-Drill 001/012
+Drill 001/022
 Prompt:
 
 Copy this line exactly:
@@ -805,7 +905,7 @@ fn main() {}
 
 >QUIT
 Summary:
-Passed: 0/12
+Passed: 0/22
 Skipped: 0
 Attempts: 1'
 
@@ -813,11 +913,11 @@ practice_correct_then_status_then_quit_output='Rust Reps
 ----------------
 
 Practice
-Exact typing practice.
-Answers must match exactly.
+Deterministic Rust practice.
+Follow the task instruction.
 Type :help for commands and :q to quit.
 
-Drill 001/012
+Drill 001/022
 Prompt:
 
 Copy this line exactly:
@@ -825,19 +925,19 @@ fn main() {}
 
 >PASS
 
-Drill 002/012
+Drill 002/022
 Prompt:
 
 Copy this line exactly:
 println!("Rust Reps");
 
 >Status:
-Current: 002/012
-Passed: 1/12
+Current: 002/022
+Passed: 1/22
 Skipped: 0
 Attempts: 1
 
-Drill 002/012
+Drill 002/022
 Prompt:
 
 Copy this line exactly:
@@ -845,7 +945,7 @@ println!("Rust Reps");
 
 >QUIT
 Summary:
-Passed: 1/12
+Passed: 1/22
 Skipped: 0
 Attempts: 1'
 
@@ -853,11 +953,11 @@ practice_skip_then_status_then_quit_output='Rust Reps
 ----------------
 
 Practice
-Exact typing practice.
-Answers must match exactly.
+Deterministic Rust practice.
+Follow the task instruction.
 Type :help for commands and :q to quit.
 
-Drill 001/012
+Drill 001/022
 Prompt:
 
 Copy this line exactly:
@@ -865,19 +965,19 @@ fn main() {}
 
 >SKIP
 
-Drill 002/012
+Drill 002/022
 Prompt:
 
 Copy this line exactly:
 println!("Rust Reps");
 
 >Status:
-Current: 002/012
-Passed: 0/12
+Current: 002/022
+Passed: 0/22
 Skipped: 1
 Attempts: 0
 
-Drill 002/012
+Drill 002/022
 Prompt:
 
 Copy this line exactly:
@@ -885,11 +985,20 @@ println!("Rust Reps");
 
 >QUIT
 Summary:
-Passed: 0/12
+Passed: 0/22
 Skipped: 1
 Attempts: 0'
 
 practice_all_skip_input=':skip
+:skip
+:skip
+:skip
+:skip
+:skip
+:skip
+:skip
+:skip
+:skip
 :skip
 :skip
 :skip
@@ -908,11 +1017,11 @@ practice_all_skip_output='Rust Reps
 ----------------
 
 Practice
-Exact typing practice.
-Answers must match exactly.
+Deterministic Rust practice.
+Follow the task instruction.
 Type :help for commands and :q to quit.
 
-Drill 001/012
+Drill 001/022
 Prompt:
 
 Copy this line exactly:
@@ -920,7 +1029,7 @@ fn main() {}
 
 >SKIP
 
-Drill 002/012
+Drill 002/022
 Prompt:
 
 Copy this line exactly:
@@ -928,7 +1037,7 @@ println!("Rust Reps");
 
 >SKIP
 
-Drill 003/012
+Drill 003/022
 Prompt:
 
 Copy this line exactly:
@@ -936,7 +1045,7 @@ let answer = 42;
 
 >SKIP
 
-Drill 004/012
+Drill 004/022
 Prompt:
 
 Copy this line exactly:
@@ -944,7 +1053,7 @@ let name = "Rust Reps";
 
 >SKIP
 
-Drill 005/012
+Drill 005/022
 Prompt:
 
 Copy this line exactly:
@@ -952,7 +1061,7 @@ let mut score = 0;
 
 >SKIP
 
-Drill 006/012
+Drill 006/022
 Prompt:
 
 Copy this line exactly:
@@ -960,7 +1069,7 @@ score += 1;
 
 >SKIP
 
-Drill 007/012
+Drill 007/022
 Prompt:
 
 Copy this line exactly:
@@ -968,7 +1077,7 @@ let passed = true;
 
 >SKIP
 
-Drill 008/012
+Drill 008/022
 Prompt:
 
 Copy this line exactly:
@@ -976,7 +1085,7 @@ let score: i32 = 0;
 
 >SKIP
 
-Drill 009/012
+Drill 009/022
 Prompt:
 
 Copy this line exactly:
@@ -984,7 +1093,7 @@ let scores = [1, 2, 3];
 
 >SKIP
 
-Drill 010/012
+Drill 010/022
 Prompt:
 
 Copy this line exactly:
@@ -992,7 +1101,7 @@ fn add_one(x: i32) -> i32 { x + 1 }
 
 >SKIP
 
-Drill 011/012
+Drill 011/022
 Prompt:
 
 Copy this line exactly:
@@ -1000,21 +1109,110 @@ if score > 0 {}
 
 >SKIP
 
-Drill 012/012
+Drill 012/022
 Prompt:
 
 Copy this line exactly:
 while score < 10 {}
 
 >SKIP
+
+Drill 013/022
+Prompt:
+
+Copy this line exactly: Type the complete function exactly.
+fn five() -> i32 { 5 }
+
+>SKIP
+
+Drill 014/022
+Prompt:
+
+Complete the missing return-type arrow: Type only the code replacing ___.
+fn five() ___ i32 { 5 }
+
+>SKIP
+
+Drill 015/022
+Prompt:
+
+Use the shown parts to write the function with its return type: Submit the complete function.
+fn five() ___ i32 { 5 }
+
+>SKIP
+
+Drill 016/022
+Prompt:
+
+Repair the return-type syntax in the highlighted region: Submit the complete corrected function.
+fn five(): i32 { 5 }
+
+>SKIP
+
+Drill 017/022
+Prompt:
+
+Add the declared return type after the parameter list: Submit the complete transformed function.
+fn five() { 5 }
+
+>SKIP
+
+Drill 018/022
+Prompt:
+
+Copy this line exactly: Type the complete function exactly.
+fn seven() -> u64 { 7 }
+
+>SKIP
+
+Drill 019/022
+Prompt:
+
+Complete the missing return-type arrow: Type only the code replacing ___.
+fn seven() ___ u64 { 7 }
+
+>SKIP
+
+Drill 020/022
+Prompt:
+
+Use the shown parts to write the function with its return type: Submit the complete function.
+fn seven() ___ u64 { 7 }
+
+>SKIP
+
+Drill 021/022
+Prompt:
+
+Repair the return-type syntax in the highlighted region: Submit the complete corrected function.
+fn seven(): u64 { 7 }
+
+>SKIP
+
+Drill 022/022
+Prompt:
+
+Add the declared return type after the parameter list: Submit the complete transformed function.
+fn seven() { 7 }
+
+>SKIP
 COMPLETE
 Summary:
-Passed: 0/12
-Skipped: 12
+Passed: 0/22
+Skipped: 22
 Attempts: 0'
 
 practice_mixed_complete_input='wrong
 fn main() {}
+:skip
+:skip
+:skip
+:skip
+:skip
+:skip
+:skip
+:skip
+:skip
 :skip
 :skip
 :skip
@@ -1033,11 +1231,11 @@ practice_mixed_complete_output='Rust Reps
 ----------------
 
 Practice
-Exact typing practice.
-Answers must match exactly.
+Deterministic Rust practice.
+Follow the task instruction.
 Type :help for commands and :q to quit.
 
-Drill 001/012
+Drill 001/022
 Prompt:
 
 Copy this line exactly:
@@ -1047,7 +1245,7 @@ fn main() {}
 Expected:
 fn main() {}
 
-Drill 001/012
+Drill 001/022
 Prompt:
 
 Copy this line exactly:
@@ -1055,7 +1253,7 @@ fn main() {}
 
 >PASS
 
-Drill 002/012
+Drill 002/022
 Prompt:
 
 Copy this line exactly:
@@ -1063,7 +1261,7 @@ println!("Rust Reps");
 
 >SKIP
 
-Drill 003/012
+Drill 003/022
 Prompt:
 
 Copy this line exactly:
@@ -1071,7 +1269,7 @@ let answer = 42;
 
 >SKIP
 
-Drill 004/012
+Drill 004/022
 Prompt:
 
 Copy this line exactly:
@@ -1079,7 +1277,7 @@ let name = "Rust Reps";
 
 >SKIP
 
-Drill 005/012
+Drill 005/022
 Prompt:
 
 Copy this line exactly:
@@ -1087,7 +1285,7 @@ let mut score = 0;
 
 >SKIP
 
-Drill 006/012
+Drill 006/022
 Prompt:
 
 Copy this line exactly:
@@ -1095,7 +1293,7 @@ score += 1;
 
 >SKIP
 
-Drill 007/012
+Drill 007/022
 Prompt:
 
 Copy this line exactly:
@@ -1103,7 +1301,7 @@ let passed = true;
 
 >SKIP
 
-Drill 008/012
+Drill 008/022
 Prompt:
 
 Copy this line exactly:
@@ -1111,7 +1309,7 @@ let score: i32 = 0;
 
 >SKIP
 
-Drill 009/012
+Drill 009/022
 Prompt:
 
 Copy this line exactly:
@@ -1119,7 +1317,7 @@ let scores = [1, 2, 3];
 
 >SKIP
 
-Drill 010/012
+Drill 010/022
 Prompt:
 
 Copy this line exactly:
@@ -1127,7 +1325,7 @@ fn add_one(x: i32) -> i32 { x + 1 }
 
 >SKIP
 
-Drill 011/012
+Drill 011/022
 Prompt:
 
 Copy this line exactly:
@@ -1135,17 +1333,97 @@ if score > 0 {}
 
 >SKIP
 
-Drill 012/012
+Drill 012/022
 Prompt:
 
 Copy this line exactly:
 while score < 10 {}
 
 >SKIP
+
+Drill 013/022
+Prompt:
+
+Copy this line exactly: Type the complete function exactly.
+fn five() -> i32 { 5 }
+
+>SKIP
+
+Drill 014/022
+Prompt:
+
+Complete the missing return-type arrow: Type only the code replacing ___.
+fn five() ___ i32 { 5 }
+
+>SKIP
+
+Drill 015/022
+Prompt:
+
+Use the shown parts to write the function with its return type: Submit the complete function.
+fn five() ___ i32 { 5 }
+
+>SKIP
+
+Drill 016/022
+Prompt:
+
+Repair the return-type syntax in the highlighted region: Submit the complete corrected function.
+fn five(): i32 { 5 }
+
+>SKIP
+
+Drill 017/022
+Prompt:
+
+Add the declared return type after the parameter list: Submit the complete transformed function.
+fn five() { 5 }
+
+>SKIP
+
+Drill 018/022
+Prompt:
+
+Copy this line exactly: Type the complete function exactly.
+fn seven() -> u64 { 7 }
+
+>SKIP
+
+Drill 019/022
+Prompt:
+
+Complete the missing return-type arrow: Type only the code replacing ___.
+fn seven() ___ u64 { 7 }
+
+>SKIP
+
+Drill 020/022
+Prompt:
+
+Use the shown parts to write the function with its return type: Submit the complete function.
+fn seven() ___ u64 { 7 }
+
+>SKIP
+
+Drill 021/022
+Prompt:
+
+Repair the return-type syntax in the highlighted region: Submit the complete corrected function.
+fn seven(): u64 { 7 }
+
+>SKIP
+
+Drill 022/022
+Prompt:
+
+Add the declared return type after the parameter list: Submit the complete transformed function.
+fn seven() { 7 }
+
+>SKIP
 COMPLETE
 Summary:
-Passed: 1/12
-Skipped: 11
+Passed: 1/22
+Skipped: 21
 Attempts: 2'
 
 expect_stdout "practice default COMPLETE" "$practice_all_correct_output" sh -c 'printf "%s" "$1" | cargo run -q' sh "$practice_all_correct_input"
@@ -1198,7 +1476,17 @@ Available drills:
 009  let scores = [1, 2, 3];
 010  fn add_one(x: i32) -> i32 { x + 1 }
 011  if score > 0 {}
-012  while score < 10 {}' cargo run -q -- --list
+012  while score < 10 {}
+013  fn five() -> i32 { 5 }
+014  fn five() ___ i32 { 5 }
+015  fn five() ___ i32 { 5 }
+016  fn five(): i32 { 5 }
+017  fn five() { 5 }
+018  fn seven() -> u64 { 7 }
+019  fn seven() ___ u64 { 7 }
+020  fn seven() ___ u64 { 7 }
+021  fn seven(): u64 { 7 }
+022  fn seven() { 7 }' cargo run -q -- --list
 
 expect_stdout "help" 'Rust Reps
 ----------------
@@ -1233,7 +1521,17 @@ Current drills:
 009  let scores = [1, 2, 3];
 010  fn add_one(x: i32) -> i32 { x + 1 }
 011  if score > 0 {}
-012  while score < 10 {}' cargo run -q -- --help
+012  while score < 10 {}
+013  fn five() -> i32 { 5 }
+014  fn five() ___ i32 { 5 }
+015  fn five() ___ i32 { 5 }
+016  fn five(): i32 { 5 }
+017  fn five() { 5 }
+018  fn seven() -> u64 { 7 }
+019  fn seven() ___ u64 { 7 }
+020  fn seven() ___ u64 { 7 }
+021  fn seven(): u64 { 7 }
+022  fn seven() { 7 }' cargo run -q -- --help
 
 expect_stdout "short help" 'Rust Reps
 ----------------
@@ -1268,7 +1566,17 @@ Current drills:
 009  let scores = [1, 2, 3];
 010  fn add_one(x: i32) -> i32 { x + 1 }
 011  if score > 0 {}
-012  while score < 10 {}' cargo run -q -- -h
+012  while score < 10 {}
+013  fn five() -> i32 { 5 }
+014  fn five() ___ i32 { 5 }
+015  fn five() ___ i32 { 5 }
+016  fn five(): i32 { 5 }
+017  fn five() { 5 }
+018  fn seven() -> u64 { 7 }
+019  fn seven() ___ u64 { 7 }
+020  fn seven() ___ u64 { 7 }
+021  fn seven(): u64 { 7 }
+022  fn seven() { 7 }' cargo run -q -- -h
 
 expect_stdout "version" 'rust-reps 0.1.0' cargo run -q -- --version
 
@@ -1277,6 +1585,78 @@ expect_stdout "one-shot blank line" "$drill_001_blank_line_output" sh -c "printf
 expect_stdout "one-shot trailing space" "$drill_001_try_again_output" sh -c "printf 'fn main() {} \\n' | cargo run -q -- 001"
 expect_stdout "one-shot CRLF correct" "$drill_001_crlf_pass_output" sh -c "printf 'fn main() {}\\r\\n' | cargo run -q -- 001"
 expect_stdout "one-shot help as wrong answer" "$drill_001_try_again_output" sh -c "printf ':help\\n' | cargo run -q -- 001"
+
+expect_stdout "Drill 013 exact Copy PASS" 'Rust Reps
+----------------
+
+Drill 013
+Prompt:
+
+Copy this line exactly: Type the complete function exactly.
+fn five() -> i32 { 5 }
+
+>PASS' sh -c "printf 'fn five() -> i32 { 5 }\\n' | cargo run -q -- 013"
+
+expect_stdout "Drill 014 controlled Fill PASS" 'Rust Reps
+----------------
+
+Drill 014
+Prompt:
+
+Complete the missing return-type arrow: Type only the code replacing ___.
+fn five() ___ i32 { 5 }
+
+>PASS' sh -c "printf '%s\\n' '->' | cargo run -q -- 014"
+
+expect_stdout "Drill 014 extra space TRY AGAIN" 'Rust Reps
+----------------
+
+Drill 014
+Prompt:
+
+Complete the missing return-type arrow: Type only the code replacing ___.
+fn five() ___ i32 { 5 }
+
+>TRY AGAIN
+Expected:
+->' sh -c "printf '%s\\n' '-> ' | cargo run -q -- 014"
+
+expect_stdout "Drill 015 formatting-different PASS" 'Rust Reps
+----------------
+
+Drill 015
+Prompt:
+
+Use the shown parts to write the function with its return type: Submit the complete function.
+fn five() ___ i32 { 5 }
+
+>PASS' sh -c "printf 'fn five()->i32{5}\\n' | cargo run -q -- 015"
+
+expect_stdout "Drill 015 valid different TRY AGAIN" 'Rust Reps
+----------------
+
+Drill 015
+Prompt:
+
+Use the shown parts to write the function with its return type: Submit the complete function.
+fn five() ___ i32 { 5 }
+
+>TRY AGAIN
+Expected:
+fn five() -> i32 { 5 }' sh -c "printf 'fn other()->i32{5}\\n' | cargo run -q -- 015"
+
+expect_stdout "Drill 015 invalid Rust TRY AGAIN" 'Rust Reps
+----------------
+
+Drill 015
+Prompt:
+
+Use the shown parts to write the function with its return type: Submit the complete function.
+fn five() ___ i32 { 5 }
+
+>TRY AGAIN
+Expected:
+fn five() -> i32 { 5 }' sh -c "printf 'fn {\\n' | cargo run -q -- 015"
 expect_error "lab requires tty" "error: lab mode requires an interactive terminal" cargo run -q -- lab
 
 section "temporary install"
@@ -1317,7 +1697,17 @@ Current drills:
 009  let scores = [1, 2, 3];
 010  fn add_one(x: i32) -> i32 { x + 1 }
 011  if score > 0 {}
-012  while score < 10 {}' env PATH="$install_root/bin:$PATH" rust-reps --help
+012  while score < 10 {}
+013  fn five() -> i32 { 5 }
+014  fn five() ___ i32 { 5 }
+015  fn five() ___ i32 { 5 }
+016  fn five(): i32 { 5 }
+017  fn five() { 5 }
+018  fn seven() -> u64 { 7 }
+019  fn seven() ___ u64 { 7 }
+020  fn seven() ___ u64 { 7 }
+021  fn seven(): u64 { 7 }
+022  fn seven() { 7 }' env PATH="$install_root/bin:$PATH" rust-reps --help
 expect_error "installed lab requires tty" "error: lab mode requires an interactive terminal" env PATH="$install_root/bin:$PATH" rust-reps lab
 expect_stdout "installed list" 'Rust Reps
 ----------------
@@ -1334,7 +1724,17 @@ Available drills:
 009  let scores = [1, 2, 3];
 010  fn add_one(x: i32) -> i32 { x + 1 }
 011  if score > 0 {}
-012  while score < 10 {}' env PATH="$install_root/bin:$PATH" rust-reps --list
+012  while score < 10 {}
+013  fn five() -> i32 { 5 }
+014  fn five() ___ i32 { 5 }
+015  fn five() ___ i32 { 5 }
+016  fn five(): i32 { 5 }
+017  fn five() { 5 }
+018  fn seven() -> u64 { 7 }
+019  fn seven() ___ u64 { 7 }
+020  fn seven() ___ u64 { 7 }
+021  fn seven(): u64 { 7 }
+022  fn seven() { 7 }' env PATH="$install_root/bin:$PATH" rust-reps --list
 expect_stdout "installed practice quit" "$practice_quit_output" env PATH="$install_root/bin:$PATH" sh -c 'printf ":q\n" | rust-reps'
 expect_stdout "installed practice help then quit" "$practice_help_then_quit_output" env PATH="$install_root/bin:$PATH" sh -c 'printf ":help\n:q\n" | rust-reps'
 expect_stdout "installed practice help then status then quit" "$practice_help_then_status_then_quit_output" env PATH="$install_root/bin:$PATH" sh -c 'printf ":help\n:status\n:q\n" | rust-reps'

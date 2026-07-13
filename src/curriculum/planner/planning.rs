@@ -370,36 +370,36 @@ mod tests {
         CandidateSummary {
             rep_id: "test-copy",
             catalog_order: 1,
-            capability_id: "rust.function.return_literal.copy.full_model",
+            capability_id: "rust.function.return_literal.copy.return_type.introduce",
             system: "rust",
             semantic_frame: "function.no_params.return_literal",
             surface_frame: "function.return_literal",
             operation: Operation::Copy,
-            instruction_key: "copy.exact_line",
+            instruction_key: "copy.return_type_intro",
             answer_rule: AnswerRule::ExactTrimFinalNewline,
             content_seed: Some(0),
         },
         CandidateSummary {
             rep_id: "test-fill",
             catalog_order: 2,
-            capability_id: "rust.function.return_literal.fill.return_value",
+            capability_id: "rust.function.return_literal.fill.return_type_arrow",
             system: "rust",
             semantic_frame: "function.no_params.return_literal",
             surface_frame: "function.return_literal",
             operation: Operation::Fill,
-            instruction_key: "fill.return_value",
+            instruction_key: "fill.return_type_arrow",
             answer_rule: AnswerRule::ExactTrimFinalNewline,
             content_seed: Some(0),
         },
         CandidateSummary {
             rep_id: "test-produce",
             catalog_order: 3,
-            capability_id: "rust.function.return_literal.produce.constrained",
+            capability_id: "rust.function.return_literal.produce.return_type.guided",
             system: "rust",
             semantic_frame: "function.no_params.return_literal",
             surface_frame: "function.return_literal",
             operation: Operation::Produce,
-            instruction_key: "produce.return_literal",
+            instruction_key: "produce.return_type_arrow",
             answer_rule: AnswerRule::ExactTrimFinalNewline,
             content_seed: Some(0),
         },
@@ -418,12 +418,12 @@ mod tests {
         CandidateSummary {
             rep_id: "test-transform",
             catalog_order: 5,
-            capability_id: "rust.function.return_literal.transform.tail_expression",
+            capability_id: "rust.function.return_literal.transform.return_type.practice",
             system: "rust",
             semantic_frame: "function.no_params.return_literal",
             surface_frame: "function.return_literal",
             operation: Operation::Transform,
-            instruction_key: "transform.tail_expression",
+            instruction_key: "transform.add_return_type",
             answer_rule: AnswerRule::ExactTrimFinalNewline,
             content_seed: Some(0),
         },
@@ -433,17 +433,17 @@ mod tests {
         GuidanceAvailability {
             locale: "en",
             pack_version: 1,
-            instruction_key: "copy.exact_line",
+            instruction_key: "copy.return_type_intro",
         },
         GuidanceAvailability {
             locale: "en",
             pack_version: 1,
-            instruction_key: "fill.return_value",
+            instruction_key: "fill.return_type_arrow",
         },
         GuidanceAvailability {
             locale: "en",
             pack_version: 1,
-            instruction_key: "produce.return_literal",
+            instruction_key: "produce.return_type_arrow",
         },
         GuidanceAvailability {
             locale: "en",
@@ -453,24 +453,24 @@ mod tests {
         GuidanceAvailability {
             locale: "en",
             pack_version: 1,
-            instruction_key: "transform.tail_expression",
+            instruction_key: "transform.add_return_type",
         },
     ];
     const UK_GUIDANCE: &[GuidanceAvailability] = &[
         GuidanceAvailability {
             locale: "uk",
             pack_version: 1,
-            instruction_key: "copy.exact_line",
+            instruction_key: "copy.return_type_intro",
         },
         GuidanceAvailability {
             locale: "uk",
             pack_version: 1,
-            instruction_key: "fill.return_value",
+            instruction_key: "fill.return_type_arrow",
         },
         GuidanceAvailability {
             locale: "uk",
             pack_version: 1,
-            instruction_key: "produce.return_literal",
+            instruction_key: "produce.return_type_arrow",
         },
         GuidanceAvailability {
             locale: "uk",
@@ -480,7 +480,7 @@ mod tests {
         GuidanceAvailability {
             locale: "uk",
             pack_version: 1,
-            instruction_key: "transform.tail_expression",
+            instruction_key: "transform.add_return_type",
         },
     ];
     const EXACT_RULES: &[AnswerRule] = &[AnswerRule::ExactTrimFinalNewline];
@@ -636,7 +636,7 @@ mod tests {
             plan.provenance.set_id,
             "rust.function.return_literal.five_step"
         );
-        assert_eq!(plan.provenance.set_version, 1);
+        assert_eq!(plan.provenance.set_version, 2);
         assert_eq!(plan.provenance.plan_seed, 0);
         assert_eq!(plan.provenance.plan_cardinality, 1);
         assert_eq!(plan.provenance.guidance_locale, "en");
@@ -661,11 +661,11 @@ mod tests {
                 .map(|rep| rep.step_id.as_str())
                 .collect::<Vec<_>>(),
             vec![
-                "copy-full-form",
-                "fill-return-value",
-                "produce-from-intent",
+                "copy-introduce-return-type",
+                "fill-return-type-arrow",
+                "produce-return-type",
                 "repair-return-type-arrow",
-                "transform-tail-expression",
+                "transform-add-return-type",
             ]
         );
         assert_eq!(
@@ -1018,7 +1018,8 @@ mod tests {
                 ),
                 Err(PlanError::CandidateCapabilityMismatch {
                     rep_id: "test-copy".to_owned(),
-                    capability_id: "rust.function.return_literal.copy.full_model".to_owned(),
+                    capability_id: "rust.function.return_literal.copy.return_type.introduce"
+                        .to_owned(),
                 })
             );
         }
@@ -1037,8 +1038,8 @@ mod tests {
                 EXACT_RULES,
             ),
             Err(PlanError::NoCandidate {
-                step_id: "copy-full-form".to_owned(),
-                capability_id: "rust.function.return_literal.copy.full_model".to_owned(),
+                step_id: "copy-introduce-return-type".to_owned(),
+                capability_id: "rust.function.return_literal.copy.return_type.introduce".to_owned(),
             })
         );
         assert_eq!(
@@ -1052,8 +1053,8 @@ mod tests {
                 &[AnswerRule::RustfmtExact],
             ),
             Err(PlanError::UnsupportedAnswerRule {
-                step_id: "copy-full-form".to_owned(),
-                capability_id: "rust.function.return_literal.copy.full_model".to_owned(),
+                step_id: "copy-introduce-return-type".to_owned(),
+                capability_id: "rust.function.return_literal.copy.return_type.introduce".to_owned(),
             })
         );
         assert_eq!(
@@ -1067,7 +1068,7 @@ mod tests {
                 EXACT_RULES,
             ),
             Err(PlanError::GuidanceUnavailable {
-                step_id: "copy-full-form".to_owned(),
+                step_id: "copy-introduce-return-type".to_owned(),
                 locale: "en".to_owned(),
                 version: 1,
             })
@@ -1117,7 +1118,7 @@ mod tests {
             Err(PlanError::DuplicateGuidanceAvailability {
                 locale: "en".to_owned(),
                 version: 1,
-                instruction_key: "copy.exact_line".to_owned(),
+                instruction_key: "copy.return_type_intro".to_owned(),
             })
         );
     }
@@ -1159,11 +1160,11 @@ mod tests {
         const REPEATED_STEPS: &[SetStep] = &[
             SetStep {
                 id: "copy-once",
-                capability_id: "rust.function.return_literal.copy.full_model",
+                capability_id: "rust.function.return_literal.copy.return_type.introduce",
             },
             SetStep {
                 id: "copy-again",
-                capability_id: "rust.function.return_literal.copy.full_model",
+                capability_id: "rust.function.return_literal.copy.return_type.introduce",
             },
         ];
         const REPEATED_SET: SetPlan = SetPlan {
@@ -1227,7 +1228,7 @@ mod tests {
             supported_answer_rules,
         } = provenance;
         assert_eq!(set_id, "rust.function.return_literal.five_step");
-        assert_eq!(set_version, 1);
+        assert_eq!(set_version, 2);
         assert_eq!(plan_seed, 0);
         assert_eq!(plan_cardinality, 1);
         assert_eq!(guidance_locale, "en");

@@ -11,7 +11,7 @@ pub enum PracticeEvent {
     UnknownCommand,
     Correct,
     TryAgain,
-    UnsupportedValidator,
+    ValidationUnavailable,
     Quit,
 }
 
@@ -41,13 +41,13 @@ fn submit_practice_input(session: &mut engine::Session, input: &str) -> Practice
     match session.submit_answer(input) {
         engine::SubmitResult::Correct => PracticeEvent::Correct,
         engine::SubmitResult::TryAgain => PracticeEvent::TryAgain,
-        engine::SubmitResult::UnsupportedValidator => PracticeEvent::UnsupportedValidator,
+        engine::SubmitResult::ValidationUnavailable => PracticeEvent::ValidationUnavailable,
         engine::SubmitResult::NoActiveDrill => PracticeEvent::Quit,
     }
 }
 
-fn unsupported_validator_or_exit() -> ! {
-    eprintln!("error: unsupported validator configuration");
+fn validation_unavailable_or_exit() -> ! {
+    eprintln!("validation unavailable");
     std::process::exit(1);
 }
 
@@ -122,8 +122,8 @@ pub fn run_one_shot_drill(exercise: engine::ExercisePacket) {
                 .wrong_answer_feedback()
                 .expect("wrong result carries answer feedback"),
         ),
-        engine::SubmitResult::UnsupportedValidator => unsupported_validator_or_exit(),
-        engine::SubmitResult::NoActiveDrill => unsupported_validator_or_exit(),
+        engine::SubmitResult::ValidationUnavailable => validation_unavailable_or_exit(),
+        engine::SubmitResult::NoActiveDrill => validation_unavailable_or_exit(),
     }
 }
 
@@ -192,7 +192,7 @@ pub fn run_practice_session(mut session: engine::Session) {
                 );
                 println!();
             }
-            PracticeEvent::UnsupportedValidator => unsupported_validator_or_exit(),
+            PracticeEvent::ValidationUnavailable => validation_unavailable_or_exit(),
         }
     }
 
@@ -248,9 +248,9 @@ mod tests {
     }
 
     #[test]
-    fn unsupported_validator_event_is_distinct_from_wrong_answer() {
+    fn validation_unavailable_event_is_distinct_from_wrong_answer() {
         assert!(!matches!(
-            PracticeEvent::UnsupportedValidator,
+            PracticeEvent::ValidationUnavailable,
             PracticeEvent::TryAgain
         ));
     }
@@ -290,17 +290,17 @@ mod tests {
     fn final_drill_completion_advances_session() {
         let mut session = engine::Session::new();
 
-        for id in [
-            "001", "002", "003", "004", "005", "006", "007", "008", "009", "010", "011", "012",
-        ] {
-            let expected = catalog::find_drill(id).expect("expected drill id").expected;
+        for id in (1..=22).map(|number| format!("{number:03}")) {
+            let expected = catalog::find_drill(&id)
+                .expect("expected drill id")
+                .expected;
             let event = submit_practice_input(&mut session, expected);
             assert!(matches!(event, PracticeEvent::Correct));
         }
 
         assert!(session.is_complete());
-        assert_eq!(session.passed(), 12);
-        assert_eq!(session.attempts(), 12);
+        assert_eq!(session.passed(), 22);
+        assert_eq!(session.attempts(), 22);
         assert_eq!(session.skipped(), 0);
     }
 }

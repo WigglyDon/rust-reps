@@ -1,5 +1,5 @@
 pub(crate) mod expansion;
-mod materialized;
+pub(crate) mod materialized;
 
 use super::{AnswerRule, Operation, StateTransition};
 
@@ -38,6 +38,21 @@ pub(crate) struct SlotDomain {
     pub(crate) id: &'static str,
     pub(crate) version: u16,
     pub(crate) values: &'static [DomainValueSpec],
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub(crate) struct CompatibilityAssignmentSpec {
+    pub(crate) slot: &'static str,
+    pub(crate) domain_id: &'static str,
+    pub(crate) domain_version: u16,
+    pub(crate) value_id: &'static str,
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub(crate) struct CompatibilityRowSpec {
+    pub(crate) id: &'static str,
+    pub(crate) content_seed: u64,
+    pub(crate) assignments: &'static [CompatibilityAssignmentSpec],
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -91,7 +106,7 @@ pub(crate) const SURFACE_FRAMES: &[SurfaceFrameSpec] = &[SurfaceFrameSpec {
     ],
     concepts: RUST_FUNCTION_CONCEPTS,
     constraints: RUST_FUNCTION_CONSTRAINTS,
-    supported_contrasts: &["typescript.return_type_colon"],
+    supported_contrasts: &["typescript.return_type_colon", "rust.return_type_omitted"],
     // Conceptual support does not imply templates, materialization, catalog admission, or product support.
     supported_operations: &[
         Operation::Copy,
@@ -106,29 +121,105 @@ pub(crate) const SLOT_DOMAINS: &[SlotDomain] = &[
     SlotDomain {
         id: "rust.function_name",
         version: 1,
-        values: &[DomainValueSpec {
-            id: "five",
-            rendered: "five",
-            meaning_key: None,
-        }],
+        values: &[
+            DomainValueSpec {
+                id: "five",
+                rendered: "five",
+                meaning_key: None,
+            },
+            DomainValueSpec {
+                id: "seven",
+                rendered: "seven",
+                meaning_key: None,
+            },
+        ],
     },
     SlotDomain {
         id: "rust.integer_type",
         version: 1,
-        values: &[DomainValueSpec {
-            id: "i32",
-            rendered: "i32",
-            meaning_key: None,
-        }],
+        values: &[
+            DomainValueSpec {
+                id: "i32",
+                rendered: "i32",
+                meaning_key: None,
+            },
+            DomainValueSpec {
+                id: "u64",
+                rendered: "u64",
+                meaning_key: None,
+            },
+        ],
     },
     SlotDomain {
         id: "rust.integer_literal",
         version: 1,
-        values: &[DomainValueSpec {
-            id: "five",
-            rendered: "5",
-            meaning_key: None,
-        }],
+        values: &[
+            DomainValueSpec {
+                id: "five",
+                rendered: "5",
+                meaning_key: None,
+            },
+            DomainValueSpec {
+                id: "seven",
+                rendered: "7",
+                meaning_key: None,
+            },
+        ],
+    },
+];
+
+const ROW_A_ASSIGNMENTS: &[CompatibilityAssignmentSpec] = &[
+    CompatibilityAssignmentSpec {
+        slot: "NAME",
+        domain_id: "rust.function_name",
+        domain_version: 1,
+        value_id: "five",
+    },
+    CompatibilityAssignmentSpec {
+        slot: "TYPE",
+        domain_id: "rust.integer_type",
+        domain_version: 1,
+        value_id: "i32",
+    },
+    CompatibilityAssignmentSpec {
+        slot: "VALUE",
+        domain_id: "rust.integer_literal",
+        domain_version: 1,
+        value_id: "five",
+    },
+];
+
+const ROW_B_ASSIGNMENTS: &[CompatibilityAssignmentSpec] = &[
+    CompatibilityAssignmentSpec {
+        slot: "NAME",
+        domain_id: "rust.function_name",
+        domain_version: 1,
+        value_id: "seven",
+    },
+    CompatibilityAssignmentSpec {
+        slot: "TYPE",
+        domain_id: "rust.integer_type",
+        domain_version: 1,
+        value_id: "u64",
+    },
+    CompatibilityAssignmentSpec {
+        slot: "VALUE",
+        domain_id: "rust.integer_literal",
+        domain_version: 1,
+        value_id: "seven",
+    },
+];
+
+pub(crate) const COMPATIBILITY_ROWS: &[CompatibilityRowSpec] = &[
+    CompatibilityRowSpec {
+        id: "row-a-five-i32",
+        content_seed: 0,
+        assignments: ROW_A_ASSIGNMENTS,
+    },
+    CompatibilityRowSpec {
+        id: "row-b-seven-u64",
+        content_seed: 1,
+        assignments: ROW_B_ASSIGNMENTS,
     },
 ];
 
@@ -173,15 +264,19 @@ const RETURN_LITERAL_EXPECTED: &[TemplatePart] = &[
     TemplatePart::Literal(" }"),
 ];
 
-const FILL_RETURN_VALUE_STIMULUS: &[TemplatePart] = &[
+const RETURN_TYPE_PLACEHOLDER_STIMULUS: &[TemplatePart] = &[
     TemplatePart::Literal("fn "),
     TemplatePart::Slot("NAME"),
-    TemplatePart::Literal("() -> "),
+    TemplatePart::Literal("() ___ "),
     TemplatePart::Slot("TYPE"),
-    TemplatePart::Literal(" { ___ }"),
+    TemplatePart::Literal(" { "),
+    TemplatePart::Slot("VALUE"),
+    TemplatePart::Literal(" }"),
 ];
 
-const PRODUCE_RETURN_LITERAL_STIMULUS: &[TemplatePart] = &[];
+const FILL_RETURN_TYPE_EXPECTED: &[TemplatePart] = &[TemplatePart::Literal("->")];
+
+const PRODUCE_RETURN_TYPE_STIMULUS: &[TemplatePart] = RETURN_TYPE_PLACEHOLDER_STIMULUS;
 
 const REPAIR_RETURN_TYPE_ARROW_STIMULUS: &[TemplatePart] = &[
     TemplatePart::Literal("fn "),
@@ -193,26 +288,24 @@ const REPAIR_RETURN_TYPE_ARROW_STIMULUS: &[TemplatePart] = &[
     TemplatePart::Literal(" }"),
 ];
 
-const TRANSFORM_TAIL_EXPRESSION_STIMULUS: &[TemplatePart] = &[
+const TRANSFORM_ADD_RETURN_TYPE_STIMULUS: &[TemplatePart] = &[
     TemplatePart::Literal("fn "),
     TemplatePart::Slot("NAME"),
-    TemplatePart::Literal("() -> "),
-    TemplatePart::Slot("TYPE"),
-    TemplatePart::Literal(" { return "),
+    TemplatePart::Literal("() { "),
     TemplatePart::Slot("VALUE"),
-    TemplatePart::Literal("; }"),
+    TemplatePart::Literal(" }"),
 ];
 
 pub(crate) const TEMPLATES: &[TemplateSpec] = &[
     TemplateSpec {
-        id: "copy-line",
-        version: 1,
+        id: "copy-return-type",
+        version: 2,
         system: "rust",
         track: "syntax_basics",
         semantic_frame: "function.no_params.return_literal",
         surface_frame: "function.return_literal",
         operation: Operation::Copy,
-        instruction_key: "copy.exact_line",
+        instruction_key: "copy.return_type_intro",
         slots: RETURN_LITERAL_SLOTS,
         stimulus: COPY_LINE_STIMULUS,
         expected: RETURN_LITERAL_EXPECTED,
@@ -224,17 +317,17 @@ pub(crate) const TEMPLATES: &[TemplateSpec] = &[
         xp: 10,
     },
     TemplateSpec {
-        id: "fill-return-value",
-        version: 1,
+        id: "fill-return-type-arrow",
+        version: 2,
         system: "rust",
         track: "syntax_basics",
         semantic_frame: "function.no_params.return_literal",
         surface_frame: "function.return_literal",
         operation: Operation::Fill,
-        instruction_key: "fill.return_value",
+        instruction_key: "fill.return_type_arrow",
         slots: RETURN_LITERAL_SLOTS,
-        stimulus: FILL_RETURN_VALUE_STIMULUS,
-        expected: RETURN_LITERAL_EXPECTED,
+        stimulus: RETURN_TYPE_PLACEHOLDER_STIMULUS,
+        expected: FILL_RETURN_TYPE_EXPECTED,
         contrast_id: None,
         concepts: RUST_FUNCTION_CONCEPTS,
         constraints: RUST_FUNCTION_CONSTRAINTS,
@@ -243,27 +336,27 @@ pub(crate) const TEMPLATES: &[TemplateSpec] = &[
         xp: 10,
     },
     TemplateSpec {
-        id: "produce-return-literal",
-        version: 1,
+        id: "produce-return-type",
+        version: 2,
         system: "rust",
         track: "syntax_basics",
         semantic_frame: "function.no_params.return_literal",
         surface_frame: "function.return_literal",
         operation: Operation::Produce,
-        instruction_key: "produce.return_literal",
+        instruction_key: "produce.return_type_arrow",
         slots: RETURN_LITERAL_SLOTS,
-        stimulus: PRODUCE_RETURN_LITERAL_STIMULUS,
+        stimulus: PRODUCE_RETURN_TYPE_STIMULUS,
         expected: RETURN_LITERAL_EXPECTED,
         contrast_id: None,
         concepts: RUST_FUNCTION_CONCEPTS,
         constraints: RUST_FUNCTION_CONSTRAINTS,
-        answer_rule: AnswerRule::ExactTrimFinalNewline,
+        answer_rule: AnswerRule::RustfmtExact,
         transition: StateTransition::None,
         xp: 10,
     },
     TemplateSpec {
         id: "repair-return-type-arrow",
-        version: 1,
+        version: 2,
         system: "rust",
         track: "syntax_basics",
         semantic_frame: "function.no_params.return_literal",
@@ -276,26 +369,26 @@ pub(crate) const TEMPLATES: &[TemplateSpec] = &[
         contrast_id: Some("typescript.return_type_colon"),
         concepts: RUST_FUNCTION_CONCEPTS,
         constraints: RUST_FUNCTION_CONSTRAINTS,
-        answer_rule: AnswerRule::ExactTrimFinalNewline,
+        answer_rule: AnswerRule::RustfmtExact,
         transition: StateTransition::None,
         xp: 10,
     },
     TemplateSpec {
-        id: "transform-tail-expression",
-        version: 1,
+        id: "transform-add-return-type",
+        version: 2,
         system: "rust",
         track: "syntax_basics",
         semantic_frame: "function.no_params.return_literal",
         surface_frame: "function.return_literal",
         operation: Operation::Transform,
-        instruction_key: "transform.tail_expression",
+        instruction_key: "transform.add_return_type",
         slots: RETURN_LITERAL_SLOTS,
-        stimulus: TRANSFORM_TAIL_EXPRESSION_STIMULUS,
+        stimulus: TRANSFORM_ADD_RETURN_TYPE_STIMULUS,
         expected: RETURN_LITERAL_EXPECTED,
-        contrast_id: None,
+        contrast_id: Some("rust.return_type_omitted"),
         concepts: RUST_FUNCTION_CONCEPTS,
         constraints: RUST_FUNCTION_CONSTRAINTS,
-        answer_rule: AnswerRule::ExactTrimFinalNewline,
+        answer_rule: AnswerRule::RustfmtExact,
         transition: StateTransition::None,
         xp: 10,
     },
@@ -426,7 +519,10 @@ mod tests {
                 Operation::Transform,
             ]
         );
-        assert_eq!(frame.supported_contrasts, &["typescript.return_type_colon"]);
+        assert_eq!(
+            frame.supported_contrasts,
+            &["typescript.return_type_colon", "rust.return_type_omitted"]
+        );
         assert_eq!(
             frame.slots,
             &[
@@ -479,11 +575,18 @@ mod tests {
         );
         assert_eq!(
             SLOT_DOMAINS[0].values,
-            &[DomainValueSpec {
-                id: "five",
-                rendered: "five",
-                meaning_key: None,
-            }]
+            &[
+                DomainValueSpec {
+                    id: "five",
+                    rendered: "five",
+                    meaning_key: None,
+                },
+                DomainValueSpec {
+                    id: "seven",
+                    rendered: "seven",
+                    meaning_key: None,
+                },
+            ]
         );
         assert_eq!(
             (SLOT_DOMAINS[1].id, SLOT_DOMAINS[1].version),
@@ -491,11 +594,18 @@ mod tests {
         );
         assert_eq!(
             SLOT_DOMAINS[1].values,
-            &[DomainValueSpec {
-                id: "i32",
-                rendered: "i32",
-                meaning_key: None,
-            }]
+            &[
+                DomainValueSpec {
+                    id: "i32",
+                    rendered: "i32",
+                    meaning_key: None,
+                },
+                DomainValueSpec {
+                    id: "u64",
+                    rendered: "u64",
+                    meaning_key: None,
+                },
+            ]
         );
         assert_eq!(
             (SLOT_DOMAINS[2].id, SLOT_DOMAINS[2].version),
@@ -503,11 +613,26 @@ mod tests {
         );
         assert_eq!(
             SLOT_DOMAINS[2].values,
-            &[DomainValueSpec {
-                id: "five",
-                rendered: "5",
-                meaning_key: None,
-            }]
+            &[
+                DomainValueSpec {
+                    id: "five",
+                    rendered: "5",
+                    meaning_key: None,
+                },
+                DomainValueSpec {
+                    id: "seven",
+                    rendered: "7",
+                    meaning_key: None,
+                },
+            ]
+        );
+
+        assert_eq!(COMPATIBILITY_ROWS.len(), 2);
+        assert_eq!(COMPATIBILITY_ROWS[0].id, "row-a-five-i32");
+        assert_eq!(COMPATIBILITY_ROWS[1].id, "row-b-seven-u64");
+        assert_ne!(
+            COMPATIBILITY_ROWS[0].assignments,
+            COMPATIBILITY_ROWS[1].assignments
         );
     }
 
@@ -626,7 +751,16 @@ mod tests {
 
             assert_eq!(template.concepts, surface.concepts);
             assert_eq!(template.constraints, surface.constraints);
-            assert_eq!(template.answer_rule, AnswerRule::ExactTrimFinalNewline);
+            assert_eq!(
+                template.answer_rule,
+                match template.operation {
+                    Operation::Copy | Operation::Fill => AnswerRule::ExactTrimFinalNewline,
+                    Operation::Produce | Operation::Repair | Operation::Transform => {
+                        AnswerRule::RustfmtExact
+                    }
+                    operation => panic!("unexpected template operation {operation:?}"),
+                }
+            );
             assert_eq!(template.transition, StateTransition::None);
             if let Some(contrast_id) = template.contrast_id {
                 assert!(
@@ -658,11 +792,11 @@ mod tests {
                 .map(|template| template.id)
                 .collect::<Vec<_>>(),
             vec![
-                "copy-line",
-                "fill-return-value",
-                "produce-return-literal",
+                "copy-return-type",
+                "fill-return-type-arrow",
+                "produce-return-type",
                 "repair-return-type-arrow",
-                "transform-tail-expression",
+                "transform-add-return-type",
             ]
         );
         assert_eq!(
@@ -671,11 +805,11 @@ mod tests {
                 .map(|template| template.instruction_key)
                 .collect::<Vec<_>>(),
             vec![
-                "copy.exact_line",
-                "fill.return_value",
-                "produce.return_literal",
+                "copy.return_type_intro",
+                "fill.return_type_arrow",
+                "produce.return_type_arrow",
                 "repair.return_type_arrow",
-                "transform.tail_expression",
+                "transform.add_return_type",
             ]
         );
         assert_eq!(
@@ -693,7 +827,7 @@ mod tests {
         );
 
         for template in TEMPLATES {
-            assert_eq!(template.version, 1);
+            assert_eq!(template.version, 2);
             assert_eq!(template.system, "rust");
             assert_eq!(template.track, "syntax_basics");
             assert_eq!(
@@ -718,9 +852,11 @@ mod tests {
         let fill_parts = [
             TemplatePart::Literal("fn "),
             TemplatePart::Slot("NAME"),
-            TemplatePart::Literal("() -> "),
+            TemplatePart::Literal("() ___ "),
             TemplatePart::Slot("TYPE"),
-            TemplatePart::Literal(" { ___ }"),
+            TemplatePart::Literal(" { "),
+            TemplatePart::Slot("VALUE"),
+            TemplatePart::Literal(" }"),
         ];
         let repair_parts = [
             TemplatePart::Literal("fn "),
@@ -734,27 +870,46 @@ mod tests {
         let transform_parts = [
             TemplatePart::Literal("fn "),
             TemplatePart::Slot("NAME"),
-            TemplatePart::Literal("() -> "),
-            TemplatePart::Slot("TYPE"),
-            TemplatePart::Literal(" { return "),
+            TemplatePart::Literal("() { "),
             TemplatePart::Slot("VALUE"),
-            TemplatePart::Literal("; }"),
+            TemplatePart::Literal(" }"),
         ];
 
         assert_eq!(TEMPLATES[0].stimulus, complete_parts.as_slice());
         assert_eq!(TEMPLATES[1].stimulus, fill_parts.as_slice());
-        assert!(TEMPLATES[2].stimulus.is_empty());
+        assert_eq!(TEMPLATES[2].stimulus, fill_parts.as_slice());
         assert_eq!(TEMPLATES[3].stimulus, repair_parts.as_slice());
         assert_eq!(TEMPLATES[4].stimulus, transform_parts.as_slice());
-        for template in TEMPLATES {
+        assert_eq!(TEMPLATES[0].expected, complete_parts.as_slice());
+        assert_eq!(TEMPLATES[1].expected, &[TemplatePart::Literal("->")]);
+        for template in &TEMPLATES[2..] {
             assert_eq!(template.expected, complete_parts.as_slice());
         }
         assert_eq!(
             TEMPLATES
                 .iter()
+                .map(|template| template.answer_rule)
+                .collect::<Vec<_>>(),
+            vec![
+                AnswerRule::ExactTrimFinalNewline,
+                AnswerRule::ExactTrimFinalNewline,
+                AnswerRule::RustfmtExact,
+                AnswerRule::RustfmtExact,
+                AnswerRule::RustfmtExact,
+            ]
+        );
+        assert_eq!(
+            TEMPLATES
+                .iter()
                 .map(|template| template.contrast_id)
                 .collect::<Vec<_>>(),
-            vec![None, None, None, Some("typescript.return_type_colon"), None,]
+            vec![
+                None,
+                None,
+                None,
+                Some("typescript.return_type_colon"),
+                Some("rust.return_type_omitted"),
+            ]
         );
 
         assert_eq!(HAND_EXPANDED_SEED, 0);

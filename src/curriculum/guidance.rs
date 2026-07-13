@@ -17,34 +17,43 @@ pub(crate) struct GlossEntry {
     pub(crate) text: &'static str,
 }
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub(crate) struct SupportGuidance {
+    pub(crate) key: &'static str,
+    pub(crate) concept_label: &'static str,
+    pub(crate) explanation: &'static str,
+    pub(crate) worked_example: Option<&'static str>,
+}
+
 pub(crate) struct GuidancePack {
     pub(crate) locale: &'static str,
     pub(crate) version: u16,
     pub(crate) instructions: &'static [GuidanceTemplate],
     pub(crate) glosses: &'static [GlossEntry],
+    pub(crate) support: &'static [SupportGuidance],
 }
 
 const EN_COPY_EXACT_LINE_PARTS: &[GuidancePart] =
     &[GuidancePart::Literal("Copy this line exactly:")];
 
-const EN_FILL_RETURN_VALUE_PARTS: &[GuidancePart] =
-    &[GuidancePart::Literal("Complete the missing return value:")];
+const EN_COPY_EXACT_FUNCTION_PARTS: &[GuidancePart] = &[GuidancePart::Literal(
+    "Copy this line exactly: Type the complete function exactly.",
+)];
 
-const EN_PRODUCE_RETURN_LITERAL_PARTS: &[GuidancePart] = &[
-    GuidancePart::Literal("Write a Rust function named "),
-    GuidancePart::SlotRendered("NAME"),
-    GuidancePart::Literal(" with no parameters that returns the "),
-    GuidancePart::SlotRendered("TYPE"),
-    GuidancePart::Literal(" value "),
-    GuidancePart::SlotRendered("VALUE"),
-    GuidancePart::Literal(" using a tail expression:"),
-];
+const EN_FILL_RETURN_VALUE_PARTS: &[GuidancePart] = &[GuidancePart::Literal(
+    "Complete the missing return-type arrow: Type only the code replacing ___.",
+)];
 
-const EN_REPAIR_RETURN_TYPE_ARROW_PARTS: &[GuidancePart] =
-    &[GuidancePart::Literal("Repair the return-type syntax:")];
+const EN_PRODUCE_RETURN_LITERAL_PARTS: &[GuidancePart] = &[GuidancePart::Literal(
+    "Use the shown parts to write the function with its return type: Submit the complete function.",
+)];
+
+const EN_REPAIR_RETURN_TYPE_ARROW_PARTS: &[GuidancePart] = &[GuidancePart::Literal(
+    "Repair the return-type syntax in the highlighted region: Submit the complete corrected function.",
+)];
 
 const EN_TRANSFORM_TAIL_EXPRESSION_PARTS: &[GuidancePart] = &[GuidancePart::Literal(
-    "Rewrite the function to use a tail expression:",
+    "Add the declared return type after the parameter list: Submit the complete transformed function.",
 )];
 
 const EN_INSTRUCTIONS: &[GuidanceTemplate] = &[
@@ -53,11 +62,15 @@ const EN_INSTRUCTIONS: &[GuidanceTemplate] = &[
         parts: EN_COPY_EXACT_LINE_PARTS,
     },
     GuidanceTemplate {
-        key: "fill.return_value",
+        key: "copy.return_type_intro",
+        parts: EN_COPY_EXACT_FUNCTION_PARTS,
+    },
+    GuidanceTemplate {
+        key: "fill.return_type_arrow",
         parts: EN_FILL_RETURN_VALUE_PARTS,
     },
     GuidanceTemplate {
-        key: "produce.return_literal",
+        key: "produce.return_type_arrow",
         parts: EN_PRODUCE_RETURN_LITERAL_PARTS,
     },
     GuidanceTemplate {
@@ -65,34 +78,38 @@ const EN_INSTRUCTIONS: &[GuidanceTemplate] = &[
         parts: EN_REPAIR_RETURN_TYPE_ARROW_PARTS,
     },
     GuidanceTemplate {
-        key: "transform.tail_expression",
+        key: "transform.add_return_type",
         parts: EN_TRANSFORM_TAIL_EXPRESSION_PARTS,
     },
 ];
+
+const EN_SUPPORT: &[SupportGuidance] = &[SupportGuidance {
+    key: "rust.function.return_literal.return_type_arrow",
+    concept_label: "Function return type",
+    explanation: "A return type says what kind of value a function gives back. Rust puts it after () with an arrow.",
+    worked_example: Some("fn sample() -> u8 { 1 }"),
+}];
 
 // Proof-only Ukrainian source; human linguistic/product review is required before product admission.
 const UK_COPY_EXACT_LINE_PARTS: &[GuidancePart] =
     &[GuidancePart::Literal("Скопіюйте цей рядок без змін:")];
 
+const UK_COPY_EXACT_FUNCTION_PARTS: &[GuidancePart] = UK_COPY_EXACT_LINE_PARTS;
+
 const UK_FILL_RETURN_VALUE_PARTS: &[GuidancePart] = &[GuidancePart::Literal(
-    "Заповніть пропущене значення, що повертається:",
+    "Заповніть пропущену стрілку типу повернення. Введіть лише код замість ___.",
 )];
 
-const UK_PRODUCE_RETURN_LITERAL_PARTS: &[GuidancePart] = &[
-    GuidancePart::Literal("Напишіть функцію Rust з назвою "),
-    GuidancePart::SlotRendered("NAME"),
-    GuidancePart::Literal(" без параметрів, яка повертає значення "),
-    GuidancePart::SlotRendered("VALUE"),
-    GuidancePart::Literal(" типу "),
-    GuidancePart::SlotRendered("TYPE"),
-    GuidancePart::Literal(" за допомогою хвостового виразу:"),
-];
+const UK_PRODUCE_RETURN_LITERAL_PARTS: &[GuidancePart] = &[GuidancePart::Literal(
+    "За показаними частинами напишіть повну функцію з типом повернення.",
+)];
 
-const UK_REPAIR_RETURN_TYPE_ARROW_PARTS: &[GuidancePart] =
-    &[GuidancePart::Literal("Виправте синтаксис типу повернення:")];
+const UK_REPAIR_RETURN_TYPE_ARROW_PARTS: &[GuidancePart] = &[GuidancePart::Literal(
+    "Виправте синтаксис типу повернення у виділеній ділянці та надішліть повну виправлену функцію.",
+)];
 
 const UK_TRANSFORM_TAIL_EXPRESSION_PARTS: &[GuidancePart] = &[GuidancePart::Literal(
-    "Перепишіть функцію, використовуючи хвостовий вираз:",
+    "Додайте оголошений тип повернення після списку параметрів і надішліть повну змінену функцію.",
 )];
 
 const UK_INSTRUCTIONS: &[GuidanceTemplate] = &[
@@ -101,11 +118,15 @@ const UK_INSTRUCTIONS: &[GuidanceTemplate] = &[
         parts: UK_COPY_EXACT_LINE_PARTS,
     },
     GuidanceTemplate {
-        key: "fill.return_value",
+        key: "copy.return_type_intro",
+        parts: UK_COPY_EXACT_FUNCTION_PARTS,
+    },
+    GuidanceTemplate {
+        key: "fill.return_type_arrow",
         parts: UK_FILL_RETURN_VALUE_PARTS,
     },
     GuidanceTemplate {
-        key: "produce.return_literal",
+        key: "produce.return_type_arrow",
         parts: UK_PRODUCE_RETURN_LITERAL_PARTS,
     },
     GuidanceTemplate {
@@ -113,10 +134,18 @@ const UK_INSTRUCTIONS: &[GuidanceTemplate] = &[
         parts: UK_REPAIR_RETURN_TYPE_ARROW_PARTS,
     },
     GuidanceTemplate {
-        key: "transform.tail_expression",
+        key: "transform.add_return_type",
         parts: UK_TRANSFORM_TAIL_EXPRESSION_PARTS,
     },
 ];
+
+// Proof-only Ukrainian support; human linguistic/product review is required before product admission.
+const UK_SUPPORT: &[SupportGuidance] = &[SupportGuidance {
+    key: "rust.function.return_literal.return_type_arrow",
+    concept_label: "Тип повернення функції",
+    explanation: "Функція може оголосити тип значення після списку параметрів. У Rust стрілка веде від списку параметрів до цього типу.",
+    worked_example: Some("fn sample() -> u8 { 1 }"),
+}];
 
 pub(crate) const GUIDANCE_PACKS: &[GuidancePack] = &[
     GuidancePack {
@@ -124,12 +153,14 @@ pub(crate) const GUIDANCE_PACKS: &[GuidancePack] = &[
         version: 1,
         instructions: EN_INSTRUCTIONS,
         glosses: &[],
+        support: EN_SUPPORT,
     },
     GuidancePack {
         locale: "uk",
         version: 1,
         instructions: UK_INSTRUCTIONS,
         glosses: &[],
+        support: UK_SUPPORT,
     },
 ];
 
@@ -216,7 +247,26 @@ mod tests {
                 }
             }
 
+            for (support_index, support) in pack.support.iter().enumerate() {
+                assert!(!support.key.is_empty(), "support key must not be empty");
+                assert!(
+                    !support.concept_label.is_empty(),
+                    "support concept label must not be empty"
+                );
+                assert!(
+                    !support.explanation.is_empty(),
+                    "support explanation must not be empty"
+                );
+                for earlier in &pack.support[..support_index] {
+                    assert_ne!(
+                        earlier.key, support.key,
+                        "support keys must be unique within a guidance pack"
+                    );
+                }
+            }
+
             assert!(pack.glosses.is_empty());
+            assert_eq!(pack.support.len(), 1);
 
             for template in TEMPLATES {
                 assert_eq!(
@@ -246,13 +296,14 @@ mod tests {
 
         let keys = [
             "copy.exact_line",
-            "fill.return_value",
-            "produce.return_literal",
+            "copy.return_type_intro",
+            "fill.return_type_arrow",
+            "produce.return_type_arrow",
             "repair.return_type_arrow",
-            "transform.tail_expression",
+            "transform.add_return_type",
         ];
         for pack in GUIDANCE_PACKS {
-            assert_eq!(pack.instructions.len(), 5);
+            assert_eq!(pack.instructions.len(), 6);
             assert_eq!(
                 pack.instructions
                     .iter()
@@ -268,32 +319,21 @@ mod tests {
             english.instructions[0].parts,
             &[GuidancePart::Literal("Copy this line exactly:")]
         );
-        assert_eq!(
-            english.instructions[1].parts,
-            &[GuidancePart::Literal("Complete the missing return value:")]
-        );
-        assert_eq!(
-            english.instructions[2].parts,
-            &[
-                GuidancePart::Literal("Write a Rust function named "),
-                GuidancePart::SlotRendered("NAME"),
-                GuidancePart::Literal(" with no parameters that returns the "),
-                GuidancePart::SlotRendered("TYPE"),
-                GuidancePart::Literal(" value "),
-                GuidancePart::SlotRendered("VALUE"),
-                GuidancePart::Literal(" using a tail expression:"),
-            ]
-        );
+        assert_eq!(english.instructions[1].parts, EN_COPY_EXACT_FUNCTION_PARTS);
+        assert_eq!(english.instructions[2].parts, EN_FILL_RETURN_VALUE_PARTS);
         assert_eq!(
             english.instructions[3].parts,
-            &[GuidancePart::Literal("Repair the return-type syntax:")]
+            EN_PRODUCE_RETURN_LITERAL_PARTS
         );
         assert_eq!(
             english.instructions[4].parts,
-            &[GuidancePart::Literal(
-                "Rewrite the function to use a tail expression:"
-            )]
+            EN_REPAIR_RETURN_TYPE_ARROW_PARTS
         );
+        assert_eq!(
+            english.instructions[5].parts,
+            EN_TRANSFORM_TAIL_EXPRESSION_PARTS
+        );
+        assert_eq!(english.support, EN_SUPPORT);
 
         let ukrainian = &GUIDANCE_PACKS[1];
         assert_eq!(
@@ -302,31 +342,21 @@ mod tests {
         );
         assert_eq!(
             ukrainian.instructions[1].parts,
-            &[GuidancePart::Literal(
-                "Заповніть пропущене значення, що повертається:"
-            )]
+            UK_COPY_EXACT_FUNCTION_PARTS
         );
-        assert_eq!(
-            ukrainian.instructions[2].parts,
-            &[
-                GuidancePart::Literal("Напишіть функцію Rust з назвою "),
-                GuidancePart::SlotRendered("NAME"),
-                GuidancePart::Literal(" без параметрів, яка повертає значення "),
-                GuidancePart::SlotRendered("VALUE"),
-                GuidancePart::Literal(" типу "),
-                GuidancePart::SlotRendered("TYPE"),
-                GuidancePart::Literal(" за допомогою хвостового виразу:"),
-            ]
-        );
+        assert_eq!(ukrainian.instructions[2].parts, UK_FILL_RETURN_VALUE_PARTS);
         assert_eq!(
             ukrainian.instructions[3].parts,
-            &[GuidancePart::Literal("Виправте синтаксис типу повернення:")]
+            UK_PRODUCE_RETURN_LITERAL_PARTS
         );
         assert_eq!(
             ukrainian.instructions[4].parts,
-            &[GuidancePart::Literal(
-                "Перепишіть функцію, використовуючи хвостовий вираз:"
-            )]
+            UK_REPAIR_RETURN_TYPE_ARROW_PARTS
         );
+        assert_eq!(
+            ukrainian.instructions[5].parts,
+            UK_TRANSFORM_TAIL_EXPRESSION_PARTS
+        );
+        assert_eq!(ukrainian.support, UK_SUPPORT);
     }
 }

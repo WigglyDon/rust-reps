@@ -35,8 +35,8 @@ pub fn print_help_text() {
 pub fn print_practice_header() {
     print_app_header();
     println!("Practice");
-    println!("Exact typing practice.");
-    println!("Answers must match exactly.");
+    println!("Deterministic Rust practice.");
+    println!("Follow the task instruction.");
     println!("Type :help for commands and :q to quit.");
     println!();
 }
@@ -57,14 +57,22 @@ pub fn print_drill_list() {
     print_app_header();
     println!("Available drills:");
     for drill in catalog::drills() {
-        println!("{}  {}", drill.id, drill.stimulus);
+        if drill.stimulus.is_empty() {
+            println!("{}", drill.id);
+        } else {
+            println!("{}  {}", drill.id, drill.stimulus);
+        }
     }
 }
 
 pub fn print_drill_list_body() {
     println!("Available drills:");
     for drill in catalog::drills() {
-        println!("{}  {}", drill.id, drill.stimulus);
+        if drill.stimulus.is_empty() {
+            println!("{}", drill.id);
+        } else {
+            println!("{}  {}", drill.id, drill.stimulus);
+        }
     }
 }
 
@@ -126,27 +134,27 @@ mod tests {
 
     const FIXTURES: [ProjectionFixture; 5] = [
         ProjectionFixture {
-            instruction: "Copy this line exactly:",
+            instruction: "Copy this line exactly: Type the complete function exactly.",
             stimulus: "fn five() -> i32 { 5 }",
             expected: "fn five() -> i32 { 5 }",
         },
         ProjectionFixture {
-            instruction: "Complete the missing return value:",
+            instruction: "Complete the missing return value: Type only the code replacing ___.",
             stimulus: "fn five() -> i32 { ___ }",
             expected: "fn five() -> i32 { 5 }",
         },
         ProjectionFixture {
-            instruction: "Write a Rust function named five with no parameters that returns the i32 value 5 using a tail expression:",
+            instruction: "Write a Rust function named five with no parameters that returns the i32 value 5 using a tail expression: Submit the complete function.",
             stimulus: "",
             expected: "fn five() -> i32 { 5 }",
         },
         ProjectionFixture {
-            instruction: "Repair the return-type syntax:",
+            instruction: "Repair the return-type syntax: Submit the complete corrected function.",
             stimulus: "fn five(): i32 { 5 }",
             expected: "fn five() -> i32 { 5 }",
         },
         ProjectionFixture {
-            instruction: "Rewrite the function to use a tail expression:",
+            instruction: "Rewrite the function to use a tail expression: Submit the complete transformed function.",
             stimulus: "fn five() -> i32 { return 5; }",
             expected: "fn five() -> i32 { 5 }",
         },
@@ -165,28 +173,28 @@ mod tests {
 
         assert_eq!(
             rendered[0],
-            "Copy this line exactly:\nfn five() -> i32 { 5 }\n"
+            "Copy this line exactly: Type the complete function exactly.\nfn five() -> i32 { 5 }\n"
         );
         assert_eq!(
             rendered[1],
-            "Complete the missing return value:\nfn five() -> i32 { ___ }\n"
+            "Complete the missing return value: Type only the code replacing ___.\nfn five() -> i32 { ___ }\n"
         );
         assert!(rendered[1].contains("___"));
         assert!(!rendered[1].contains(FIXTURES[1].expected));
         assert_eq!(
             rendered[2],
-            "Write a Rust function named five with no parameters that returns the i32 value 5 using a tail expression:\n"
+            "Write a Rust function named five with no parameters that returns the i32 value 5 using a tail expression: Submit the complete function.\n"
         );
         assert!(!rendered[2].contains(FIXTURES[2].expected));
         assert_eq!(
             rendered[3],
-            "Repair the return-type syntax:\nfn five(): i32 { 5 }\n"
+            "Repair the return-type syntax: Submit the complete corrected function.\nfn five(): i32 { 5 }\n"
         );
         assert!(rendered[3].contains("(): i32"));
         assert!(!rendered[3].contains(FIXTURES[3].expected));
         assert_eq!(
             rendered[4],
-            "Rewrite the function to use a tail expression:\nfn five() -> i32 { return 5; }\n"
+            "Rewrite the function to use a tail expression: Submit the complete transformed function.\nfn five() -> i32 { return 5; }\n"
         );
         assert!(rendered[4].contains("return 5;"));
         assert!(!rendered[4].contains(FIXTURES[4].expected));

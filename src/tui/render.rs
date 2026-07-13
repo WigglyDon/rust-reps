@@ -9,9 +9,9 @@ use crate::{
         input::MousePane,
         theme::{
             base_style, border_sweep_style, code_token_style, control_hint_style, counter_style,
-            editor_canvas_style, editor_gutter_feedback_style, editor_line_style, muted_style,
-            plus_one_style, primary_action_style, problem_header_style, status_tone_style,
-            surface_style,
+            editor_canvas_style, editor_gutter_feedback_style, editor_line_style,
+            focused_code_token_style, muted_style, plus_one_style, primary_action_style,
+            problem_header_style, status_tone_style, surface_style,
         },
     },
 };
@@ -33,6 +33,7 @@ const EDITOR_TRAILING_INDICATOR_WIDTH: usize = 1;
 const PROBLEM_HORIZONTAL_PADDING: u16 = 1;
 const PROBLEM_TRAILING_RESERVE: usize = 3;
 const FORMAT_ACTION_HINT: &str = "F1 format";
+const HELP_ACTION_HINT: &str = "F2 help";
 const PRIMARY_ACTION_HINT: &str = "F5 submit";
 const SKIP_ACTION_HINT: &str = "F7 skip";
 const QUIT_ACTION_HINT: &str = "Esc quit";
@@ -559,6 +560,15 @@ fn problem_display_line(line: &ProblemDisplayLine) -> Line<'static> {
             vec![Span::styled(line.text.clone(), problem_header_style())]
         }
         ProblemLineKind::Code => code_spans(&line.tokens),
+        ProblemLineKind::ConceptLabel => {
+            vec![Span::styled(line.text.clone(), problem_header_style())]
+        }
+        ProblemLineKind::HelpText => vec![Span::raw(line.text.clone())],
+        ProblemLineKind::HelpExample => code_spans(&line.tokens),
+        ProblemLineKind::HelpNotice => vec![Span::styled(
+            line.text.clone(),
+            status_tone_style(StatusTone::Warning),
+        )],
         ProblemLineKind::Bullet | ProblemLineKind::Plain => {
             vec![Span::raw(line.text.clone())]
         }
@@ -1093,10 +1103,11 @@ fn command_rail_spans(format_available: bool) -> Vec<Span<'static>> {
 }
 
 fn counter_spans(client_frame: &ClientFrame) -> Vec<Span<'static>> {
-    let mut spans = vec![Span::styled(
-        format!("● {}", client_frame.completed_reps_this_run),
-        counter_style(),
-    )];
+    let counter = match client_frame.round_position {
+        Some((position, total)) => format!("{position}/{total}"),
+        None => client_frame.completed_reps_this_run.to_string(),
+    };
+    let mut spans = vec![Span::styled(format!("● {counter}"), counter_style())];
     if client_frame.reward.show_plus_one {
         spans.push(Span::styled(" ", counter_style()));
         spans.push(Span::styled("+1", plus_one_style(client_frame.reward)));
@@ -1113,6 +1124,8 @@ fn command_spans(format_available: bool) -> Vec<Span<'static>> {
     vec![
         Span::styled(FORMAT_ACTION_HINT, format_style),
         Span::styled(" · ", control_hint_style()),
+        Span::styled(HELP_ACTION_HINT, control_hint_style()),
+        Span::styled(" · ", control_hint_style()),
         Span::styled(PRIMARY_ACTION_HINT, primary_action_style()),
         Span::styled(" · ", control_hint_style()),
         Span::styled(SKIP_ACTION_HINT, control_hint_style()),
@@ -1124,7 +1137,14 @@ fn command_spans(format_available: bool) -> Vec<Span<'static>> {
 fn code_spans(tokens: &[CodeToken]) -> Vec<Span<'static>> {
     tokens
         .iter()
-        .map(|token| Span::styled(token.text.clone(), code_token_style(token.kind)))
+        .map(|token| {
+            let style = if token.focused {
+                focused_code_token_style(token.kind)
+            } else {
+                code_token_style(token.kind)
+            };
+            Span::styled(token.text.clone(), style)
+        })
         .collect()
 }
 
@@ -1135,7 +1155,14 @@ fn code_spans_for_columns(
 ) -> Vec<Span<'static>> {
     tokens_for_columns(tokens, first_column, visible_columns)
         .iter()
-        .map(|token| Span::styled(token.text.clone(), code_token_style(token.kind)))
+        .map(|token| {
+            let style = if token.focused {
+                focused_code_token_style(token.kind)
+            } else {
+                code_token_style(token.kind)
+            };
+            Span::styled(token.text.clone(), style)
+        })
         .collect()
 }
 
@@ -1165,6 +1192,7 @@ fn tokens_for_columns(
                 visible.push(CodeToken {
                     kind: token.kind,
                     text,
+                    focused: token.focused,
                 });
             }
         }
@@ -1230,13 +1258,13 @@ mod tests {
     use std::time::{Duration, Instant};
 
     use super::{
-        COMMAND_RAIL_HEIGHT, FEEDBACK_CHROME_HEIGHT, FORMAT_ACTION_HINT, PRIMARY_ACTION_HINT,
-        QUIT_ACTION_HINT, SKIP_ACTION_HINT, SNAPSHOT_PROBLEM_HEIGHT, SNAPSHOT_WORKBOX_HEIGHT,
-        STIMULUS_CONTINUATION_GUTTER, STIMULUS_HARD_LINE_GUTTER, TOP_COUNTER_HEIGHT,
-        border_sweep_cell_progress, command_chrome_alignment, command_chrome_lines,
-        editor_cursor_at, editor_horizontal_overflow, feedback_chrome_lines, feedback_height,
-        gutter_width, layout_chunks, line_text, problem_display_line, problem_lines,
-        render_client_frame, render_editor_controls, render_editor_cursor,
+        COMMAND_RAIL_HEIGHT, FEEDBACK_CHROME_HEIGHT, FORMAT_ACTION_HINT, HELP_ACTION_HINT,
+        PRIMARY_ACTION_HINT, QUIT_ACTION_HINT, SKIP_ACTION_HINT, SNAPSHOT_PROBLEM_HEIGHT,
+        SNAPSHOT_WORKBOX_HEIGHT, STIMULUS_CONTINUATION_GUTTER, STIMULUS_HARD_LINE_GUTTER,
+        TOP_COUNTER_HEIGHT, border_sweep_cell_progress, command_chrome_alignment,
+        command_chrome_lines, editor_cursor_at, editor_horizontal_overflow, feedback_chrome_lines,
+        feedback_height, gutter_width, layout_chunks, line_text, problem_display_line,
+        problem_lines, render_client_frame, render_editor_controls, render_editor_cursor,
         render_editor_horizontal_indicators, render_snapshot, render_snapshot_with_workbox_height,
         render_top_banner, reward_sweep_intensity_at, shell_layout, usize_to_u16,
         viewport_indicator_cells, visible_editor_rows, workbox_lines, workbox_lines_for_area,
@@ -1277,6 +1305,13 @@ mod tests {
 
     fn lab_app() -> TuiApp {
         TuiApp::with_session(engine::Session::lab())
+    }
+
+    fn interactive_app() -> TuiApp {
+        TuiApp::with_session(
+            crate::orchestration::current_interactive_product_session()
+                .expect("interactive product session must resolve"),
+        )
     }
 
     fn projection_app(
@@ -1898,7 +1933,7 @@ mod tests {
 
     #[test]
     fn wrapped_instruction_moves_both_source_origins_without_changing_width() {
-        let instruction = "Write a Rust function named five with no parameters that returns the i32 value 5 using a tail expression:";
+        let instruction = "Write a Rust function named five with no parameters that returns the i32 value 5 using a tail expression: Submit the complete function.";
         let source = "fn five() -> i32 { 5 }";
         let area = Rect::new(0, 0, 52, 18);
         let mut long = projection_app(instruction, source, source);
@@ -1936,27 +1971,27 @@ mod tests {
     fn five_operation_task_panels_never_render_non_copy_expected_answers() {
         let fixtures = [
             (
-                "Copy this line exactly:",
+                "Copy this line exactly: Type the complete function exactly.",
                 "fn five() -> i32 { 5 }",
                 "fn five() -> i32 { 5 }",
             ),
             (
-                "Complete the missing return value:",
+                "Complete the missing return value: Type only the code replacing ___.",
                 "fn five() -> i32 { ___ }",
                 "fn five() -> i32 { 5 }",
             ),
             (
-                "Write a Rust function named five with no parameters that returns the i32 value 5 using a tail expression:",
+                "Write a Rust function named five with no parameters that returns the i32 value 5 using a tail expression: Submit the complete function.",
                 "",
                 "fn five() -> i32 { 5 }",
             ),
             (
-                "Repair the return-type syntax:",
+                "Repair the return-type syntax: Submit the complete corrected function.",
                 "fn five(): i32 { 5 }",
                 "fn five() -> i32 { 5 }",
             ),
             (
-                "Rewrite the function to use a tail expression:",
+                "Rewrite the function to use a tail expression: Submit the complete transformed function.",
                 "fn five() -> i32 { return 5; }",
                 "fn five() -> i32 { 5 }",
             ),
@@ -1990,6 +2025,107 @@ mod tests {
                 assert!(!rendered.contains(expected));
             }
         }
+    }
+
+    #[test]
+    fn narrow_fill_submission_contract_renders_above_the_unchanged_stimulus() {
+        let instruction = "Complete the missing return value: Type only the code replacing ___.";
+        let stimulus = "fn five() -> i32 { ___ }";
+        let frame = projection_app(instruction, stimulus, "5").frame_at_for_layout(test_now(), 18);
+        let lines = problem_lines(&frame)
+            .iter()
+            .map(line_text)
+            .collect::<Vec<_>>();
+        let stimulus_start = lines
+            .iter()
+            .position(|line| line.starts_with(STIMULUS_HARD_LINE_GUTTER))
+            .expect("Fill stimulus must render after its instruction");
+
+        assert!(stimulus_start > 1);
+        assert_eq!(lines[..stimulus_start].join(" "), instruction);
+        assert!(
+            lines[stimulus_start..]
+                .iter()
+                .any(|line| line.contains("fn five()"))
+        );
+        assert!(
+            lines[..stimulus_start]
+                .iter()
+                .all(|line| !line.contains("5"))
+        );
+        assert!(!lines.join("\n").contains("fn five() -> i32 { 5 }"));
+    }
+
+    #[test]
+    fn beginner_introduction_help_and_focused_source_render_at_normal_and_narrow_widths() {
+        let intro = interactive_app();
+        for (width, height) in [(96, 24), (72, 24)] {
+            let rendered = render_frame_text(&intro.frame(), width, height);
+            assert!(rendered.contains("Function return type"));
+            assert!(rendered.contains("A return type says"));
+            assert!(rendered.contains("F2 help"));
+            assert!(rendered.contains("F5 submit"));
+            assert!(rendered.contains("Esc quit"));
+        }
+
+        let intro_frame = intro.frame();
+        let focused_source = intro_frame
+            .game_window
+            .problem
+            .lines
+            .iter()
+            .find(|line| line.tokens.iter().any(|token| token.focused))
+            .expect("Introduce stimulus has a focused region");
+        let styled = problem_display_line(focused_source);
+        assert!(styled.spans.iter().any(|span| {
+            span.style.add_modifier.contains(Modifier::BOLD)
+                && span.style.add_modifier.contains(Modifier::UNDERLINED)
+        }));
+
+        let mut guided = interactive_app();
+        for _ in 0..3 {
+            guided.handle_action(ClientAction::Skip);
+        }
+        guided.handle_action(ClientAction::Help);
+        let rendered_help = render_frame_text(&guided.frame(), 72, 24);
+        assert!(rendered_help.contains("Function return type"));
+        assert!(rendered_help.contains("fn sample()"));
+        assert!(rendered_help.contains("F2 help"));
+        assert!(rendered_help.contains("Esc quit"));
+    }
+
+    #[test]
+    fn guided_placeholder_focus_survives_wrapping_without_mutating_source() {
+        let mut app = interactive_app();
+        app.handle_action(ClientAction::Skip);
+        let frame = app.frame_at_for_layout(test_now(), 12);
+        let focused_text = frame
+            .game_window
+            .problem
+            .lines
+            .iter()
+            .flat_map(|line| line.tokens.iter())
+            .filter(|token| token.focused)
+            .map(|token| token.text.as_str())
+            .collect::<String>();
+        let source_text = frame
+            .game_window
+            .problem
+            .lines
+            .iter()
+            .filter(|line| line.stimulus_row.is_some())
+            .map(|line| line.text.as_str())
+            .collect::<String>();
+
+        assert_eq!(focused_text, "___");
+        assert_eq!(source_text, frame.game_window.problem.stimulus);
+        assert!(frame.game_window.problem.lines.iter().any(|line| {
+            problem_display_line(line).spans.iter().any(|span| {
+                span.content.as_ref() == "___"
+                    && span.style.add_modifier.contains(Modifier::BOLD)
+                    && span.style.add_modifier.contains(Modifier::UNDERLINED)
+            })
+        }));
     }
 
     #[test]
@@ -2288,7 +2424,7 @@ mod tests {
         assert_eq!(
             snapshot.command_chrome,
             vec![format!(
-                "{FORMAT_ACTION_HINT} · {PRIMARY_ACTION_HINT} · {SKIP_ACTION_HINT} · {QUIT_ACTION_HINT}"
+                "{FORMAT_ACTION_HINT} · {HELP_ACTION_HINT} · {PRIMARY_ACTION_HINT} · {SKIP_ACTION_HINT} · {QUIT_ACTION_HINT}"
             )]
         );
         assert_eq!(command_chrome_alignment(), Alignment::Left);
@@ -2535,7 +2671,7 @@ mod tests {
             }
         }
         assert!(snapshot.command_chrome.iter().any(|line| line
-            == &format!("{FORMAT_ACTION_HINT} · {PRIMARY_ACTION_HINT} · {SKIP_ACTION_HINT} · {QUIT_ACTION_HINT}")));
+            == &format!("{FORMAT_ACTION_HINT} · {HELP_ACTION_HINT} · {PRIMARY_ACTION_HINT} · {SKIP_ACTION_HINT} · {QUIT_ACTION_HINT}")));
     }
 
     #[test]
@@ -2548,20 +2684,21 @@ mod tests {
         assert_eq!(lines.len(), usize::from(COMMAND_RAIL_HEIGHT));
         assert_eq!(reward_line.spans[0].content.as_ref(), FORMAT_ACTION_HINT);
         assert_eq!(reward_line.spans[1].content.as_ref(), " · ");
-        assert_eq!(reward_line.spans[2].content.as_ref(), PRIMARY_ACTION_HINT);
+        assert_eq!(reward_line.spans[2].content.as_ref(), HELP_ACTION_HINT);
+        assert_eq!(reward_line.spans[3].content.as_ref(), " · ");
+        assert_eq!(reward_line.spans[4].content.as_ref(), PRIMARY_ACTION_HINT);
         assert!(
-            reward_line.spans[2]
+            reward_line.spans[4]
                 .style
                 .add_modifier
                 .contains(Modifier::BOLD)
         );
-        assert_eq!(reward_line.spans[1].content.as_ref(), " · ");
-        assert_eq!(reward_line.spans[3].content.as_ref(), " · ");
-        assert_eq!(reward_line.spans[4].content.as_ref(), SKIP_ACTION_HINT);
         assert_eq!(reward_line.spans[5].content.as_ref(), " · ");
-        assert_eq!(reward_line.spans[6].content.as_ref(), QUIT_ACTION_HINT);
+        assert_eq!(reward_line.spans[6].content.as_ref(), SKIP_ACTION_HINT);
+        assert_eq!(reward_line.spans[7].content.as_ref(), " · ");
+        assert_eq!(reward_line.spans[8].content.as_ref(), QUIT_ACTION_HINT);
         assert_eq!(
-            reward_line.spans[6].style.fg,
+            reward_line.spans[8].style.fg,
             Some(RUST_REPS_DARK.text_muted)
         );
     }
@@ -2581,7 +2718,7 @@ mod tests {
         assert_eq!(
             line_text(&disabled),
             format!(
-                "{FORMAT_ACTION_HINT} · {PRIMARY_ACTION_HINT} · {SKIP_ACTION_HINT} · {QUIT_ACTION_HINT}"
+                "{FORMAT_ACTION_HINT} · {HELP_ACTION_HINT} · {PRIMARY_ACTION_HINT} · {SKIP_ACTION_HINT} · {QUIT_ACTION_HINT}"
             )
         );
         assert!(disabled.spans[0].style.add_modifier.contains(Modifier::DIM));

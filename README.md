@@ -1,9 +1,8 @@
 # Rust Reps
 
 Rust Reps is a terminal-first Rust practice game.
-It teaches one-line Rust reps through exact-match typing in plain terminal output.
-The normal catalog is small and placeholder right now, but each rep carries static
-metadata for future deterministic catalog work.
+It teaches small Rust reps through deterministic terminal practice.
+The catalog contains literal exact tasks and formatting-equivalent full-code tasks.
 
 ## Player Mode
 
@@ -42,12 +41,14 @@ Use it to test wrapped problem scrolling, multiline editor viewport behavior, sy
 ### Fullscreen TUI
 
 `rust-reps` starts fullscreen terminal mode in an interactive terminal.
-It uses the same drill and answer truth as plain mode, but renders a terminal editor shell:
+It continues through deterministic five-task rounds until `Esc`, using Copy, Fill,
+Produce, Repair, and Transform in that order. Two reviewed content rows alternate
+deterministically. The TUI renders a terminal editor shell:
 
 - left tablet: Rust editor/workbox
 - right tablet: task/problem reference
-- top-left over the editor: compact green completed-rep counter
-- below the editor: `F1 format · F5 submit · F7 skip · Esc quit`
+- top-left over the editor: compact green round-position counter (`1/5` through `5/5`)
+- below the editor: `F1 format · F2 help · F5 submit · F7 skip · Esc quit`
 
 Keys:
 - type normal characters to build input
@@ -61,21 +62,30 @@ Keys:
 - mouse wheel scrolls the editor or task pane under the pointer
 - `F5` submits
 - `F7` skips
-- `F1` formats the editor buffer with `rustfmt` when available
+- `F1` formats the editor buffer with `rustfmt` when the task enables formatting
+- `F2` toggles resolved help for the current task without submitting or recording an attempt
 - `Ctrl-Enter` submits only when the terminal reports it distinctly
 - `Shift-Enter` inserts a newline when the terminal reports it distinctly
 - `Esc` or `Ctrl-C` quits
 - `Tab` is currently ignored
 
-F1 format is an editor helper only. It invokes the `rustfmt` executable directly, never Clippy,
-Cargo, or `rustc`. When `rustfmt` is unavailable, fails, or times out, Rust Reps leaves the
-editor buffer unchanged and shows local feedback.
+F1 format is an editor helper only. Copy and controlled Fill tasks keep it disabled.
+Produce, Repair, and Transform enable it. It invokes the `rustfmt` executable directly,
+never Clippy, Cargo, or `rustc`. When `rustfmt` is unavailable, fails, or times out,
+Rust Reps leaves the editor buffer unchanged and shows local feedback.
+
+The beginner varied sets introduce one return-type concept before guided practice.
+Static focus emphasis marks the relevant stimulus region, and `F2` explains the
+concept with a different worked example without displaying the active expected
+answer. Help is presentation state only: it does not validate, advance, skip, or
+award a rep.
 
 Plain mode remains available with `rust-reps plain` and for piped stdin.
 
 ## Practice Mode
 
-`rust-reps plain` starts practice mode with drills in fixed order.
+`rust-reps plain` starts one finite pass over all 22 drills in fixed order. Piped
+noninteractive fallback is the same finite proof surface, and one-shot commands remain finite.
 
 - `PASS` means exact answer match and advances to the next drill.
 - `TRY AGAIN` means a wrong answer and repeats the same drill.
@@ -128,7 +138,12 @@ Exact answers are literal and deterministic:
 - Unknown colon commands in practice are command errors and do not count attempts.
 - Colon text in one-shot mode is just answer text, so `:help` can be a wrong answer there.
 
-## Current Drills (Placeholder Catalog)
+Copy and controlled Fill tasks use this exact contract. Produce, Repair, and
+Transform use `RustfmtExact`: input is correct when its `rustfmt` output matches
+the trusted answer's `rustfmt` output. That ignores formatting differences only;
+it is not compilation, testing, or semantic equivalence.
+
+## Current Drills
 
 - `001` expects `fn main() {}`
 - `002` expects `println!("Rust Reps");`
@@ -142,12 +157,14 @@ Exact answers are literal and deterministic:
 - `010` expects `fn add_one(x: i32) -> i32 { x + 1 }`
 - `011` expects `if score > 0 {}`
 - `012` expects `while score < 10 {}`
+- `013`–`017` practice one `five`/`i32`/`5` row as Copy, Fill, Produce, Repair, Transform
+- `018`–`022` practice one `seven`/`u64`/`7` row in the same operation order
 
 Each normal catalog rep also has static metadata: short ID, canonical ID, system,
 track, semantic frame, surface frame, operation, concepts, constraints, XP,
 answer rule, and transition. XP is stored metadata only and is not displayed.
-Current normal reps use the `ExactTrimFinalNewline` answer rule and no state
-transition.
+Copy and controlled Fill use `ExactTrimFinalNewline`; full-code Produce, Repair,
+and Transform use `RustfmtExact`. Every normal rep has no state transition.
 
 ## Developer Mode
 
@@ -207,5 +224,5 @@ rust-reps --version
 - No persistence
 - No random mode
 - No compilation validation
-- No validator/check/lint behavior
+- No semantic, compiler, check, lint, or test-runner validation
 - Plain practice remains available through `plain` and piped stdin.

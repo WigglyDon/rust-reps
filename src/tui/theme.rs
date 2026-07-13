@@ -146,6 +146,10 @@ pub(crate) fn code_token_style(kind: CodeTokenKind) -> Style {
     }
 }
 
+pub(crate) fn focused_code_token_style(kind: CodeTokenKind) -> Style {
+    code_token_style(kind).add_modifier(Modifier::BOLD | Modifier::UNDERLINED)
+}
+
 pub(crate) fn status_tone_style(tone: StatusTone) -> Style {
     match tone {
         StatusTone::Pass => Style::default()

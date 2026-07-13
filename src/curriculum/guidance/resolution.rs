@@ -22,6 +22,13 @@ pub(crate) struct ResolvedGuidance {
 }
 
 #[derive(Debug, Eq, PartialEq)]
+pub(crate) struct ResolvedSupportGuidance {
+    pub(crate) concept_label: String,
+    pub(crate) explanation: String,
+    pub(crate) worked_example: Option<String>,
+}
+
+#[derive(Debug, Eq, PartialEq)]
 pub(crate) enum GuidanceError {
     UnknownPack {
         locale: String,
@@ -41,6 +48,16 @@ pub(crate) enum GuidanceError {
         version: u16,
         key: String,
     },
+    UnknownSupport {
+        locale: String,
+        version: u16,
+        key: String,
+    },
+    DuplicateSupport {
+        locale: String,
+        version: u16,
+        key: String,
+    },
     DuplicateAssignment(String),
     UnknownSlot(String),
     MissingMeaningKey(String),
@@ -54,6 +71,42 @@ pub(crate) enum GuidanceError {
         version: u16,
         meaning_key: String,
     },
+}
+
+pub(crate) fn resolve_support_guidance(
+    support_key: &str,
+    packs: &[GuidancePack],
+    locale: &str,
+    pack_version: u16,
+) -> Result<ResolvedSupportGuidance, GuidanceError> {
+    let pack_index = find_pack_index(packs, locale, pack_version)?;
+    let pack = &packs[pack_index];
+    let mut support_index = None;
+    for (index, support) in pack.support.iter().enumerate() {
+        if support.key == support_key {
+            if support_index.is_some() {
+                return Err(GuidanceError::DuplicateSupport {
+                    locale: pack.locale.to_owned(),
+                    version: pack.version,
+                    key: support_key.to_owned(),
+                });
+            }
+            support_index = Some(index);
+        }
+    }
+    let support = support_index
+        .map(|index| &pack.support[index])
+        .ok_or_else(|| GuidanceError::UnknownSupport {
+            locale: pack.locale.to_owned(),
+            version: pack.version,
+            key: support_key.to_owned(),
+        })?;
+
+    Ok(ResolvedSupportGuidance {
+        concept_label: support.concept_label.to_owned(),
+        explanation: support.explanation.to_owned(),
+        worked_example: support.worked_example.map(str::to_owned),
+    })
 }
 
 pub(crate) fn resolve_guidance(
@@ -206,13 +259,15 @@ fn render_guidance_parts(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::curriculum::guidance::{GUIDANCE_PACKS, GlossEntry, GuidanceTemplate};
+    use crate::curriculum::guidance::{
+        GUIDANCE_PACKS, GlossEntry, GuidanceTemplate, SupportGuidance,
+    };
     use crate::curriculum::procgen::expansion::{ExpandedTask, expand_template};
     use crate::curriculum::procgen::{SLOT_DOMAINS, TEMPLATES};
 
     const BASIC_PARTS: &[GuidancePart] = &[GuidancePart::Literal("test")];
     const BASIC_INSTRUCTIONS: &[GuidanceTemplate] = &[GuidanceTemplate {
-        key: "copy.exact_line",
+        key: "copy.return_type_intro",
         parts: BASIC_PARTS,
     }];
     const BASIC_PACK: GuidancePack = GuidancePack {
@@ -220,6 +275,30 @@ mod tests {
         version: 1,
         instructions: BASIC_INSTRUCTIONS,
         glosses: &[],
+        support: &[],
+    };
+
+    const DUPLICATE_SUPPORT: &[SupportGuidance] = &[
+        SupportGuidance {
+            key: "test.concept",
+            concept_label: "first",
+            explanation: "first explanation",
+            worked_example: None,
+        },
+        SupportGuidance {
+            key: "test.concept",
+            concept_label: "second",
+            explanation: "second explanation",
+            worked_example: None,
+        },
+    ];
+
+    const DUPLICATE_SUPPORT_PACK: GuidancePack = GuidancePack {
+        locale: "test",
+        version: 1,
+        instructions: BASIC_INSTRUCTIONS,
+        glosses: &[],
+        support: DUPLICATE_SUPPORT,
     };
 
     const DUPLICATE_PACKS: &[GuidancePack] = &[
@@ -228,22 +307,24 @@ mod tests {
             version: 1,
             instructions: BASIC_INSTRUCTIONS,
             glosses: &[],
+            support: &[],
         },
         GuidancePack {
             locale: "test",
             version: 1,
             instructions: BASIC_INSTRUCTIONS,
             glosses: &[],
+            support: &[],
         },
     ];
 
     const DUPLICATE_INSTRUCTIONS: &[GuidanceTemplate] = &[
         GuidanceTemplate {
-            key: "copy.exact_line",
+            key: "copy.return_type_intro",
             parts: BASIC_PARTS,
         },
         GuidanceTemplate {
-            key: "copy.exact_line",
+            key: "copy.return_type_intro",
             parts: BASIC_PARTS,
         },
     ];
@@ -252,6 +333,7 @@ mod tests {
         version: 1,
         instructions: DUPLICATE_INSTRUCTIONS,
         glosses: &[],
+        support: &[],
     };
 
     const EXACT_PARTS: &[GuidancePart] = &[
@@ -275,11 +357,12 @@ mod tests {
         version: 1,
         instructions: EXACT_INSTRUCTIONS,
         glosses: SINGLE_GLOSS,
+        support: &[],
     };
 
     const UNKNOWN_RENDERED_PARTS: &[GuidancePart] = &[GuidancePart::SlotRendered("MISSING")];
     const UNKNOWN_RENDERED_INSTRUCTIONS: &[GuidanceTemplate] = &[GuidanceTemplate {
-        key: "copy.exact_line",
+        key: "copy.return_type_intro",
         parts: UNKNOWN_RENDERED_PARTS,
     }];
     const UNKNOWN_RENDERED_PACK: GuidancePack = GuidancePack {
@@ -287,11 +370,12 @@ mod tests {
         version: 1,
         instructions: UNKNOWN_RENDERED_INSTRUCTIONS,
         glosses: &[],
+        support: &[],
     };
 
     const UNKNOWN_GLOSS_SLOT_PARTS: &[GuidancePart] = &[GuidancePart::SlotGloss("MISSING")];
     const UNKNOWN_GLOSS_SLOT_INSTRUCTIONS: &[GuidanceTemplate] = &[GuidanceTemplate {
-        key: "copy.exact_line",
+        key: "copy.return_type_intro",
         parts: UNKNOWN_GLOSS_SLOT_PARTS,
     }];
     const UNKNOWN_GLOSS_SLOT_PACK: GuidancePack = GuidancePack {
@@ -299,11 +383,12 @@ mod tests {
         version: 1,
         instructions: UNKNOWN_GLOSS_SLOT_INSTRUCTIONS,
         glosses: &[],
+        support: &[],
     };
 
     const VALUE_GLOSS_PARTS: &[GuidancePart] = &[GuidancePart::SlotGloss("VALUE")];
     const VALUE_GLOSS_INSTRUCTIONS: &[GuidanceTemplate] = &[GuidanceTemplate {
-        key: "copy.exact_line",
+        key: "copy.return_type_intro",
         parts: VALUE_GLOSS_PARTS,
     }];
     const VALUE_GLOSS_PACK: GuidancePack = GuidancePack {
@@ -311,6 +396,7 @@ mod tests {
         version: 1,
         instructions: VALUE_GLOSS_INSTRUCTIONS,
         glosses: &[],
+        support: &[],
     };
 
     const DUPLICATE_GLOSSES: &[GlossEntry] = &[
@@ -328,6 +414,7 @@ mod tests {
         version: 1,
         instructions: VALUE_GLOSS_INSTRUCTIONS,
         glosses: DUPLICATE_GLOSSES,
+        support: &[],
     };
 
     const REPEATED_PARTS: &[GuidancePart] = &[
@@ -340,7 +427,7 @@ mod tests {
         GuidancePart::SlotGloss("VALUE"),
     ];
     const REPEATED_INSTRUCTIONS: &[GuidanceTemplate] = &[GuidanceTemplate {
-        key: "copy.exact_line",
+        key: "copy.return_type_intro",
         parts: REPEATED_PARTS,
     }];
     const REPEATED_PACK: GuidancePack = GuidancePack {
@@ -348,6 +435,7 @@ mod tests {
         version: 1,
         instructions: REPEATED_INSTRUCTIONS,
         glosses: SINGLE_GLOSS,
+        support: &[],
     };
 
     fn current_task() -> ExpandedTask {
@@ -392,17 +480,20 @@ mod tests {
         let ukrainian = resolve_task_guidance(&task, GUIDANCE_PACKS, "uk", 1)
             .expect("Ukrainian proof pack should resolve");
 
-        assert_eq!(english.instruction, "Copy this line exactly:");
+        assert_eq!(
+            english.instruction,
+            "Copy this line exactly: Type the complete function exactly."
+        );
         assert_eq!(ukrainian.instruction, "Скопіюйте цей рядок без змін:");
         assert_eq!(
             english.provenance.core_task_id,
-            "gen:rust:function.return_literal:copy-line:v1:copy:s0"
+            "gen:rust:function.return_literal:copy-return-type:v2:copy:s0"
         );
         assert_eq!(
             english.provenance.core_task_id,
             ukrainian.provenance.core_task_id
         );
-        assert_eq!(english.provenance.instruction_key, "copy.exact_line");
+        assert_eq!(english.provenance.instruction_key, "copy.return_type_intro");
         assert_eq!(
             english.provenance.instruction_key,
             ukrainian.provenance.instruction_key
@@ -414,6 +505,42 @@ mod tests {
         assert_ne!(english.instruction, ukrainian.instruction);
         assert!(before.contains("content_seed: 0"));
         assert_eq!(before, format!("{task:?}"));
+    }
+
+    #[test]
+    fn support_guidance_resolves_by_locale_without_touching_symbolic_content() {
+        let key = "rust.function.return_literal.return_type_arrow";
+        let task = current_task();
+        let before = format!("{task:?}");
+        let english = resolve_support_guidance(key, GUIDANCE_PACKS, "en", 1)
+            .expect("English support must resolve");
+        let ukrainian = resolve_support_guidance(key, GUIDANCE_PACKS, "uk", 1)
+            .expect("Ukrainian proof support must resolve");
+
+        assert_ne!(english.concept_label, ukrainian.concept_label);
+        assert_ne!(english.explanation, ukrainian.explanation);
+        assert_eq!(english.worked_example, ukrainian.worked_example);
+        assert_eq!(before, format!("{task:?}"));
+    }
+
+    #[test]
+    fn support_guidance_failures_are_explicit() {
+        assert_eq!(
+            resolve_support_guidance("missing", GUIDANCE_PACKS, "en", 1),
+            Err(GuidanceError::UnknownSupport {
+                locale: "en".to_owned(),
+                version: 1,
+                key: "missing".to_owned(),
+            })
+        );
+        assert_eq!(
+            resolve_support_guidance("test.concept", &[DUPLICATE_SUPPORT_PACK], "test", 1),
+            Err(GuidanceError::DuplicateSupport {
+                locale: "test".to_owned(),
+                version: 1,
+                key: "test.concept".to_owned(),
+            })
+        );
     }
 
     #[test]
@@ -485,13 +612,13 @@ mod tests {
             })
         );
 
-        task.instruction_key = "copy.exact_line".to_owned();
+        task.instruction_key = "copy.return_type_intro".to_owned();
         assert_eq!(
             resolve_task_guidance(&task, &[DUPLICATE_INSTRUCTION_PACK], "test", 1),
             Err(GuidanceError::DuplicateInstruction {
                 locale: "test".to_owned(),
                 version: 1,
-                key: "copy.exact_line".to_owned(),
+                key: "copy.return_type_intro".to_owned(),
             })
         );
     }
@@ -582,11 +709,14 @@ mod tests {
 
         assert_eq!(
             core_task_id,
-            "gen:rust:function.return_literal:copy-line:v1:copy:s0"
+            "gen:rust:function.return_literal:copy-return-type:v2:copy:s0"
         );
         assert_eq!(locale, "en");
         assert_eq!(pack_version, 1);
-        assert_eq!(instruction_key, "copy.exact_line");
-        assert_eq!(instruction, "Copy this line exactly:");
+        assert_eq!(instruction_key, "copy.return_type_intro");
+        assert_eq!(
+            instruction,
+            "Copy this line exactly: Type the complete function exactly."
+        );
     }
 }

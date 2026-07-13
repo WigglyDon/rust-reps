@@ -63,11 +63,15 @@ Update triggers: Accepted-main change, lane transition, authority change, blocke
   `varied-deterministic-flow-v1` at worktree
   `/home/don/rust-reps-varied-flow-v1` and branch
   `codex/varied-deterministic-flow-v1`. Provisioning was verified with the
-  clean worker at the registration commit, and lane-doctor reported `READY`
-  for its exact lane ID and page.
-- `LIVE_REPO_FACT`: the integration queue remains empty; product behavior and
-  the installed command are unchanged by lane provisioning. Feature
-  implementation remains unstarted, and no candidate exists.
+  clean worker at the provisioning commit, and lane-doctor reported `READY`
+  for its exact lane ID and page. Packet
+  `RR-CURRICULUM-SCAFFOLD-20260713-006` authorizes one focused branch-local
+  beginner concept-scaffolding slice, one candidate amendment, and candidate
+  proof.
+- `LIVE_REPO_FACT`: the integration queue remains empty and canonical product
+  behavior remains unchanged. The branch-local scaffolding candidate is carried
+  by the enclosing amended feature commit; Master review and Don beginner
+  real-TTY curriculum playtest are required before any integration.
 
 ## Accepted Product State
 
@@ -224,12 +228,11 @@ adaptation; lab owns synthetic stress data only.
 
 ## Lanes
 
-- Provisioned and awaiting a fresh implementation packet:
-  [`varied-deterministic-flow-v1`](../lanes/varied-deterministic-flow-v1.md).
-  Its declared worktree and branch exist at the clean registration commit;
-  lane-doctor reported `READY`. Implementation requires a fresh packet matching
-  the final provisioning Context-SHA, and no candidate or integration-queue row
-  exists.
+- Active focused repair: [`varied-deterministic-flow-v1`](../lanes/varied-deterministic-flow-v1.md).
+  Its declared worktree and branch remain active, lane-doctor reports `READY`,
+  and packet `RR-VARIED-FLOW-20260713-004` authorizes one amendment of the
+  isolated candidate for visible submission-contract clarity. The integration
+  queue remains empty and Don re-playtest is required.
 - Retired: [`truthful-task-projection-v1`](../lanes/truthful-task-projection-v1.md),
   accepted and integrated into local canonical master; worktree removed and
   branch deleted after Don's accepted real-TTY playtest.

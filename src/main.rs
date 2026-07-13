@@ -75,9 +75,19 @@ fn should_launch_tui_for(no_args: bool, stdin_is_terminal: bool, stdout_is_termi
 }
 
 fn run_tui_or_exit() {
-    if let Err(err) = tui::run_tui_with_session(current_product_session_or_exit()) {
+    if let Err(err) = tui::run_tui_with_session(current_interactive_session_or_exit()) {
         eprintln!("error: {}", err);
         process::exit(1);
+    }
+}
+
+fn current_interactive_session_or_exit() -> engine::Session {
+    match orchestration::current_interactive_product_session() {
+        Ok(session) => session,
+        Err(err) => {
+            eprintln!("error: {}", err);
+            process::exit(1);
+        }
     }
 }
 
@@ -331,12 +341,13 @@ mod tests {
     }
 
     #[test]
-    fn catalog_contains_expected_twelve_drill_ids_in_order() {
+    fn catalog_contains_expected_twenty_two_drill_ids_in_order() {
         let ids: Vec<&str> = catalog::drills().iter().map(|drill| drill.id).collect();
         assert_eq!(
             ids,
             vec![
                 "001", "002", "003", "004", "005", "006", "007", "008", "009", "010", "011", "012",
+                "013", "014", "015", "016", "017", "018", "019", "020", "021", "022",
             ]
         );
     }

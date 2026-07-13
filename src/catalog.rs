@@ -29,6 +29,7 @@ impl fmt::Display for Drill {
             self.assignments,
             self.stimulus,
             self.expected,
+            self.formatting,
             self.capability_id,
             self.generated_provenance,
             self.validator,
@@ -71,7 +72,8 @@ pub fn find_drill(id: &str) -> Option<&'static Drill> {
 mod tests {
     use super::*;
     use crate::curriculum::{
-        AnswerRule, DRILL_SHARDS, Operation, StateTransition, TaskType, Validator,
+        AnswerRule, DRILL_SHARDS, Formatting, Operation, Stage, StateTransition, TaskType,
+        Validator,
     };
     use crate::lab;
     use std::collections::HashSet;
@@ -194,23 +196,41 @@ mod tests {
     }
 
     #[test]
-    fn metadata_rules_match_current_exact_rep_contract() {
-        for drill in drills() {
-            assert_eq!(drill.metadata.operation, Operation::Copy);
-            assert_eq!(
-                drill.metadata.answer_rule,
-                AnswerRule::ExactTrimFinalNewline
-            );
-            assert_ne!(drill.metadata.answer_rule, AnswerRule::RustfmtExact);
+    fn metadata_rules_match_explicit_operation_contract() {
+        for (index, drill) in drills().iter().enumerate() {
             assert_eq!(drill.metadata.transition, StateTransition::None);
+            if index < 12 {
+                assert_eq!(drill.metadata.operation, Operation::Copy);
+                assert_eq!(
+                    drill.metadata.answer_rule,
+                    AnswerRule::ExactTrimFinalNewline
+                );
+                assert_eq!(drill.formatting, Formatting::Disabled);
+            } else {
+                match drill.metadata.operation {
+                    Operation::Copy | Operation::Fill => {
+                        assert_eq!(
+                            drill.metadata.answer_rule,
+                            AnswerRule::ExactTrimFinalNewline
+                        );
+                        assert_eq!(drill.formatting, Formatting::Disabled);
+                    }
+                    Operation::Produce | Operation::Repair | Operation::Transform => {
+                        assert_eq!(drill.metadata.answer_rule, AnswerRule::RustfmtExact);
+                        assert_eq!(drill.formatting, Formatting::Rustfmt);
+                    }
+                    operation => panic!("unexpected admitted operation {operation:?}"),
+                }
+            }
         }
     }
 
     #[test]
-    fn canonical_id_shape_matches_static_metadata_v1() {
+    fn canonical_id_shape_matches_static_metadata_version() {
         for drill in drills() {
             let canonical_id = drill.metadata.canonical_id;
             let operation = drill.metadata.operation.as_str();
+            let template_version = if drill.id <= "012" { 1 } else { 2 };
             assert!(
                 canonical_id.starts_with(&format!(
                     "{}.{}.",
@@ -221,7 +241,7 @@ mod tests {
                 canonical_id
             );
             assert!(
-                canonical_id.contains(&format!(".v1.{}.", operation)),
+                canonical_id.contains(&format!(".v{template_version}.{}.", operation)),
                 "drill {} canonical id {} should include template version and operation",
                 drill.id,
                 canonical_id
@@ -286,7 +306,7 @@ mod tests {
     }
 
     #[test]
-    fn stimuli_are_not_empty() {
+    fn every_admitted_task_has_an_inspectable_stimulus() {
         for drill in drills() {
             assert!(
                 !drill.stimulus.is_empty(),
@@ -297,9 +317,8 @@ mod tests {
     }
 
     #[test]
-    fn stimuli_for_type_exact_are_one_line() {
+    fn admitted_stimuli_are_one_line() {
         for drill in drills() {
-            assert_eq!(drill.task_type, TaskType::TypeExact);
             assert!(
                 !drill.stimulus.contains('\n'),
                 "expected drill {} stimulus to be one line",
@@ -340,38 +359,44 @@ mod tests {
     }
 
     #[test]
-    fn validator_is_supported_for_task_type() {
+    fn validator_is_supported_for_task_type_and_operation() {
         for drill in drills() {
             match drill.task_type {
                 TaskType::TypeExact => {
                     assert_eq!(drill.validator, Validator::Exact);
-                    assert_ne!(drill.validator, Validator::RustfmtExact);
                 }
+                TaskType::RustCode => assert_eq!(drill.validator, Validator::RustfmtExact),
             }
         }
     }
 
     #[test]
-    fn no_normal_curriculum_rep_uses_rustfmt_exact_marker_yet() {
-        for drill in drills() {
+    fn operation_order_and_validation_policy_are_explicit_for_both_rows() {
+        let operations = [
+            Operation::Copy,
+            Operation::Fill,
+            Operation::Produce,
+            Operation::Repair,
+            Operation::Transform,
+        ];
+        for row in [&drills()[12..17], &drills()[17..22]] {
             assert_eq!(
-                drill.metadata.answer_rule,
-                AnswerRule::ExactTrimFinalNewline,
-                "normal drill {} must stay exact-only",
-                drill.id
+                row.iter()
+                    .map(|drill| drill.metadata.operation)
+                    .collect::<Vec<_>>(),
+                operations
             );
-            assert_eq!(
-                drill.validator,
-                Validator::Exact,
-                "normal drill {} must stay on exact validator",
-                drill.id
-            );
+            assert_eq!(row[0].stage, Stage::Copy);
+            assert_eq!(row[1].stage, Stage::Fill);
+            assert_eq!(row[2].stage, Stage::Produce);
+            assert_eq!(row[3].stage, Stage::Repair);
+            assert_eq!(row[4].stage, Stage::Transform);
         }
     }
 
     #[test]
-    fn catalog_has_twelve_drills() {
-        assert_eq!(drills().len(), 12);
+    fn catalog_has_exactly_twenty_two_drills() {
+        assert_eq!(drills().len(), 22);
     }
 
     #[test]
@@ -408,8 +433,8 @@ mod tests {
             "while score < 10 {}",
         ];
 
-        assert_eq!(drills().len(), expected_ids.len());
-        for (index, drill) in drills().iter().enumerate() {
+        assert_eq!(&drills()[..12].len(), &expected_ids.len());
+        for (index, drill) in drills()[..12].iter().enumerate() {
             assert_eq!(drill.id, expected_ids[index]);
             assert_eq!(drill.metadata.canonical_id, expected_canonical_ids[index]);
             assert_eq!(drill.instruction_key, "copy.exact_line");
@@ -419,6 +444,8 @@ mod tests {
             assert_eq!(drill.stimulus, expected_task_bytes[index]);
             assert_eq!(drill.expected, expected_task_bytes[index]);
             assert_eq!(drill.stimulus, drill.expected);
+            assert_eq!(drill.formatting, Formatting::Disabled);
+            assert_eq!(drill.validator, Validator::Exact);
             assert!(!drill.metadata.canonical_id.starts_with("gen:"));
         }
     }
@@ -441,22 +468,103 @@ mod tests {
         );
         assert_eq!(middle.expected, "score += 1;");
 
-        let last = find_drill("012").unwrap();
-        assert_eq!(last.id, "012");
+        let last_legacy = find_drill("012").unwrap();
+        assert_eq!(last_legacy.id, "012");
         assert_eq!(
-            last.metadata.canonical_id,
+            last_legacy.metadata.canonical_id,
             "rust.control.while_empty.v1.copy.0012"
         );
-        assert_eq!(last.expected, "while score < 10 {}");
+        assert_eq!(last_legacy.expected, "while score < 10 {}");
+
+        let last = find_drill("022").unwrap();
+        assert_eq!(last.id, "022");
+        assert_eq!(
+            last.metadata.canonical_id,
+            "rust.function.return_literal.v2.transform.0022"
+        );
+        assert_eq!(last.expected, "fn seven() -> u64 { 7 }");
     }
 
     #[test]
     fn every_short_one_shot_id_still_resolves() {
         for id in [
             "001", "002", "003", "004", "005", "006", "007", "008", "009", "010", "011", "012",
+            "013", "014", "015", "016", "017", "018", "019", "020", "021", "022",
         ] {
             let drill = find_drill(id).expect("expected short id to resolve");
             assert_eq!(drill.id, id);
+        }
+    }
+
+    #[test]
+    fn admitted_short_ids_are_exactly_001_through_022_without_gaps() {
+        let expected = (1..=22)
+            .map(|number| format!("{number:03}"))
+            .collect::<Vec<_>>();
+        assert_eq!(
+            drills().iter().map(|drill| drill.id).collect::<Vec<_>>(),
+            expected
+        );
+    }
+
+    #[test]
+    fn admitted_varied_tasks_match_checked_materialization_field_for_field() {
+        use crate::curriculum::procgen::materialized::MATERIALIZED_TASKS;
+
+        assert_eq!(MATERIALIZED_TASKS.len(), 10);
+        for (drill, source) in drills()[12..].iter().zip(MATERIALIZED_TASKS) {
+            let provenance = drill
+                .generated_provenance
+                .expect("varied admitted task must carry generated provenance");
+            assert_eq!(provenance.generated_id, source.generated_id);
+            assert_eq!(provenance.template_id, source.template_id);
+            assert_eq!(provenance.template_version, source.template_version);
+            assert_eq!(provenance.content_seed, source.content_seed);
+            assert_eq!(provenance.stimulus_variant, source.stimulus_variant);
+            assert_eq!(provenance.contrast_id, source.contrast_id);
+            assert_eq!(drill.capability_id, Some(source.capability_id));
+            assert_eq!(drill.instruction_key, source.instruction_key);
+            assert_eq!(drill.stimulus, source.stimulus);
+            assert_eq!(drill.expected, source.expected);
+            assert_eq!(drill.metadata.system, source.system);
+            assert_eq!(drill.metadata.track, source.track);
+            assert_eq!(drill.metadata.semantic_frame, source.semantic_frame);
+            assert_eq!(drill.metadata.surface_frame, source.surface_frame);
+            assert_eq!(drill.metadata.operation, source.operation);
+            assert_eq!(drill.metadata.concepts, source.concepts);
+            assert_eq!(drill.metadata.constraints, source.constraints);
+            assert_eq!(drill.metadata.xp, source.xp);
+            assert_eq!(drill.metadata.answer_rule, source.answer_rule);
+            assert_eq!(drill.formatting, source.formatting);
+            assert_eq!(drill.metadata.transition, source.transition);
+            assert_eq!(drill.assignments.len(), source.assignments.len());
+            for (assignment, source_assignment) in drill.assignments.iter().zip(source.assignments)
+            {
+                assert_eq!(assignment.slot, source_assignment.slot);
+                assert_eq!(assignment.domain_id, source_assignment.domain_id);
+                assert_eq!(assignment.domain_version, source_assignment.domain_version);
+                assert_eq!(assignment.value_id, source_assignment.value_id);
+                assert_eq!(assignment.rendered, source_assignment.rendered);
+                assert_eq!(assignment.meaning_key, source_assignment.meaning_key);
+            }
+        }
+    }
+
+    #[test]
+    fn trusted_rustfmt_exact_answers_format_successfully_and_match_themselves() {
+        for drill in drills()
+            .iter()
+            .filter(|drill| drill.metadata.answer_rule == AnswerRule::RustfmtExact)
+        {
+            assert_eq!(
+                crate::validators::validate(
+                    crate::validators::ValidationInput::new(drill.expected, drill.expected),
+                    crate::validators::ValidatorSpec::rustfmt_exact(),
+                ),
+                crate::validators::ValidationOutcome::Correct,
+                "trusted expected bytes for {} must be accepted by real rustfmt",
+                drill.id
+            );
         }
     }
 

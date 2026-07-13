@@ -5,12 +5,14 @@ use crate::{curriculum, lab, validators};
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ExerciseKind {
     TypeExact,
+    RustCode,
 }
 
 impl ExerciseKind {
     pub(crate) fn from_task_type(task_type: curriculum::TaskType) -> Self {
         match task_type {
             curriculum::TaskType::TypeExact => Self::TypeExact,
+            curriculum::TaskType::RustCode => Self::RustCode,
         }
     }
 }
@@ -71,6 +73,28 @@ impl FormatCapability {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum ExerciseSupportStage {
+    Introduce,
+    Guided,
+    Practice,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct ExerciseFocusRange {
+    pub(crate) start: usize,
+    pub(crate) end: usize,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct ExerciseSupport {
+    pub(crate) stage: ExerciseSupportStage,
+    pub(crate) concept_label: Cow<'static, str>,
+    pub(crate) explanation: Cow<'static, str>,
+    pub(crate) worked_example: Option<Cow<'static, str>>,
+    pub(crate) focus_ranges: Vec<ExerciseFocusRange>,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ExercisePacket {
     pub id: Cow<'static, str>,
@@ -78,6 +102,7 @@ pub struct ExercisePacket {
     pub total: usize,
     pub instruction: Cow<'static, str>,
     pub stimulus: Cow<'static, str>,
+    pub(crate) support: Option<ExerciseSupport>,
     expected_answer: Cow<'static, str>,
     pub(crate) format_capability: FormatCapability,
     pub kind: ExerciseKind,
@@ -104,12 +129,18 @@ impl ExercisePacket {
             total,
             instruction,
             stimulus,
+            support: None,
             expected_answer,
             format_capability,
             kind,
             validator,
             answer_rule,
         }
+    }
+
+    pub(crate) fn with_support(mut self, support: ExerciseSupport) -> Self {
+        self.support = Some(support);
+        self
     }
 
     fn validator_spec(&self) -> validators::ValidatorSpec {
@@ -129,7 +160,7 @@ impl ExercisePacket {
 pub enum SubmitResult {
     Correct,
     TryAgain,
-    UnsupportedValidator,
+    ValidationUnavailable,
     NoActiveDrill,
 }
 
@@ -157,6 +188,11 @@ pub struct SessionSnapshot {
 #[derive(Clone, Debug, PartialEq, Eq)]
 enum ExerciseSource {
     Product(Vec<ExercisePacket>),
+    LoopingProduct {
+        looping_exercises: Vec<ExercisePacket>,
+        catalog_exercises: Vec<ExercisePacket>,
+        round_size: usize,
+    },
     Lab {
         product_exercises: Vec<ExercisePacket>,
     },
@@ -166,6 +202,7 @@ impl ExerciseSource {
     fn len(&self) -> usize {
         match self {
             Self::Product(exercises) => exercises.len(),
+            Self::LoopingProduct { round_size, .. } => *round_size,
             Self::Lab { .. } => usize::MAX,
         }
     }
@@ -173,6 +210,11 @@ impl ExerciseSource {
     fn get(&self, index: usize) -> Option<ExercisePacket> {
         match self {
             Self::Product(exercises) => exercises.get(index).cloned(),
+            Self::LoopingProduct {
+                looping_exercises, ..
+            } => looping_exercises
+                .get(index % looping_exercises.len())
+                .cloned(),
             Self::Lab { .. } => Some(lab::exercise_packet_at(index)),
         }
     }
@@ -180,12 +222,22 @@ impl ExerciseSource {
     fn product_exercises(&self) -> &[ExercisePacket] {
         match self {
             Self::Product(exercises) => exercises,
+            Self::LoopingProduct {
+                catalog_exercises, ..
+            } => catalog_exercises,
             Self::Lab { product_exercises } => product_exercises,
         }
     }
 
     fn is_endless(&self) -> bool {
-        matches!(self, Self::Lab { .. })
+        matches!(self, Self::LoopingProduct { .. } | Self::Lab { .. })
+    }
+
+    fn round_position(&self, index: usize) -> Option<(usize, usize)> {
+        match self {
+            Self::LoopingProduct { round_size, .. } => Some((index % *round_size + 1, *round_size)),
+            Self::Product(_) | Self::Lab { .. } => None,
+        }
     }
 }
 
@@ -213,6 +265,30 @@ impl Session {
     pub(crate) fn lab_with_product_exercises(product_exercises: Vec<ExercisePacket>) -> Self {
         Self {
             source: ExerciseSource::Lab { product_exercises },
+            index: 0,
+            passed: 0,
+            skipped: 0,
+            attempts: 0,
+            wrong_answer_feedback: None,
+        }
+    }
+
+    pub(crate) fn looping_from_exercises(
+        looping_exercises: Vec<ExercisePacket>,
+        catalog_exercises: Vec<ExercisePacket>,
+        round_size: usize,
+    ) -> Self {
+        assert!(round_size > 0, "looping round must contain exercises");
+        assert!(
+            !looping_exercises.is_empty() && looping_exercises.len() % round_size == 0,
+            "looping exercises must contain complete rounds"
+        );
+        Self {
+            source: ExerciseSource::LoopingProduct {
+                looping_exercises,
+                catalog_exercises,
+                round_size,
+            },
             index: 0,
             passed: 0,
             skipped: 0,
@@ -280,6 +356,10 @@ impl Session {
         !self.source.is_endless() && self.index >= self.total_drills()
     }
 
+    pub fn round_position(&self) -> Option<(usize, usize)> {
+        self.source.round_position(self.index)
+    }
+
     pub fn current_exercise(&self) -> Option<ExercisePacket> {
         self.source.get(self.index)
     }
@@ -311,17 +391,24 @@ impl Session {
         let Some(exercise) = self.current_exercise() else {
             return SubmitResult::NoActiveDrill;
         };
-
         self.wrong_answer_feedback = None;
         let outcome = validators::validate(
             validators::ValidationInput::new(input, exercise.expected_answer.as_ref()),
             exercise.validator_spec(),
         );
+        self.apply_validation_outcome(exercise, outcome)
+    }
+
+    fn apply_validation_outcome(
+        &mut self,
+        exercise: ExercisePacket,
+        outcome: validators::ValidationOutcome,
+    ) -> SubmitResult {
         match outcome {
             validators::ValidationOutcome::Correct => {
                 self.attempts += 1;
                 self.passed += 1;
-                self.index = self.index.saturating_add(1);
+                self.advance();
                 SubmitResult::Correct
             }
             validators::ValidationOutcome::Wrong => {
@@ -329,9 +416,7 @@ impl Session {
                 self.wrong_answer_feedback = Some(exercise.expected_answer.clone());
                 SubmitResult::TryAgain
             }
-            validators::ValidationOutcome::UnsupportedValidator => {
-                SubmitResult::UnsupportedValidator
-            }
+            validators::ValidationOutcome::Unavailable => SubmitResult::ValidationUnavailable,
         }
     }
 
@@ -342,8 +427,12 @@ impl Session {
 
         self.wrong_answer_feedback = None;
         self.skipped += 1;
-        self.index = self.index.saturating_add(1);
+        self.advance();
         SkipResult::Skipped
+    }
+
+    fn advance(&mut self) {
+        self.index = self.index.saturating_add(1);
     }
 }
 
@@ -353,7 +442,36 @@ mod tests {
         ExerciseAnswerRule, ExerciseKind, ExerciseValidator, FormatCapability, Session, SkipResult,
         SubmitResult,
     };
-    use crate::{curriculum, lab, validators};
+    use crate::tool_runner::{FakeToolRunner, ToolFailure, ToolKind, ToolResult};
+    use crate::{curriculum, lab, orchestration, validators};
+
+    impl Session {
+        fn submit_answer_with_runner<R: crate::tool_runner::ToolRunner>(
+            &mut self,
+            input: &str,
+            runner: &mut R,
+        ) -> SubmitResult {
+            let Some(exercise) = self.current_exercise() else {
+                return SubmitResult::NoActiveDrill;
+            };
+            self.wrong_answer_feedback = None;
+            let outcome = validators::validate_with_runner(
+                validators::ValidationInput::new(input, exercise.expected_answer.as_ref()),
+                exercise.validator_spec(),
+                runner,
+            );
+            self.apply_validation_outcome(exercise, outcome)
+        }
+    }
+
+    fn one_task_session(id: &str) -> Session {
+        let exercise = orchestration::current_product_exercise_packets()
+            .expect("product packets must resolve")
+            .into_iter()
+            .find(|exercise| exercise.id == id)
+            .expect("requested product exercise must exist");
+        Session::from_exercises(vec![exercise])
+    }
 
     #[test]
     fn new_session_starts_at_exercise_001() {
@@ -574,8 +692,8 @@ mod tests {
             );
         }
 
-        assert_eq!(session.passed(), 12);
-        assert_eq!(session.attempts(), 12);
+        assert_eq!(session.passed(), 22);
+        assert_eq!(session.attempts(), 22);
         assert!(session.is_complete());
         assert!(session.current_exercise().is_none());
     }
@@ -588,10 +706,160 @@ mod tests {
             assert_eq!(session.skip(), SkipResult::Skipped);
         }
 
-        assert_eq!(session.skipped(), 12);
+        assert_eq!(session.skipped(), 22);
         assert_eq!(session.attempts(), 0);
         assert!(session.is_complete());
         assert!(session.current_exercise().is_none());
+    }
+
+    #[test]
+    fn looping_correct_at_five_opens_one_of_next_correlated_row() {
+        let mut session = orchestration::current_interactive_product_session()
+            .expect("interactive product session must resolve");
+        for _ in 0..4 {
+            assert_eq!(session.skip(), SkipResult::Skipped);
+        }
+        assert_eq!(session.round_position(), Some((5, 5)));
+        assert_eq!(session.current_exercise().unwrap().id, "017");
+
+        let mut runner = FakeToolRunner::new(vec![
+            ToolResult::success("fn five() -> i32 {\n    5\n}\n", ""),
+            ToolResult::success("fn five() -> i32 {\n    5\n}\n", ""),
+        ]);
+        assert_eq!(
+            session.submit_answer_with_runner("fn five()->i32{5}", &mut runner),
+            SubmitResult::Correct
+        );
+
+        assert_eq!(session.current_exercise().unwrap().id, "018");
+        assert_eq!(session.round_position(), Some((1, 5)));
+        assert_eq!(session.passed(), 1);
+        assert_eq!(session.attempts(), 1);
+        assert!(!session.is_complete());
+    }
+
+    #[test]
+    fn looping_skip_at_five_opens_one_of_next_correlated_row_without_attempt() {
+        let mut session = orchestration::current_interactive_product_session()
+            .expect("interactive product session must resolve");
+        for _ in 0..5 {
+            assert_eq!(session.skip(), SkipResult::Skipped);
+        }
+
+        assert_eq!(session.current_exercise().unwrap().id, "018");
+        assert_eq!(session.round_position(), Some((1, 5)));
+        assert_eq!(session.skipped(), 5);
+        assert_eq!(session.attempts(), 0);
+        assert_eq!(session.passed(), 0);
+        assert!(!session.is_complete());
+    }
+
+    #[test]
+    fn looping_wrong_at_five_records_attempt_and_stays_at_five() {
+        let mut session = orchestration::current_interactive_product_session()
+            .expect("interactive product session must resolve");
+        for _ in 0..4 {
+            assert_eq!(session.skip(), SkipResult::Skipped);
+        }
+        let mut runner = FakeToolRunner::new(vec![
+            ToolResult::success("fn other() -> i32 {\n    5\n}\n", ""),
+            ToolResult::success("fn five() -> i32 {\n    5\n}\n", ""),
+        ]);
+
+        assert_eq!(
+            session.submit_answer_with_runner("fn other()->i32{5}", &mut runner),
+            SubmitResult::TryAgain
+        );
+        assert_eq!(session.current_exercise().unwrap().id, "017");
+        assert_eq!(session.round_position(), Some((5, 5)));
+        assert_eq!(session.attempts(), 1);
+        assert_eq!(session.passed(), 0);
+        assert!(!session.is_complete());
+    }
+
+    #[test]
+    fn rustfmt_rejected_learner_input_is_wrong_attempt_without_advancing() {
+        let mut session = one_task_session("015");
+        let mut runner =
+            FakeToolRunner::new(vec![ToolResult::nonzero(1, "", "submitted parse error\n")]);
+
+        assert_eq!(
+            session.submit_answer_with_runner("fn {", &mut runner),
+            SubmitResult::TryAgain
+        );
+        assert_eq!(session.current_exercise().unwrap().id, "015");
+        assert_eq!(session.attempts(), 1);
+        assert_eq!(session.passed(), 0);
+    }
+
+    #[test]
+    fn rustfmt_unavailability_is_not_wrong_or_attempt_evidence() {
+        let mut session = one_task_session("015");
+        let mut runner = FakeToolRunner::new(vec![ToolResult::Failure(ToolFailure::Unavailable {
+            tool: ToolKind::Formatter,
+        })]);
+
+        assert_eq!(
+            session.submit_answer_with_runner("fn five() -> i32 { 5 }", &mut runner),
+            SubmitResult::ValidationUnavailable
+        );
+        assert_eq!(session.current_exercise().unwrap().id, "015");
+        assert_eq!(session.attempts(), 0);
+        assert_eq!(session.passed(), 0);
+        assert_eq!(session.wrong_answer_feedback(), None);
+    }
+
+    #[test]
+    fn exact_fill_does_not_invoke_rustfmt_and_keeps_exact_bytes() {
+        let mut session = one_task_session("014");
+        let mut runner = FakeToolRunner::new(Vec::new());
+
+        assert_eq!(
+            session.submit_answer_with_runner("5 ", &mut runner),
+            SubmitResult::TryAgain
+        );
+        assert!(runner.requests().is_empty());
+        assert_eq!(session.attempts(), 1);
+        assert_eq!(session.current_exercise().unwrap().id, "014");
+    }
+
+    #[test]
+    fn both_varied_fills_accept_only_the_exact_replacement_token() {
+        for (id, token, complete_function) in [
+            ("014", "->", "fn five() -> i32 { 5 }"),
+            ("019", "->", "fn seven() -> u64 { 7 }"),
+        ] {
+            for accepted in [
+                token.to_owned(),
+                format!("{token}\n"),
+                format!("{token}\r\n"),
+            ] {
+                let mut session = one_task_session(id);
+                let mut runner = FakeToolRunner::new(Vec::new());
+
+                assert_eq!(
+                    session.submit_answer_with_runner(&accepted, &mut runner),
+                    SubmitResult::Correct
+                );
+                assert!(runner.requests().is_empty());
+                assert_eq!(session.attempts(), 1);
+                assert_eq!(session.passed(), 1);
+            }
+
+            for wrong in [format!("{token} "), complete_function.to_owned()] {
+                let mut session = one_task_session(id);
+                let mut runner = FakeToolRunner::new(Vec::new());
+
+                assert_eq!(
+                    session.submit_answer_with_runner(&wrong, &mut runner),
+                    SubmitResult::TryAgain
+                );
+                assert!(runner.requests().is_empty());
+                assert_eq!(session.attempts(), 1);
+                assert_eq!(session.passed(), 0);
+                assert_eq!(session.current_exercise().unwrap().id, id);
+            }
+        }
     }
 
     #[test]
@@ -609,7 +877,7 @@ mod tests {
         assert_eq!(snapshot.stats.passed, 0);
         assert_eq!(snapshot.stats.skipped, 1);
         assert_eq!(snapshot.stats.attempts, 1);
-        assert_eq!(snapshot.stats.total_drills, 12);
+        assert_eq!(snapshot.stats.total_drills, 22);
         assert!(!snapshot.is_complete);
     }
 
@@ -642,7 +910,7 @@ mod tests {
 
         assert_eq!(exercise.id, "001");
         assert_eq!(exercise.position, 1);
-        assert_eq!(exercise.total, 12);
+        assert_eq!(exercise.total, 22);
         assert_eq!(exercise.stimulus, "fn main() {}");
         assert_eq!(exercise.expected_answer, "fn main() {}");
         assert_eq!(exercise.instruction, "Copy this line exactly:");
@@ -665,7 +933,7 @@ mod tests {
     }
 
     #[test]
-    fn future_rustfmt_exact_marker_maps_to_unsupported_validator_spec() {
+    fn rustfmt_exact_marker_maps_to_active_validator_spec() {
         let validator = ExerciseValidator::from_validator(curriculum::Validator::RustfmtExact);
         let answer_rule =
             ExerciseAnswerRule::from_answer_rule(curriculum::AnswerRule::RustfmtExact);
@@ -681,9 +949,9 @@ mod tests {
                 validators::ValidationInput::new("fn main() {}", "fn main() {}"),
                 spec,
             ),
-            validators::ValidationOutcome::UnsupportedValidator
+            validators::ValidationOutcome::Correct
         );
-        assert_ne!(SubmitResult::UnsupportedValidator, SubmitResult::TryAgain);
+        assert_ne!(SubmitResult::ValidationUnavailable, SubmitResult::TryAgain);
     }
 
     #[test]
@@ -738,8 +1006,8 @@ mod tests {
 
         assert!(snapshot.is_complete);
         assert!(snapshot.exercise.is_none());
-        assert_eq!(snapshot.stats.passed, 12);
-        assert_eq!(snapshot.stats.total_drills, 12);
+        assert_eq!(snapshot.stats.passed, 22);
+        assert_eq!(snapshot.stats.total_drills, 22);
     }
 
     #[test]

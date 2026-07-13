@@ -69,10 +69,19 @@ impl<'a> ValidationInput<'a> {
 pub enum ValidationOutcome {
     Correct,
     Wrong,
-    UnsupportedValidator,
+    Unavailable,
 }
 
 pub fn validate(input: ValidationInput<'_>, spec: ValidatorSpec) -> ValidationOutcome {
+    let mut runner = tool_runner::RealToolRunner::new();
+    validate_with_runner(input, spec, &mut runner)
+}
+
+pub(crate) fn validate_with_runner<R: tool_runner::ToolRunner>(
+    input: ValidationInput<'_>,
+    spec: ValidatorSpec,
+    runner: &mut R,
+) -> ValidationOutcome {
     match (spec.kind, spec.answer_rule) {
         (ValidatorKind::Exact, curriculum::AnswerRule::ExactTrimFinalNewline) => {
             if answer::check_answer(input.submitted, input.expected) {
@@ -81,7 +90,18 @@ pub fn validate(input: ValidationInput<'_>, spec: ValidatorSpec) -> ValidationOu
                 ValidationOutcome::Wrong
             }
         }
-        _ => ValidationOutcome::UnsupportedValidator,
+        (ValidatorKind::RustfmtExact, curriculum::AnswerRule::RustfmtExact) => {
+            match evaluate_rustfmt_exact_with_runner(input, runner) {
+                RustfmtExactEvaluation::Correct => ValidationOutcome::Correct,
+                RustfmtExactEvaluation::Wrong => ValidationOutcome::Wrong,
+                RustfmtExactEvaluation::Failure(RustfmtExactFailure::ToolNonzero {
+                    phase: RustfmtExactPhase::Submitted,
+                    ..
+                }) => ValidationOutcome::Wrong,
+                RustfmtExactEvaluation::Failure(_) => ValidationOutcome::Unavailable,
+            }
+        }
+        _ => ValidationOutcome::Unavailable,
     }
 }
 
@@ -263,7 +283,7 @@ mod tests {
     use super::{
         RustfmtExactEvaluation, RustfmtExactFailure, RustfmtExactPhase, ValidationInput,
         ValidationOutcome, ValidatorKind, ValidatorSpec, evaluate_rustfmt_exact_with_fake_runner,
-        evaluate_rustfmt_exact_with_runner, validate,
+        evaluate_rustfmt_exact_with_runner, validate, validate_with_runner,
     };
     use crate::curriculum::{AnswerRule, Validator};
     use crate::tool_runner::{
@@ -287,7 +307,7 @@ mod tests {
     }
 
     #[test]
-    fn catalog_rustfmt_exact_rule_maps_to_inert_rustfmt_exact_spec() {
+    fn catalog_rustfmt_exact_rule_maps_to_rustfmt_exact_spec() {
         let spec = ValidatorSpec::from_catalog(Validator::RustfmtExact, AnswerRule::RustfmtExact);
 
         assert_eq!(spec.kind, ValidatorKind::RustfmtExact);
@@ -375,24 +395,49 @@ mod tests {
     }
 
     #[test]
-    fn rustfmt_exact_is_representable_but_not_executable_yet() {
-        let outcome = validate(
-            ValidationInput::new("fn main() {}", "fn main() {}"),
-            ValidatorSpec::rustfmt_exact(),
+    fn rustfmt_exact_product_dispatch_accepts_equivalent_fake_outputs() {
+        let mut runner = FakeToolRunner::new(vec![
+            ToolResult::success("fn main() {}\n", ""),
+            ToolResult::success("fn main() {}\n", ""),
+        ]);
+        assert_eq!(
+            validate_with_runner(
+                ValidationInput::new("fn main(){ }", "fn main() {}"),
+                ValidatorSpec::rustfmt_exact(),
+                &mut runner,
+            ),
+            ValidationOutcome::Correct
         );
-
-        assert_eq!(outcome, ValidationOutcome::UnsupportedValidator);
     }
 
     #[test]
-    fn unsupported_rustfmt_exact_is_not_classified_as_wrong() {
-        let outcome = validate(
-            ValidationInput::new("wrong", "fn main() {}"),
-            ValidatorSpec::rustfmt_exact(),
+    fn rustfmt_unavailability_is_not_classified_as_wrong() {
+        let mut runner = FakeToolRunner::new(vec![ToolResult::Failure(ToolFailure::Unavailable {
+            tool: ToolKind::Formatter,
+        })]);
+        assert_eq!(
+            validate_with_runner(
+                ValidationInput::new("fn main() {}", "fn main() {}"),
+                ValidatorSpec::rustfmt_exact(),
+                &mut runner,
+            ),
+            ValidationOutcome::Unavailable
         );
+    }
 
-        assert_ne!(outcome, ValidationOutcome::Wrong);
-        assert_eq!(outcome, ValidationOutcome::UnsupportedValidator);
+    #[test]
+    fn exact_dispatch_never_invokes_the_formatter_runner() {
+        let mut runner = FakeToolRunner::new(Vec::new());
+
+        assert_eq!(
+            validate_with_runner(
+                ValidationInput::new("5\r\n", "5"),
+                ValidatorSpec::exact_trim_final_newline(),
+                &mut runner,
+            ),
+            ValidationOutcome::Correct
+        );
+        assert!(runner.requests().is_empty());
     }
 
     #[test]
@@ -403,7 +448,7 @@ mod tests {
         assert_eq!(spec.answer_rule, AnswerRule::RustfmtExact);
         assert_eq!(
             validate(ValidationInput::new("fn main() {}", "fn main() {}"), spec),
-            ValidationOutcome::UnsupportedValidator
+            ValidationOutcome::Unavailable
         );
     }
 
@@ -760,19 +805,22 @@ mod tests {
     }
 
     #[test]
-    fn product_validate_still_leaves_rustfmt_exact_unsupported() {
-        let outcome = validate(
-            ValidationInput::new("fn main() {}", "fn main() {}"),
-            ValidatorSpec::rustfmt_exact(),
+    fn product_dispatch_maps_submitted_parse_failure_to_wrong() {
+        let mut runner =
+            FakeToolRunner::new(vec![ToolResult::nonzero(1, "", "submitted parse error\n")]);
+        assert_eq!(
+            validate_with_runner(
+                ValidationInput::new("let = ;", "fn main() {}"),
+                ValidatorSpec::rustfmt_exact(),
+                &mut runner,
+            ),
+            ValidationOutcome::Wrong
         );
-
-        assert_eq!(outcome, ValidationOutcome::UnsupportedValidator);
     }
 
     #[test]
-    fn product_modules_do_not_call_rustfmt_exact_evaluator_or_real_runner() {
+    fn client_formatter_and_adapters_do_not_call_answer_validator_internals() {
         let product_sources = [
-            include_str!("engine/mod.rs"),
             include_str!("practice.rs"),
             include_str!("cli.rs"),
             include_str!("lab.rs"),
@@ -789,12 +837,13 @@ mod tests {
     }
 
     #[test]
-    fn validators_module_stays_disconnected_from_real_tool_execution() {
+    fn validators_use_only_the_fixed_tool_runner_boundary() {
         let source = include_str!("validators.rs")
             .split("#[cfg(test)]")
             .next()
             .expect("expected production validator source");
 
+        assert!(source.contains("RealToolRunner::new"));
         for forbidden in [
             format!("{}{}", "format", "ter"),
             format!("{}{}", "std::", "process"),

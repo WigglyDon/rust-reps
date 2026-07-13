@@ -26,6 +26,7 @@ pub enum ClientAction {
     ScrollEditorUp,
     ScrollEditorDown,
     Format,
+    Help,
     Submit,
     Skip,
     Quit,
@@ -51,6 +52,7 @@ pub enum CodeTokenKind {
 pub struct CodeToken {
     pub kind: CodeTokenKind,
     pub text: String,
+    pub focused: bool,
 }
 
 impl CodeToken {
@@ -58,7 +60,13 @@ impl CodeToken {
         Self {
             kind,
             text: text.into(),
+            focused: false,
         }
+    }
+
+    fn with_focus(mut self, focused: bool) -> Self {
+        self.focused = focused;
+        self
     }
 }
 
@@ -89,6 +97,10 @@ pub enum ProblemLineKind {
     AnswerShape,
     Bullet,
     Code,
+    ConceptLabel,
+    HelpText,
+    HelpExample,
+    HelpNotice,
     #[allow(dead_code)]
     Plain,
 }
@@ -163,6 +175,42 @@ impl ProblemDisplayLine {
             kind: ProblemLineKind::Code,
             text,
             tokens,
+            stimulus_row: None,
+        }
+    }
+
+    fn concept_label(text: impl Into<String>) -> Self {
+        Self {
+            kind: ProblemLineKind::ConceptLabel,
+            text: text.into(),
+            tokens: Vec::new(),
+            stimulus_row: None,
+        }
+    }
+
+    fn help_text(text: impl Into<String>) -> Self {
+        Self {
+            kind: ProblemLineKind::HelpText,
+            text: text.into(),
+            tokens: Vec::new(),
+            stimulus_row: None,
+        }
+    }
+
+    fn help_example(text: &str) -> Self {
+        Self {
+            kind: ProblemLineKind::HelpExample,
+            text: text.to_owned(),
+            tokens: vec![CodeToken::new(CodeTokenKind::Plain, text)],
+            stimulus_row: None,
+        }
+    }
+
+    fn help_notice(text: impl Into<String>) -> Self {
+        Self {
+            kind: ProblemLineKind::HelpNotice,
+            text: text.into(),
+            tokens: Vec::new(),
             stimulus_row: None,
         }
     }
@@ -734,6 +782,8 @@ pub struct ClientUiState {
     failure_pulse: FailurePulse,
     skip_toast: SkipToast,
     format_toast: FormatToast,
+    help_open: bool,
+    help_unavailable: bool,
 }
 
 impl ClientUiState {
@@ -747,6 +797,8 @@ impl ClientUiState {
             failure_pulse: FailurePulse::new(),
             skip_toast: SkipToast::new(),
             format_toast: FormatToast::new(),
+            help_open: false,
+            help_unavailable: false,
         }
     }
 
@@ -772,6 +824,30 @@ impl ClientUiState {
 
     pub fn status_lines(&self) -> &[String] {
         &self.status_lines
+    }
+
+    pub fn help_open(&self) -> bool {
+        self.help_open
+    }
+
+    pub fn help_unavailable(&self) -> bool {
+        self.help_unavailable
+    }
+
+    pub fn toggle_help(&mut self, available: bool) {
+        if available {
+            self.help_open = !self.help_open;
+            self.help_unavailable = false;
+        } else {
+            self.help_open = false;
+            self.help_unavailable = true;
+        }
+        self.show_cursor();
+    }
+
+    pub fn reset_task_support_state(&mut self) {
+        self.help_open = false;
+        self.help_unavailable = false;
     }
 
     pub fn reward_frame_at(&self, now: Instant) -> RewardFrame {
@@ -876,7 +952,7 @@ impl ClientUiState {
                 self.editor.apply_action(EditorAction::ScrollViewportDown);
                 self.show_cursor();
             }
-            ClientAction::Format => {}
+            ClientAction::Format | ClientAction::Help => {}
             ClientAction::CursorTick => {
                 self.cursor_visible = !self.cursor_visible;
             }
@@ -995,6 +1071,7 @@ pub struct ClientFrame {
     pub game_window: GameWindowFrame,
     pub status_chrome: StatusChromeFrame,
     pub completed_reps_this_run: usize,
+    pub round_position: Option<(usize, usize)>,
     pub reward: RewardFrame,
     pub reward_active: bool,
     pub failure: FailureFrame,
@@ -1004,6 +1081,8 @@ pub struct ClientFrame {
     pub format_available: bool,
     pub format: FormatFrame,
     pub format_active: bool,
+    pub help_available: bool,
+    pub help_open: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -1129,9 +1208,14 @@ pub fn project_client_frame_for_layout(
     let failure = ui_state.failure_frame_at(now);
     let skip = ui_state.skip_frame_at(now);
     let format = ui_state.format_frame_at(now);
-    let problem_lines = problem_display_lines(
+    let support = exercise.support.as_ref();
+    let help_open = ui_state.help_open() && support.is_some();
+    let problem_lines = problem_display_lines_with_support(
         exercise.instruction.as_ref(),
         exercise.stimulus.as_ref(),
+        support,
+        help_open,
+        ui_state.help_unavailable(),
         problem_wrap_width,
     );
     let stimulus_line_count = problem_lines
@@ -1161,6 +1245,7 @@ pub fn project_client_frame_for_layout(
             lines: status_lines(ui_state.status_lines()),
         },
         completed_reps_this_run: snapshot.stats.passed,
+        round_position: session.round_position(),
         reward,
         reward_active: reward.active,
         failure,
@@ -1170,12 +1255,26 @@ pub fn project_client_frame_for_layout(
         format_available: exercise.format_capability.is_available(),
         format,
         format_active: format.active,
+        help_available: support.is_some(),
+        help_open,
     }
 }
 
+#[cfg(test)]
 fn problem_display_lines(
     instruction: &str,
     stimulus: &str,
+    wrap_width: usize,
+) -> Vec<ProblemDisplayLine> {
+    problem_display_lines_with_support(instruction, stimulus, None, false, false, wrap_width)
+}
+
+fn problem_display_lines_with_support(
+    instruction: &str,
+    stimulus: &str,
+    support: Option<&engine::ExerciseSupport>,
+    help_open: bool,
+    help_unavailable: bool,
     wrap_width: usize,
 ) -> Vec<ProblemDisplayLine> {
     let mut lines = Vec::new();
@@ -1186,12 +1285,53 @@ fn problem_display_lines(
                 .map(ProblemDisplayLine::header),
         );
     }
+    if let Some(support) = support {
+        let introduce = support.stage == engine::ExerciseSupportStage::Introduce;
+        if introduce || help_open {
+            lines.extend(
+                split_display_line(support.concept_label.as_ref(), wrap_width)
+                    .into_iter()
+                    .map(ProblemDisplayLine::concept_label),
+            );
+            lines.extend(
+                split_display_line(support.explanation.as_ref(), wrap_width)
+                    .into_iter()
+                    .map(ProblemDisplayLine::help_text),
+            );
+        }
+        if help_open {
+            if let Some(example) = support.worked_example.as_deref() {
+                lines.extend(
+                    split_long_segment(example, wrap_width)
+                        .into_iter()
+                        .map(|line| ProblemDisplayLine::help_example(&line)),
+                );
+            }
+        }
+    }
+    if help_unavailable {
+        lines.push(ProblemDisplayLine::help_notice("help unavailable"));
+    }
+    if stimulus.is_empty() {
+        return lines;
+    }
+    let visible_focus = support.is_some_and(|support| {
+        support.stage != engine::ExerciseSupportStage::Practice || help_open
+    });
+    let focus_ranges = support
+        .filter(|_| visible_focus)
+        .map(|support| support.focus_ranges.as_slice())
+        .unwrap_or(&[]);
     let stimulus_wrap_width = wrap_width.saturating_sub(STIMULUS_GUTTER_WIDTH).max(1);
-    for line in stimulus.lines() {
+    let mut source_offset = 0usize;
+    for line in stimulus.split('\n') {
         lines.extend(stimulus_display_lines_for_source_line(
             line,
             stimulus_wrap_width,
+            source_offset,
+            focus_ranges,
         ));
+        source_offset = source_offset.saturating_add(line.len() + 1);
     }
     lines
 }
@@ -1199,11 +1339,18 @@ fn problem_display_lines(
 fn stimulus_display_lines_for_source_line(
     line: &str,
     wrap_width: usize,
+    source_offset: usize,
+    focus_ranges: &[engine::ExerciseFocusRange],
 ) -> Vec<ProblemDisplayLine> {
     let display_lines = if line.is_empty() {
         vec![ProblemDisplayLine::blank()]
     } else {
-        problem_display_lines_for_source_line(line, wrap_width)
+        problem_display_lines_for_source_line_with_focus(
+            line,
+            wrap_width,
+            source_offset,
+            focus_ranges,
+        )
     };
 
     display_lines
@@ -1227,8 +1374,26 @@ fn should_render_problem_instruction(stimulus: &str) -> bool {
         .is_none_or(|line| !is_problem_header(line.trim()))
 }
 
+#[cfg(test)]
 fn problem_display_lines_for_source_line(line: &str, wrap_width: usize) -> Vec<ProblemDisplayLine> {
-    let kind = problem_line_kind(line);
+    problem_display_lines_for_source_line_with_focus(line, wrap_width, 0, &[])
+}
+
+fn problem_display_lines_for_source_line_with_focus(
+    line: &str,
+    wrap_width: usize,
+    source_offset: usize,
+    focus_ranges: &[engine::ExerciseFocusRange],
+) -> Vec<ProblemDisplayLine> {
+    let line_end = source_offset.saturating_add(line.len());
+    let has_focus = focus_ranges
+        .iter()
+        .any(|range| range.start < line_end && range.end > source_offset);
+    let kind = if has_focus {
+        ProblemLineKind::Code
+    } else {
+        problem_line_kind(line)
+    };
     match kind {
         ProblemLineKind::Blank => vec![ProblemDisplayLine::blank()],
         ProblemLineKind::Header => split_display_line_for_kind(line, wrap_width, kind)
@@ -1243,7 +1408,13 @@ fn problem_display_lines_for_source_line(line: &str, wrap_width: usize) -> Vec<P
             .into_iter()
             .map(ProblemDisplayLine::bullet)
             .collect(),
-        ProblemLineKind::Code => split_code_display_line(line, wrap_width),
+        ProblemLineKind::Code => {
+            split_code_display_line_with_focus(line, wrap_width, source_offset, focus_ranges)
+        }
+        ProblemLineKind::ConceptLabel
+        | ProblemLineKind::HelpText
+        | ProblemLineKind::HelpExample
+        | ProblemLineKind::HelpNotice => unreachable!("support lines are not source lines"),
         ProblemLineKind::Plain => split_display_line_for_kind(line, wrap_width, kind)
             .into_iter()
             .map(ProblemDisplayLine::plain)
@@ -1262,6 +1433,10 @@ fn split_display_line_for_kind(
             .map(|line| line.text)
             .collect(),
         ProblemLineKind::Bullet => wrap_problem_bullet(line, wrap_width),
+        ProblemLineKind::ConceptLabel
+        | ProblemLineKind::HelpText
+        | ProblemLineKind::HelpExample
+        | ProblemLineKind::HelpNotice => split_display_line(line, wrap_width),
         _ => split_display_line(line, wrap_width),
     }
 }
@@ -1475,6 +1650,54 @@ fn split_code_display_line(line: &str, wrap_width: usize) -> Vec<ProblemDisplayL
         .collect()
 }
 
+fn split_code_display_line_with_focus(
+    line: &str,
+    wrap_width: usize,
+    source_offset: usize,
+    focus_ranges: &[engine::ExerciseFocusRange],
+) -> Vec<ProblemDisplayLine> {
+    let tokens = tokens_with_focus(tokenize_rust_line(line), source_offset, focus_ranges);
+    split_code_tokens_for_display(&tokens, wrap_width)
+        .into_iter()
+        .map(ProblemDisplayLine::code_with_tokens)
+        .collect()
+}
+
+fn tokens_with_focus(
+    tokens: Vec<CodeToken>,
+    source_offset: usize,
+    focus_ranges: &[engine::ExerciseFocusRange],
+) -> Vec<CodeToken> {
+    let mut output = Vec::new();
+    let mut token_offset = source_offset;
+    for token in tokens {
+        let token_end = token_offset.saturating_add(token.text.len());
+        let mut boundaries = vec![token_offset, token_end];
+        for range in focus_ranges {
+            if range.start < token_end && range.end > token_offset {
+                boundaries.push(range.start.max(token_offset));
+                boundaries.push(range.end.min(token_end));
+            }
+        }
+        boundaries.sort_unstable();
+        boundaries.dedup();
+        for pair in boundaries.windows(2) {
+            let start = pair[0];
+            let end = pair[1];
+            if start == end {
+                continue;
+            }
+            let text = token.text[start - token_offset..end - token_offset].to_owned();
+            let focused = focus_ranges
+                .iter()
+                .any(|range| range.start < end && range.end > start);
+            output.push(CodeToken::new(token.kind, text).with_focus(focused));
+        }
+        token_offset = token_end;
+    }
+    output
+}
+
 fn split_code_tokens_for_display(tokens: &[CodeToken], wrap_width: usize) -> Vec<Vec<CodeToken>> {
     let wrap_width = wrap_width.max(MIN_PROBLEM_WRAP_WIDTH);
     let mut lines = Vec::new();
@@ -1519,7 +1742,7 @@ fn split_code_tokens_for_display(tokens: &[CodeToken], wrap_width: usize) -> Vec
 fn split_long_code_token(token: &CodeToken, wrap_width: usize) -> Vec<Vec<CodeToken>> {
     split_long_segment(&token.text, wrap_width)
         .into_iter()
-        .map(|segment| vec![CodeToken::new(token.kind, segment)])
+        .map(|segment| vec![CodeToken::new(token.kind, segment).with_focus(token.focused)])
         .collect()
 }
 
@@ -1713,7 +1936,8 @@ mod tests {
         tokenize_rust_line,
     };
     use crate::engine::{
-        self, ExerciseAnswerRule, ExerciseKind, ExercisePacket, ExerciseValidator, FormatCapability,
+        self, ExerciseAnswerRule, ExerciseFocusRange, ExerciseKind, ExercisePacket,
+        ExerciseSupport, ExerciseSupportStage, ExerciseValidator, FormatCapability,
     };
 
     fn token_text(tokens: &[super::CodeToken]) -> String {
@@ -1773,6 +1997,160 @@ mod tests {
             ExerciseValidator::Exact,
             ExerciseAnswerRule::ExactTrimFinalNewline,
         )])
+    }
+
+    fn support_projection_session(
+        stage: ExerciseSupportStage,
+        concept_label: &'static str,
+        explanation: &'static str,
+        worked_example: &'static str,
+        stimulus: &'static str,
+        expected: &'static str,
+        focus_ranges: Vec<ExerciseFocusRange>,
+    ) -> engine::Session {
+        engine::Session::from_exercises(vec![
+            ExercisePacket::new(
+                Cow::Borrowed("TEST-SUPPORT-PROJECTION"),
+                1,
+                1,
+                Cow::Borrowed("Resolved instruction"),
+                Cow::Borrowed(stimulus),
+                Cow::Borrowed(expected),
+                FormatCapability::Disabled,
+                ExerciseKind::TypeExact,
+                ExerciseValidator::Exact,
+                ExerciseAnswerRule::ExactTrimFinalNewline,
+            )
+            .with_support(ExerciseSupport {
+                stage,
+                concept_label: Cow::Borrowed(concept_label),
+                explanation: Cow::Borrowed(explanation),
+                worked_example: Some(Cow::Borrowed(worked_example)),
+                focus_ranges,
+            }),
+        ])
+    }
+
+    #[test]
+    fn resolved_support_carries_unicode_prose_and_symbolic_focus_without_answer_truth() {
+        const STIMULUS: &str = "function 값(): number { return 1; }";
+        const EXPECTED_PRIVATE: &str = "private expected response";
+        let colon = STIMULUS.find(':').expect("fixture has focus punctuation");
+        assert_eq!(colon, 14);
+        assert!(STIMULUS.is_char_boundary(colon));
+
+        let session = support_projection_session(
+            ExerciseSupportStage::Introduce,
+            "Тип повернення",
+            "함수가 돌려주는 값의 종류를 설명합니다.",
+            "function sample(): number { return 1; }",
+            STIMULUS,
+            EXPECTED_PRIVATE,
+            vec![ExerciseFocusRange {
+                start: colon,
+                end: colon + 1,
+            }],
+        );
+        let frame =
+            project_client_frame_for_layout(&session, &ClientUiState::new(), test_now(), 12);
+
+        let concept_index = frame
+            .game_window
+            .problem
+            .lines
+            .iter()
+            .position(|line| line.kind == ProblemLineKind::ConceptLabel)
+            .expect("Introduce stage shows concept label");
+        let explanation_index = frame
+            .game_window
+            .problem
+            .lines
+            .iter()
+            .position(|line| line.kind == ProblemLineKind::HelpText)
+            .expect("Introduce stage shows explanation");
+        let stimulus_index = frame.game_window.problem.stimulus_start();
+        assert!(concept_index < explanation_index);
+        assert!(explanation_index < stimulus_index);
+        assert!(frame.game_window.problem.lines.iter().any(|line| {
+            line.kind == ProblemLineKind::ConceptLabel && line.text.contains("Тип")
+        }));
+        assert!(frame.game_window.problem.lines.iter().any(|line| {
+            line.kind == ProblemLineKind::HelpText && line.text.contains("함수가")
+        }));
+        assert_eq!(
+            reconstruct_stimulus_lines(&stimulus_rows(&frame.game_window.problem.lines)),
+            vec![STIMULUS]
+        );
+        assert_eq!(
+            frame
+                .game_window
+                .problem
+                .lines
+                .iter()
+                .flat_map(|line| line.tokens.iter())
+                .filter(|token| token.focused)
+                .map(|token| token.text.as_str())
+                .collect::<String>(),
+            ":"
+        );
+        assert!(!format!("{frame:?}").contains(EXPECTED_PRIVATE));
+    }
+
+    #[test]
+    fn practice_focus_and_help_example_appear_only_after_help_opens() {
+        const STIMULUS: &str = "function demo(): number { return 1; }";
+        let colon = STIMULUS.find(':').unwrap();
+        let session = support_projection_session(
+            ExerciseSupportStage::Practice,
+            "Return type",
+            "A resolved explanation.",
+            "function sample(): number { return 2; }",
+            STIMULUS,
+            "private expected response",
+            vec![ExerciseFocusRange {
+                start: colon,
+                end: colon + 1,
+            }],
+        );
+        let mut ui_state = ClientUiState::new();
+        let closed = project_client_frame(&session, &ui_state);
+        assert!(!closed.help_open);
+        assert!(
+            closed
+                .game_window
+                .problem
+                .lines
+                .iter()
+                .flat_map(|line| line.tokens.iter())
+                .all(|token| !token.focused)
+        );
+        assert!(
+            closed
+                .game_window
+                .problem
+                .lines
+                .iter()
+                .all(|line| line.kind != ProblemLineKind::HelpExample)
+        );
+
+        ui_state.toggle_help(true);
+        let open = project_client_frame(&session, &ui_state);
+        assert!(open.help_open);
+        assert!(
+            open.game_window
+                .problem
+                .lines
+                .iter()
+                .flat_map(|line| line.tokens.iter())
+                .any(|token| token.focused && token.text == ":")
+        );
+        assert!(
+            open.game_window
+                .problem
+                .lines
+                .iter()
+                .any(|line| line.kind == ProblemLineKind::HelpExample)
+        );
     }
 
     #[test]
@@ -2002,27 +2380,27 @@ mod tests {
     fn five_operation_shapes_project_exact_instruction_and_stimulus_only() {
         let fixtures = [
             (
-                "Copy this line exactly:",
+                "Copy this line exactly: Type the complete function exactly.",
                 "fn five() -> i32 { 5 }",
                 "fn five() -> i32 { 5 }",
             ),
             (
-                "Complete the missing return value:",
+                "Complete the missing return value: Type only the code replacing ___.",
                 "fn five() -> i32 { ___ }",
                 "fn five() -> i32 { 5 }",
             ),
             (
-                "Write a Rust function named five with no parameters that returns the i32 value 5 using a tail expression:",
+                "Write a Rust function named five with no parameters that returns the i32 value 5 using a tail expression: Submit the complete function.",
                 "",
                 "fn five() -> i32 { 5 }",
             ),
             (
-                "Repair the return-type syntax:",
+                "Repair the return-type syntax: Submit the complete corrected function.",
                 "fn five(): i32 { 5 }",
                 "fn five() -> i32 { 5 }",
             ),
             (
-                "Rewrite the function to use a tail expression:",
+                "Rewrite the function to use a tail expression: Submit the complete transformed function.",
                 "fn five() -> i32 { return 5; }",
                 "fn five() -> i32 { 5 }",
             ),
@@ -2049,8 +2427,55 @@ mod tests {
     }
 
     #[test]
+    fn fill_submission_contract_wraps_above_unchanged_stimulus_at_narrow_width() {
+        let instruction = "Complete the missing return value: Type only the code replacing ___.";
+        let stimulus = "fn five() -> i32 { ___ }";
+        let lines = super::problem_display_lines(instruction, stimulus, 18);
+        let stimulus_start = lines
+            .iter()
+            .position(|line| line.stimulus_row.is_some())
+            .expect("Fill stimulus must remain visible");
+
+        assert!(
+            stimulus_start > 1,
+            "long instruction should wrap above source"
+        );
+        assert!(
+            lines[..stimulus_start]
+                .iter()
+                .all(|line| line.kind == ProblemLineKind::Header && line.stimulus_row.is_none())
+        );
+        assert_eq!(
+            lines[..stimulus_start]
+                .iter()
+                .map(|line| line.text.as_str())
+                .collect::<Vec<_>>()
+                .join(" "),
+            instruction
+        );
+        assert_eq!(
+            lines[stimulus_start..]
+                .iter()
+                .map(|line| line.text.as_str())
+                .collect::<String>(),
+            stimulus
+        );
+        assert_eq!(
+            lines[stimulus_start].stimulus_row,
+            Some(StimulusRowKind::HardLineStart)
+        );
+        assert!(
+            lines[stimulus_start + 1..]
+                .iter()
+                .all(|line| line.stimulus_row == Some(StimulusRowKind::SoftContinuation))
+        );
+        assert!(lines.iter().all(|line| line.text.chars().count() <= 18));
+        assert!(!lines.iter().any(|line| line.text == "5"));
+    }
+
+    #[test]
     fn empty_stimulus_has_no_fake_source_line_and_long_instruction_stays_exact() {
-        let instruction = "Write a Rust function named five with no parameters that returns the i32 value 5 using a tail expression:";
+        let instruction = "Write a Rust function named five with no parameters that returns the i32 value 5 using a tail expression: Submit the complete function.";
         let session = projection_session(instruction, "", "fn five() -> i32 { 5 }");
         let frame =
             project_client_frame_for_layout(&session, &ClientUiState::new(), test_now(), 24);
