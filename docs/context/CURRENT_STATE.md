@@ -48,8 +48,7 @@ Update triggers: Accepted-main change, lane transition, authority change, blocke
   accepted. Its first inert source-only boundary is integrated; no product
   behavior or authority changed.
 - `USER_DECISION`: the second inert cross-lingual boundary, Pure Guidance
-  Resolution V1, is accepted. No active implementation lane remains; product
-  behavior and authority remain unchanged.
+  Resolution V1, is accepted; product behavior and authority remain unchanged.
 - `USER_DECISION`: Language-Agnostic Capability Selector Architecture V1 and
   its first three inert implementation boundaries are accepted: static
   capability/SetPlan source, pure deterministic PracticePlan construction, and
@@ -57,8 +56,14 @@ Update triggers: Accepted-main change, lane transition, authority change, blocke
   inert; product behavior and authority remain unchanged.
 - `USER_DECISION`: Product Integration Decision V1 and both prerequisites,
   Resolved Core Task And Orchestration Contract V1 and Truthful Task Projection
-  Contract V1, are accepted and integrated. No active implementation lane
-  remains.
+  Contract V1, are accepted and integrated.
+- `USER_DECISION`: Varied Deterministic Rust Practice Flow V1 is the selected
+  next product boundary.
+- `LIVE_REPO_FACT`: `varied-deterministic-flow-v1` is registered on canonical
+  master. At this registration commit its declared worktree and branch are not
+  yet provisioned, and no implementation or candidate exists.
+- `LIVE_REPO_FACT`: the integration queue remains empty; product behavior and
+  the installed command are unchanged by lane registration.
 
 ## Accepted Product State
 
@@ -215,7 +220,11 @@ adaptation; lab owns synthetic stress data only.
 
 ## Lanes
 
-- No active implementation lane exists.
+- Registered, not yet provisioned:
+  [`varied-deterministic-flow-v1`](../lanes/varied-deterministic-flow-v1.md).
+  Its declared worktree and branch do not exist at this registration commit;
+  implementation requires a fresh packet matching the final provisioning
+  Context-SHA, and no candidate or integration-queue row exists.
 - Retired: [`truthful-task-projection-v1`](../lanes/truthful-task-projection-v1.md),
   accepted and integrated into local canonical master; worktree removed and
   branch deleted after Don's accepted real-TTY playtest.
@@ -236,10 +245,8 @@ adaptation; lab owns synthetic stress data only.
   branch deleted.
 - Retired: [`static-guidance-schema-v1`](../lanes/static-guidance-schema-v1.md),
   accepted and integrated into local canonical master.
-- Sole next planned product boundary, not active: Varied Deterministic Rust
-  Practice Flow V1. It must provide reviewed player-visible variety and
-  deterministic interactive continuation while plain and one-shot remain
-  finite proof surfaces.
+- Selected active product boundary: Varied Deterministic Rust Practice Flow V1.
+  Registration does not begin implementation or change product behavior.
 - Paused: new Ukrainian/French curriculum, validator integration, lab cleanup,
   product settings, interface localization, persistence, and scheduling.
 - No guidance language setting currently exists.
