@@ -97,7 +97,7 @@ pub enum ProblemLineKind {
     AnswerShape,
     Bullet,
     Code,
-    ConceptLabel,
+    CatalogLabel,
     HelpText,
     HelpExample,
     HelpNotice,
@@ -179,9 +179,9 @@ impl ProblemDisplayLine {
         }
     }
 
-    fn concept_label(text: impl Into<String>) -> Self {
+    fn catalog_label(text: impl Into<String>) -> Self {
         Self {
-            kind: ProblemLineKind::ConceptLabel,
+            kind: ProblemLineKind::CatalogLabel,
             text: text.into(),
             tokens: Vec::new(),
             stimulus_row: None,
@@ -1104,11 +1104,11 @@ impl ProblemView {
         &self.lines[..self.stimulus_start()]
     }
 
-    fn stimulus_lines(&self) -> &[ProblemDisplayLine] {
+    fn body_lines(&self) -> &[ProblemDisplayLine] {
         &self.lines[self.stimulus_start()..]
     }
 
-    fn stimulus_start(&self) -> usize {
+    pub(crate) fn stimulus_start(&self) -> usize {
         self.lines
             .iter()
             .position(|line| line.stimulus_row.is_some())
@@ -1117,17 +1117,17 @@ impl ProblemView {
 
     pub fn visible_lines(&self, visible_lines: usize) -> &[ProblemDisplayLine] {
         let range = self.visible_range(visible_lines);
-        &self.stimulus_lines()[range.start..range.end]
+        &self.body_lines()[range.start..range.end]
     }
 
     pub fn visible_range(&self, visible_lines: usize) -> ProblemVisibleRange {
         self.viewport
-            .visible_range(self.stimulus_lines().len(), visible_lines)
+            .visible_range(self.body_lines().len(), visible_lines)
     }
 
     pub fn overflow(&self, visible_lines: usize) -> ViewportOverflow {
         let range = self.visible_range(visible_lines);
-        ViewportOverflow::from_parts(self.stimulus_lines().len(), visible_lines, range.start)
+        ViewportOverflow::from_parts(self.body_lines().len(), visible_lines, range.start)
     }
 }
 
@@ -1218,11 +1218,13 @@ pub fn project_client_frame_for_layout(
         ui_state.help_unavailable(),
         problem_wrap_width,
     );
-    let stimulus_line_count = problem_lines
+    let body_start = problem_lines
         .iter()
-        .filter(|line| line.stimulus_row.is_some())
-        .count();
-    let problem_viewport = ui_state.problem_viewport().clamped(stimulus_line_count);
+        .position(|line| line.stimulus_row.is_some())
+        .unwrap_or(problem_lines.len());
+    let problem_viewport = ui_state
+        .problem_viewport()
+        .clamped(problem_lines.len().saturating_sub(body_start));
 
     ClientFrame {
         game_window: GameWindowFrame {
@@ -1278,28 +1280,38 @@ fn problem_display_lines_with_support(
     wrap_width: usize,
 ) -> Vec<ProblemDisplayLine> {
     let mut lines = Vec::new();
-    if should_render_problem_instruction(stimulus) {
-        lines.extend(
-            split_display_line(instruction, wrap_width)
-                .into_iter()
-                .map(ProblemDisplayLine::header),
-        );
-    }
     if let Some(support) = support {
-        let introduce = support.stage == engine::ExerciseSupportStage::Introduce;
-        if introduce || help_open {
-            lines.extend(
-                split_display_line(support.concept_label.as_ref(), wrap_width)
-                    .into_iter()
-                    .map(ProblemDisplayLine::concept_label),
-            );
+        lines.push(ProblemDisplayLine::header(support.action_header.as_ref()));
+        let visible_focus = support.stage != engine::ExerciseSupportStage::Practice || help_open;
+        let focus_ranges = if visible_focus {
+            support.focus_ranges.as_slice()
+        } else {
+            &[]
+        };
+        append_stimulus_display_lines(&mut lines, stimulus, wrap_width, focus_ranges);
+        lines.push(ProblemDisplayLine::blank());
+        lines.extend(
+            split_display_line(support.catalog_label.as_ref(), wrap_width)
+                .into_iter()
+                .map(ProblemDisplayLine::catalog_label),
+        );
+
+        let show_brief = support.stage == engine::ExerciseSupportStage::Introduce || help_open;
+        if show_brief {
+            for brief_line in &support.beginner_brief {
+                lines.extend(
+                    split_display_line(brief_line.as_ref(), wrap_width)
+                        .into_iter()
+                        .map(ProblemDisplayLine::help_text),
+                );
+            }
+        }
+        if help_open {
             lines.extend(
                 split_display_line(support.explanation.as_ref(), wrap_width)
                     .into_iter()
                     .map(ProblemDisplayLine::help_text),
             );
-        }
-        if help_open {
             if let Some(example) = support.worked_example.as_deref() {
                 lines.extend(
                     split_long_segment(example, wrap_width)
@@ -1308,20 +1320,32 @@ fn problem_display_lines_with_support(
                 );
             }
         }
+        return lines;
+    }
+
+    if should_render_problem_instruction(stimulus) {
+        lines.extend(
+            split_display_line(instruction, wrap_width)
+                .into_iter()
+                .map(ProblemDisplayLine::header),
+        );
     }
     if help_unavailable {
         lines.push(ProblemDisplayLine::help_notice("help unavailable"));
     }
+    append_stimulus_display_lines(&mut lines, stimulus, wrap_width, &[]);
+    lines
+}
+
+fn append_stimulus_display_lines(
+    lines: &mut Vec<ProblemDisplayLine>,
+    stimulus: &str,
+    wrap_width: usize,
+    focus_ranges: &[engine::ExerciseFocusRange],
+) {
     if stimulus.is_empty() {
-        return lines;
+        return;
     }
-    let visible_focus = support.is_some_and(|support| {
-        support.stage != engine::ExerciseSupportStage::Practice || help_open
-    });
-    let focus_ranges = support
-        .filter(|_| visible_focus)
-        .map(|support| support.focus_ranges.as_slice())
-        .unwrap_or(&[]);
     let stimulus_wrap_width = wrap_width.saturating_sub(STIMULUS_GUTTER_WIDTH).max(1);
     let mut source_offset = 0usize;
     for line in stimulus.split('\n') {
@@ -1333,7 +1357,6 @@ fn problem_display_lines_with_support(
         ));
         source_offset = source_offset.saturating_add(line.len() + 1);
     }
-    lines
 }
 
 fn stimulus_display_lines_for_source_line(
@@ -1411,7 +1434,7 @@ fn problem_display_lines_for_source_line_with_focus(
         ProblemLineKind::Code => {
             split_code_display_line_with_focus(line, wrap_width, source_offset, focus_ranges)
         }
-        ProblemLineKind::ConceptLabel
+        ProblemLineKind::CatalogLabel
         | ProblemLineKind::HelpText
         | ProblemLineKind::HelpExample
         | ProblemLineKind::HelpNotice => unreachable!("support lines are not source lines"),
@@ -1433,7 +1456,7 @@ fn split_display_line_for_kind(
             .map(|line| line.text)
             .collect(),
         ProblemLineKind::Bullet => wrap_problem_bullet(line, wrap_width),
-        ProblemLineKind::ConceptLabel
+        ProblemLineKind::CatalogLabel
         | ProblemLineKind::HelpText
         | ProblemLineKind::HelpExample
         | ProblemLineKind::HelpNotice => split_display_line(line, wrap_width),
@@ -2001,7 +2024,9 @@ mod tests {
 
     fn support_projection_session(
         stage: ExerciseSupportStage,
-        concept_label: &'static str,
+        action_header: &'static str,
+        catalog_label: &'static str,
+        beginner_brief: &[&'static str],
         explanation: &'static str,
         worked_example: &'static str,
         stimulus: &'static str,
@@ -2023,12 +2048,210 @@ mod tests {
             )
             .with_support(ExerciseSupport {
                 stage,
-                concept_label: Cow::Borrowed(concept_label),
+                action_header: Cow::Borrowed(action_header),
+                catalog_label: Cow::Borrowed(catalog_label),
+                beginner_brief: beginner_brief
+                    .iter()
+                    .map(|line| Cow::Borrowed(*line))
+                    .collect(),
                 explanation: Cow::Borrowed(explanation),
                 worked_example: Some(Cow::Borrowed(worked_example)),
                 focus_ranges,
             }),
         ])
+    }
+
+    fn product_projection_session(id: &str) -> engine::Session {
+        engine::Session::from_exercises(vec![
+            crate::orchestration::current_product_exercise_packet_by_id(id)
+                .expect("product exercise must resolve"),
+        ])
+    }
+
+    fn source_end(problem: &ProblemView) -> usize {
+        let start = problem.stimulus_start();
+        start
+            + problem.lines[start..]
+                .iter()
+                .take_while(|line| line.stimulus_row.is_some())
+                .count()
+    }
+
+    #[test]
+    fn supported_operations_project_action_source_blank_catalog_then_support() {
+        let fixtures = [
+            (
+                "013",
+                "COPY EXACTLY:",
+                "COPY · FUNCTION · RETURN TYPE",
+                true,
+            ),
+            (
+                "014",
+                "FILL ___ ONLY:",
+                "FILL · FUNCTION · RETURN TYPE",
+                false,
+            ),
+            (
+                "015",
+                "WRITE THE COMPLETE FUNCTION:",
+                "PRODUCE · FUNCTION · RETURN TYPE",
+                false,
+            ),
+            (
+                "016",
+                "REPAIR THE HIGHLIGHTED PART:",
+                "REPAIR · FUNCTION · RETURN TYPE",
+                false,
+            ),
+            (
+                "017",
+                "ADD THE RETURN TYPE:",
+                "TRANSFORM · FUNCTION · RETURN TYPE",
+                false,
+            ),
+        ];
+
+        for (id, header, catalog, brief_visible) in fixtures {
+            let session = product_projection_session(id);
+            let frame =
+                project_client_frame_for_layout(&session, &ClientUiState::new(), test_now(), 160);
+            let problem = &frame.game_window.problem;
+            let start = problem.stimulus_start();
+            let end = source_end(problem);
+
+            assert_eq!(start, 1, "{id} must have only its action above source");
+            assert_eq!(problem.lines[0].kind, ProblemLineKind::Header);
+            assert_eq!(problem.lines[0].text, header);
+            assert!(
+                problem.lines[start..end]
+                    .iter()
+                    .all(|line| line.stimulus_row.is_some())
+            );
+            assert_eq!(problem.lines[end].kind, ProblemLineKind::Blank);
+            assert_eq!(problem.lines[end + 1].kind, ProblemLineKind::CatalogLabel);
+            assert_eq!(problem.lines[end + 1].text, catalog);
+            assert_eq!(
+                problem.lines[end + 2..]
+                    .iter()
+                    .any(|line| line.kind == ProblemLineKind::HelpText),
+                brief_visible
+            );
+            assert!(
+                problem
+                    .lines
+                    .iter()
+                    .all(|line| line.text != problem.instruction)
+            );
+        }
+    }
+
+    #[test]
+    fn f2_appends_beginner_brief_and_example_without_moving_source_or_viewports() {
+        let session = product_projection_session("016");
+        let mut ui_state = ClientUiState::new();
+        ui_state.apply_action(ClientAction::TypeChar('x'));
+        let before = project_client_frame_for_layout(&session, &ui_state, test_now(), 28);
+        let before_source = stimulus_rows(&before.game_window.problem.lines)
+            .into_iter()
+            .cloned()
+            .collect::<Vec<_>>();
+        let before_editor = before.game_window.workbox.clone();
+        let before_problem_viewport = before.game_window.problem.viewport;
+
+        ui_state.toggle_help(true);
+        let open = project_client_frame_for_layout(&session, &ui_state, test_now(), 28);
+        let open_source = stimulus_rows(&open.game_window.problem.lines)
+            .into_iter()
+            .cloned()
+            .collect::<Vec<_>>();
+        let source_end = source_end(&open.game_window.problem);
+
+        assert_eq!(before.game_window.problem.stimulus_start(), 1);
+        assert_eq!(open.game_window.problem.stimulus_start(), 1);
+        assert_eq!(open_source, before_source);
+        assert_eq!(open.game_window.workbox, before_editor);
+        assert_eq!(open.game_window.problem.viewport, before_problem_viewport);
+        assert!(
+            open.game_window.problem.lines[source_end..]
+                .iter()
+                .any(|line| line.text.starts_with("FUNCTION —"))
+        );
+        assert!(
+            open.game_window.problem.lines[source_end..]
+                .iter()
+                .any(|line| line.kind == ProblemLineKind::HelpExample)
+        );
+        assert!(
+            open.game_window.problem.lines[..source_end]
+                .iter()
+                .all(|line| line.kind != ProblemLineKind::HelpText
+                    && line.kind != ProblemLineKind::HelpExample)
+        );
+
+        ui_state.toggle_help(true);
+        let closed = project_client_frame_for_layout(&session, &ui_state, test_now(), 28);
+        assert_eq!(closed.game_window.problem.stimulus_start(), 1);
+        assert_eq!(closed.game_window.workbox, before_editor);
+        assert_eq!(closed.game_window.problem.viewport, before_problem_viewport);
+    }
+
+    #[test]
+    fn introduce_brief_is_default_and_f2_does_not_duplicate_it() {
+        let session = product_projection_session("013");
+        let mut ui_state = ClientUiState::new();
+        let closed = project_client_frame_for_layout(&session, &ui_state, test_now(), 160);
+        let closed_brief = closed
+            .game_window
+            .problem
+            .lines
+            .iter()
+            .filter(|line| line.text.starts_with("FUNCTION —"))
+            .count();
+
+        ui_state.toggle_help(true);
+        let open = project_client_frame_for_layout(&session, &ui_state, test_now(), 160);
+        let open_brief = open
+            .game_window
+            .problem
+            .lines
+            .iter()
+            .filter(|line| line.text.starts_with("FUNCTION —"))
+            .count();
+
+        assert_eq!(closed_brief, 1);
+        assert_eq!(open_brief, 1);
+        assert!(open.game_window.problem.lines.iter().any(|line| {
+            line.kind == ProblemLineKind::HelpExample && line.text.contains("sample")
+        }));
+    }
+
+    #[test]
+    fn narrow_problem_first_support_stays_below_one_line_header_and_is_scrollable() {
+        let session = product_projection_session("013");
+        let mut ui_state = ClientUiState::new();
+        let top = project_client_frame_for_layout(&session, &ui_state, test_now(), 12);
+        let source_end = source_end(&top.game_window.problem);
+
+        assert_eq!(top.game_window.problem.instruction_lines().len(), 1);
+        assert_eq!(top.game_window.problem.lines[0].text, "COPY EXACTLY:");
+        assert_eq!(top.game_window.problem.stimulus_start(), 1);
+        assert!(top.game_window.problem.lines[source_end..].len() > 8);
+        assert!(top.game_window.problem.overflow(5).below);
+
+        for _ in 0..8 {
+            ui_state.apply_action(ClientAction::ScrollProblemDown);
+        }
+        let scrolled = project_client_frame_for_layout(&session, &ui_state, test_now(), 12);
+        assert!(scrolled.game_window.problem.viewport.scroll_offset > 0);
+        assert!(
+            scrolled
+                .game_window
+                .problem
+                .visible_lines(5)
+                .iter()
+                .any(|line| line.kind == ProblemLineKind::HelpText)
+        );
     }
 
     #[test]
@@ -2041,7 +2264,9 @@ mod tests {
 
         let session = support_projection_session(
             ExerciseSupportStage::Introduce,
-            "Тип повернення",
+            "СКОПІЮЙТЕ:",
+            "КОПІЮВАННЯ · 함수 · ТИП",
+            &["ФУНКЦІЯ — 함수를 설명합니다."],
             "함수가 돌려주는 값의 종류를 설명합니다.",
             "function sample(): number { return 1; }",
             STIMULUS,
@@ -2054,13 +2279,14 @@ mod tests {
         let frame =
             project_client_frame_for_layout(&session, &ClientUiState::new(), test_now(), 12);
 
+        let stimulus_index = frame.game_window.problem.stimulus_start();
         let concept_index = frame
             .game_window
             .problem
             .lines
             .iter()
-            .position(|line| line.kind == ProblemLineKind::ConceptLabel)
-            .expect("Introduce stage shows concept label");
+            .position(|line| line.kind == ProblemLineKind::CatalogLabel)
+            .expect("Introduce stage shows catalog label");
         let explanation_index = frame
             .game_window
             .problem
@@ -2068,15 +2294,22 @@ mod tests {
             .iter()
             .position(|line| line.kind == ProblemLineKind::HelpText)
             .expect("Introduce stage shows explanation");
-        let stimulus_index = frame.game_window.problem.stimulus_start();
+        assert!(stimulus_index < concept_index);
         assert!(concept_index < explanation_index);
-        assert!(explanation_index < stimulus_index);
         assert!(frame.game_window.problem.lines.iter().any(|line| {
-            line.kind == ProblemLineKind::ConceptLabel && line.text.contains("Тип")
+            line.kind == ProblemLineKind::CatalogLabel && line.text.contains("ТИП")
         }));
-        assert!(frame.game_window.problem.lines.iter().any(|line| {
-            line.kind == ProblemLineKind::HelpText && line.text.contains("함수가")
-        }));
+        assert!(
+            frame
+                .game_window
+                .problem
+                .lines
+                .iter()
+                .filter(|line| line.kind == ProblemLineKind::HelpText)
+                .map(|line| line.text.as_str())
+                .collect::<String>()
+                .contains("함수를")
+        );
         assert_eq!(
             reconstruct_stimulus_lines(&stimulus_rows(&frame.game_window.problem.lines)),
             vec![STIMULUS]
@@ -2102,7 +2335,9 @@ mod tests {
         let colon = STIMULUS.find(':').unwrap();
         let session = support_projection_session(
             ExerciseSupportStage::Practice,
-            "Return type",
+            "CHANGE:",
+            "TRANSFORM · FUNCTION · RETURN TYPE",
+            &["FUNCTION — a reusable block."],
             "A resolved explanation.",
             "function sample(): number { return 2; }",
             STIMULUS,
@@ -3878,6 +4113,28 @@ mod tests {
             assert!(
                 !public_source.contains(&forbidden),
                 "client public API should not mention terminal crate {forbidden}"
+            );
+        }
+    }
+
+    #[test]
+    fn client_orders_resolved_presentation_without_locale_concept_or_rust_branches() {
+        let production = include_str!("mod.rs")
+            .split("#[cfg(test)]\nmod tests")
+            .next()
+            .expect("expected client production source");
+
+        assert!(production.contains("support.action_header"));
+        assert!(production.contains("support.catalog_label"));
+        assert!(production.contains("support.beginner_brief"));
+        for forbidden in [
+            "COPY EXACTLY:",
+            "RETURN TYPE",
+            "rust.function.return_literal.return_type_arrow",
+        ] {
+            assert!(
+                !production.contains(forbidden),
+                "client must not branch on resolved presentation literal {forbidden}"
             );
         }
     }

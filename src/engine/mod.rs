@@ -89,7 +89,9 @@ pub(crate) struct ExerciseFocusRange {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct ExerciseSupport {
     pub(crate) stage: ExerciseSupportStage,
-    pub(crate) concept_label: Cow<'static, str>,
+    pub(crate) action_header: Cow<'static, str>,
+    pub(crate) catalog_label: Cow<'static, str>,
+    pub(crate) beginner_brief: Vec<Cow<'static, str>>,
     pub(crate) explanation: Cow<'static, str>,
     pub(crate) worked_example: Option<Cow<'static, str>>,
     pub(crate) focus_ranges: Vec<ExerciseFocusRange>,

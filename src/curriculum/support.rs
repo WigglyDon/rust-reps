@@ -2,6 +2,7 @@
 use super::planner::{CAPABILITIES, SupportLevel, SupportStage};
 
 pub(crate) const RETURN_TYPE_CONCEPT_KEY: &str = "rust.function.return_literal.return_type_arrow";
+pub(crate) const FUNCTION_ARTIFACT_KEY: &str = "function";
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub(crate) struct FocusRangeSpec {
@@ -13,6 +14,7 @@ pub(crate) struct FocusRangeSpec {
 pub(crate) struct TaskSupportSpec {
     pub(crate) rep_id: &'static str,
     pub(crate) anchor_id: &'static str,
+    pub(crate) artifact_key: &'static str,
     pub(crate) concept_key: &'static str,
     pub(crate) help_key: &'static str,
     pub(crate) target_dimension: &'static str,
@@ -35,6 +37,7 @@ pub(crate) const VARIED_TASK_SUPPORT: &[TaskSupportSpec] = &[
     TaskSupportSpec {
         rep_id: "013",
         anchor_id: "013",
+        artifact_key: FUNCTION_ARTIFACT_KEY,
         concept_key: RETURN_TYPE_CONCEPT_KEY,
         help_key: RETURN_TYPE_CONCEPT_KEY,
         target_dimension: "return_type_declaration",
@@ -43,6 +46,7 @@ pub(crate) const VARIED_TASK_SUPPORT: &[TaskSupportSpec] = &[
     TaskSupportSpec {
         rep_id: "014",
         anchor_id: "013",
+        artifact_key: FUNCTION_ARTIFACT_KEY,
         concept_key: RETURN_TYPE_CONCEPT_KEY,
         help_key: RETURN_TYPE_CONCEPT_KEY,
         target_dimension: "return_type_arrow_placeholder",
@@ -51,6 +55,7 @@ pub(crate) const VARIED_TASK_SUPPORT: &[TaskSupportSpec] = &[
     TaskSupportSpec {
         rep_id: "015",
         anchor_id: "013",
+        artifact_key: FUNCTION_ARTIFACT_KEY,
         concept_key: RETURN_TYPE_CONCEPT_KEY,
         help_key: RETURN_TYPE_CONCEPT_KEY,
         target_dimension: "return_type_arrow_placeholder",
@@ -59,6 +64,7 @@ pub(crate) const VARIED_TASK_SUPPORT: &[TaskSupportSpec] = &[
     TaskSupportSpec {
         rep_id: "016",
         anchor_id: "013",
+        artifact_key: FUNCTION_ARTIFACT_KEY,
         concept_key: RETURN_TYPE_CONCEPT_KEY,
         help_key: RETURN_TYPE_CONCEPT_KEY,
         target_dimension: "return_type_syntax_defect",
@@ -67,6 +73,7 @@ pub(crate) const VARIED_TASK_SUPPORT: &[TaskSupportSpec] = &[
     TaskSupportSpec {
         rep_id: "017",
         anchor_id: "013",
+        artifact_key: FUNCTION_ARTIFACT_KEY,
         concept_key: RETURN_TYPE_CONCEPT_KEY,
         help_key: RETURN_TYPE_CONCEPT_KEY,
         target_dimension: "return_type_declaration_omission",
@@ -75,6 +82,7 @@ pub(crate) const VARIED_TASK_SUPPORT: &[TaskSupportSpec] = &[
     TaskSupportSpec {
         rep_id: "018",
         anchor_id: "018",
+        artifact_key: FUNCTION_ARTIFACT_KEY,
         concept_key: RETURN_TYPE_CONCEPT_KEY,
         help_key: RETURN_TYPE_CONCEPT_KEY,
         target_dimension: "return_type_declaration",
@@ -83,6 +91,7 @@ pub(crate) const VARIED_TASK_SUPPORT: &[TaskSupportSpec] = &[
     TaskSupportSpec {
         rep_id: "019",
         anchor_id: "018",
+        artifact_key: FUNCTION_ARTIFACT_KEY,
         concept_key: RETURN_TYPE_CONCEPT_KEY,
         help_key: RETURN_TYPE_CONCEPT_KEY,
         target_dimension: "return_type_arrow_placeholder",
@@ -91,6 +100,7 @@ pub(crate) const VARIED_TASK_SUPPORT: &[TaskSupportSpec] = &[
     TaskSupportSpec {
         rep_id: "020",
         anchor_id: "018",
+        artifact_key: FUNCTION_ARTIFACT_KEY,
         concept_key: RETURN_TYPE_CONCEPT_KEY,
         help_key: RETURN_TYPE_CONCEPT_KEY,
         target_dimension: "return_type_arrow_placeholder",
@@ -99,6 +109,7 @@ pub(crate) const VARIED_TASK_SUPPORT: &[TaskSupportSpec] = &[
     TaskSupportSpec {
         rep_id: "021",
         anchor_id: "018",
+        artifact_key: FUNCTION_ARTIFACT_KEY,
         concept_key: RETURN_TYPE_CONCEPT_KEY,
         help_key: RETURN_TYPE_CONCEPT_KEY,
         target_dimension: "return_type_syntax_defect",
@@ -107,6 +118,7 @@ pub(crate) const VARIED_TASK_SUPPORT: &[TaskSupportSpec] = &[
     TaskSupportSpec {
         rep_id: "022",
         anchor_id: "018",
+        artifact_key: FUNCTION_ARTIFACT_KEY,
         concept_key: RETURN_TYPE_CONCEPT_KEY,
         help_key: RETURN_TYPE_CONCEPT_KEY,
         target_dimension: "return_type_declaration_omission",
@@ -139,6 +151,7 @@ mod tests {
         for (index, support) in VARIED_TASK_SUPPORT.iter().enumerate() {
             let drill = &DRILLS[index + 12];
             assert_eq!(support.rep_id, drill.id);
+            assert_eq!(support.artifact_key, FUNCTION_ARTIFACT_KEY);
             assert_eq!(support.concept_key, RETURN_TYPE_CONCEPT_KEY);
             assert_eq!(support.help_key, RETURN_TYPE_CONCEPT_KEY);
             assert!(!support.target_dimension.is_empty());

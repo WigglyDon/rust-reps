@@ -1,4 +1,5 @@
 use super::{GuidancePack, GuidancePart};
+use crate::curriculum::Operation;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub(crate) struct GuidanceAssignmentRef<'a> {
@@ -23,7 +24,12 @@ pub(crate) struct ResolvedGuidance {
 
 #[derive(Debug, Eq, PartialEq)]
 pub(crate) struct ResolvedSupportGuidance {
+    pub(crate) action_header: String,
+    pub(crate) operation_label: String,
+    pub(crate) artifact_label: String,
     pub(crate) concept_label: String,
+    pub(crate) catalog_label: String,
+    pub(crate) beginner_brief: Vec<String>,
     pub(crate) explanation: String,
     pub(crate) worked_example: Option<String>,
 }
@@ -58,6 +64,21 @@ pub(crate) enum GuidanceError {
         version: u16,
         key: String,
     },
+    UnknownOperationGuidance {
+        locale: String,
+        version: u16,
+        operation: Operation,
+    },
+    DuplicateOperationGuidance {
+        locale: String,
+        version: u16,
+        operation: Operation,
+    },
+    SupportArtifactMismatch {
+        key: String,
+        expected: String,
+        actual: String,
+    },
     DuplicateAssignment(String),
     UnknownSlot(String),
     MissingMeaningKey(String),
@@ -74,6 +95,8 @@ pub(crate) enum GuidanceError {
 }
 
 pub(crate) fn resolve_support_guidance(
+    operation: Operation,
+    artifact_key: &str,
     support_key: &str,
     packs: &[GuidancePack],
     locale: &str,
@@ -81,6 +104,26 @@ pub(crate) fn resolve_support_guidance(
 ) -> Result<ResolvedSupportGuidance, GuidanceError> {
     let pack_index = find_pack_index(packs, locale, pack_version)?;
     let pack = &packs[pack_index];
+    let mut operation_index = None;
+    for (index, operation_guidance) in pack.operations.iter().enumerate() {
+        if operation_guidance.operation == operation {
+            if operation_index.is_some() {
+                return Err(GuidanceError::DuplicateOperationGuidance {
+                    locale: pack.locale.to_owned(),
+                    version: pack.version,
+                    operation,
+                });
+            }
+            operation_index = Some(index);
+        }
+    }
+    let operation_guidance = operation_index
+        .map(|index| &pack.operations[index])
+        .ok_or_else(|| GuidanceError::UnknownOperationGuidance {
+            locale: pack.locale.to_owned(),
+            version: pack.version,
+            operation,
+        })?;
     let mut support_index = None;
     for (index, support) in pack.support.iter().enumerate() {
         if support.key == support_key {
@@ -101,9 +144,30 @@ pub(crate) fn resolve_support_guidance(
             version: pack.version,
             key: support_key.to_owned(),
         })?;
+    if support.artifact_key != artifact_key {
+        return Err(GuidanceError::SupportArtifactMismatch {
+            key: support_key.to_owned(),
+            expected: support.artifact_key.to_owned(),
+            actual: artifact_key.to_owned(),
+        });
+    }
+
+    let catalog_label = format!(
+        "{} · {} · {}",
+        operation_guidance.operation_label, support.artifact_label, support.concept_label
+    );
 
     Ok(ResolvedSupportGuidance {
+        action_header: operation_guidance.action_header.to_owned(),
+        operation_label: operation_guidance.operation_label.to_owned(),
+        artifact_label: support.artifact_label.to_owned(),
         concept_label: support.concept_label.to_owned(),
+        catalog_label,
+        beginner_brief: support
+            .beginner_brief
+            .iter()
+            .map(|line| (*line).to_owned())
+            .collect(),
         explanation: support.explanation.to_owned(),
         worked_example: support.worked_example.map(str::to_owned),
     })
@@ -260,7 +324,7 @@ fn render_guidance_parts(
 mod tests {
     use super::*;
     use crate::curriculum::guidance::{
-        GUIDANCE_PACKS, GlossEntry, GuidanceTemplate, SupportGuidance,
+        GUIDANCE_PACKS, GlossEntry, GuidanceTemplate, OperationGuidance, SupportGuidance,
     };
     use crate::curriculum::procgen::expansion::{ExpandedTask, expand_template};
     use crate::curriculum::procgen::{SLOT_DOMAINS, TEMPLATES};
@@ -270,24 +334,36 @@ mod tests {
         key: "copy.return_type_intro",
         parts: BASIC_PARTS,
     }];
+    const BASIC_OPERATIONS: &[OperationGuidance] = &[OperationGuidance {
+        operation: Operation::Copy,
+        action_header: "DO IT:",
+        operation_label: "DO",
+    }];
     const BASIC_PACK: GuidancePack = GuidancePack {
         locale: "test",
         version: 1,
         instructions: BASIC_INSTRUCTIONS,
         glosses: &[],
+        operations: BASIC_OPERATIONS,
         support: &[],
     };
 
     const DUPLICATE_SUPPORT: &[SupportGuidance] = &[
         SupportGuidance {
             key: "test.concept",
+            artifact_key: "function",
+            artifact_label: "FUNCTION",
             concept_label: "first",
+            beginner_brief: &["first brief"],
             explanation: "first explanation",
             worked_example: None,
         },
         SupportGuidance {
             key: "test.concept",
+            artifact_key: "function",
+            artifact_label: "FUNCTION",
             concept_label: "second",
+            beginner_brief: &["second brief"],
             explanation: "second explanation",
             worked_example: None,
         },
@@ -298,6 +374,7 @@ mod tests {
         version: 1,
         instructions: BASIC_INSTRUCTIONS,
         glosses: &[],
+        operations: BASIC_OPERATIONS,
         support: DUPLICATE_SUPPORT,
     };
 
@@ -307,6 +384,7 @@ mod tests {
             version: 1,
             instructions: BASIC_INSTRUCTIONS,
             glosses: &[],
+            operations: BASIC_OPERATIONS,
             support: &[],
         },
         GuidancePack {
@@ -314,6 +392,7 @@ mod tests {
             version: 1,
             instructions: BASIC_INSTRUCTIONS,
             glosses: &[],
+            operations: BASIC_OPERATIONS,
             support: &[],
         },
     ];
@@ -333,6 +412,7 @@ mod tests {
         version: 1,
         instructions: DUPLICATE_INSTRUCTIONS,
         glosses: &[],
+        operations: BASIC_OPERATIONS,
         support: &[],
     };
 
@@ -357,6 +437,7 @@ mod tests {
         version: 1,
         instructions: EXACT_INSTRUCTIONS,
         glosses: SINGLE_GLOSS,
+        operations: BASIC_OPERATIONS,
         support: &[],
     };
 
@@ -370,6 +451,7 @@ mod tests {
         version: 1,
         instructions: UNKNOWN_RENDERED_INSTRUCTIONS,
         glosses: &[],
+        operations: BASIC_OPERATIONS,
         support: &[],
     };
 
@@ -383,6 +465,7 @@ mod tests {
         version: 1,
         instructions: UNKNOWN_GLOSS_SLOT_INSTRUCTIONS,
         glosses: &[],
+        operations: BASIC_OPERATIONS,
         support: &[],
     };
 
@@ -396,6 +479,7 @@ mod tests {
         version: 1,
         instructions: VALUE_GLOSS_INSTRUCTIONS,
         glosses: &[],
+        operations: BASIC_OPERATIONS,
         support: &[],
     };
 
@@ -414,6 +498,7 @@ mod tests {
         version: 1,
         instructions: VALUE_GLOSS_INSTRUCTIONS,
         glosses: DUPLICATE_GLOSSES,
+        operations: BASIC_OPERATIONS,
         support: &[],
     };
 
@@ -435,6 +520,7 @@ mod tests {
         version: 1,
         instructions: REPEATED_INSTRUCTIONS,
         glosses: SINGLE_GLOSS,
+        operations: BASIC_OPERATIONS,
         support: &[],
     };
 
@@ -512,11 +598,18 @@ mod tests {
         let key = "rust.function.return_literal.return_type_arrow";
         let task = current_task();
         let before = format!("{task:?}");
-        let english = resolve_support_guidance(key, GUIDANCE_PACKS, "en", 1)
-            .expect("English support must resolve");
-        let ukrainian = resolve_support_guidance(key, GUIDANCE_PACKS, "uk", 1)
-            .expect("Ukrainian proof support must resolve");
+        let english =
+            resolve_support_guidance(Operation::Copy, "function", key, GUIDANCE_PACKS, "en", 1)
+                .expect("English support must resolve");
+        let ukrainian =
+            resolve_support_guidance(Operation::Copy, "function", key, GUIDANCE_PACKS, "uk", 1)
+                .expect("Ukrainian proof support must resolve");
 
+        assert_eq!(english.action_header, "COPY EXACTLY:");
+        assert_eq!(english.catalog_label, "COPY · FUNCTION · RETURN TYPE");
+        assert_eq!(english.beginner_brief.len(), 7);
+        assert_ne!(english.action_header, ukrainian.action_header);
+        assert_ne!(english.catalog_label, ukrainian.catalog_label);
         assert_ne!(english.concept_label, ukrainian.concept_label);
         assert_ne!(english.explanation, ukrainian.explanation);
         assert_eq!(english.worked_example, ukrainian.worked_example);
@@ -526,7 +619,14 @@ mod tests {
     #[test]
     fn support_guidance_failures_are_explicit() {
         assert_eq!(
-            resolve_support_guidance("missing", GUIDANCE_PACKS, "en", 1),
+            resolve_support_guidance(
+                Operation::Copy,
+                "function",
+                "missing",
+                GUIDANCE_PACKS,
+                "en",
+                1,
+            ),
             Err(GuidanceError::UnknownSupport {
                 locale: "en".to_owned(),
                 version: 1,
@@ -534,7 +634,14 @@ mod tests {
             })
         );
         assert_eq!(
-            resolve_support_guidance("test.concept", &[DUPLICATE_SUPPORT_PACK], "test", 1),
+            resolve_support_guidance(
+                Operation::Copy,
+                "function",
+                "test.concept",
+                &[DUPLICATE_SUPPORT_PACK],
+                "test",
+                1,
+            ),
             Err(GuidanceError::DuplicateSupport {
                 locale: "test".to_owned(),
                 version: 1,

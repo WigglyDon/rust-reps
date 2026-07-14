@@ -1,5 +1,7 @@
 pub(crate) mod resolution;
 
+use super::Operation;
+
 #[derive(Debug, Eq, PartialEq)]
 pub(crate) enum GuidancePart {
     Literal(&'static str),
@@ -20,9 +22,19 @@ pub(crate) struct GlossEntry {
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub(crate) struct SupportGuidance {
     pub(crate) key: &'static str,
+    pub(crate) artifact_key: &'static str,
+    pub(crate) artifact_label: &'static str,
     pub(crate) concept_label: &'static str,
+    pub(crate) beginner_brief: &'static [&'static str],
     pub(crate) explanation: &'static str,
     pub(crate) worked_example: Option<&'static str>,
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub(crate) struct OperationGuidance {
+    pub(crate) operation: Operation,
+    pub(crate) action_header: &'static str,
+    pub(crate) operation_label: &'static str,
 }
 
 pub(crate) struct GuidancePack {
@@ -30,6 +42,7 @@ pub(crate) struct GuidancePack {
     pub(crate) version: u16,
     pub(crate) instructions: &'static [GuidanceTemplate],
     pub(crate) glosses: &'static [GlossEntry],
+    pub(crate) operations: &'static [OperationGuidance],
     pub(crate) support: &'static [SupportGuidance],
 }
 
@@ -83,10 +96,51 @@ const EN_INSTRUCTIONS: &[GuidanceTemplate] = &[
     },
 ];
 
+const EN_OPERATIONS: &[OperationGuidance] = &[
+    OperationGuidance {
+        operation: Operation::Copy,
+        action_header: "COPY EXACTLY:",
+        operation_label: "COPY",
+    },
+    OperationGuidance {
+        operation: Operation::Fill,
+        action_header: "FILL ___ ONLY:",
+        operation_label: "FILL",
+    },
+    OperationGuidance {
+        operation: Operation::Produce,
+        action_header: "WRITE THE COMPLETE FUNCTION:",
+        operation_label: "PRODUCE",
+    },
+    OperationGuidance {
+        operation: Operation::Repair,
+        action_header: "REPAIR THE HIGHLIGHTED PART:",
+        operation_label: "REPAIR",
+    },
+    OperationGuidance {
+        operation: Operation::Transform,
+        action_header: "ADD THE RETURN TYPE:",
+        operation_label: "TRANSFORM",
+    },
+];
+
+const EN_RETURN_TYPE_BRIEF: &[&str] = &[
+    "FUNCTION — a named block of instructions that does a job.",
+    "CALL — tell the computer to run a function.",
+    "RETURN — give a value back to the code that called the function.",
+    "TYPE — the kind of value something is.",
+    "RETURN TYPE — the kind of value a function promises to give back.",
+    "WHY — other code and tools can know what kind of value to expect.",
+    "RUST FORM — after the function's (), write -> and then the type.",
+];
+
 const EN_SUPPORT: &[SupportGuidance] = &[SupportGuidance {
     key: "rust.function.return_literal.return_type_arrow",
-    concept_label: "Function return type",
-    explanation: "A return type says what kind of value a function gives back. Rust puts it after () with an arrow.",
+    artifact_key: "function",
+    artifact_label: "FUNCTION",
+    concept_label: "RETURN TYPE",
+    beginner_brief: EN_RETURN_TYPE_BRIEF,
+    explanation: "The return type is part of the function's declaration. Read the arrow as: this function gives back a value of the following type.",
     worked_example: Some("fn sample() -> u8 { 1 }"),
 }];
 
@@ -139,11 +193,53 @@ const UK_INSTRUCTIONS: &[GuidanceTemplate] = &[
     },
 ];
 
+// Proof-only Ukrainian presentation; human review is required before product admission.
+const UK_OPERATIONS: &[OperationGuidance] = &[
+    OperationGuidance {
+        operation: Operation::Copy,
+        action_header: "СКОПІЮЙТЕ ТОЧНО:",
+        operation_label: "КОПІЮВАННЯ",
+    },
+    OperationGuidance {
+        operation: Operation::Fill,
+        action_header: "ЗАПОВНІТЬ ЛИШЕ ___:",
+        operation_label: "ЗАПОВНЕННЯ",
+    },
+    OperationGuidance {
+        operation: Operation::Produce,
+        action_header: "НАПИШІТЬ ПОВНУ ФУНКЦІЮ:",
+        operation_label: "СТВОРЕННЯ",
+    },
+    OperationGuidance {
+        operation: Operation::Repair,
+        action_header: "ВИПРАВТЕ ВИДІЛЕНУ ЧАСТИНУ:",
+        operation_label: "ВИПРАВЛЕННЯ",
+    },
+    OperationGuidance {
+        operation: Operation::Transform,
+        action_header: "ДОДАЙТЕ ТИП ПОВЕРНЕННЯ:",
+        operation_label: "ЗМІНА",
+    },
+];
+
+const UK_RETURN_TYPE_BRIEF: &[&str] = &[
+    "ФУНКЦІЯ — іменований блок інструкцій, що виконує завдання.",
+    "ВИКЛИК — вказівка комп'ютеру виконати функцію.",
+    "ПОВЕРНЕННЯ — передати значення назад коду, який викликав функцію.",
+    "ТИП — різновид значення.",
+    "ТИП ПОВЕРНЕННЯ — різновид значення, який функція обіцяє повернути.",
+    "НАВІЩО — інший код та інструменти знають, якого значення очікувати.",
+    "ФОРМА RUST — після () функції пишеться ->, а потім тип.",
+];
+
 // Proof-only Ukrainian support; human linguistic/product review is required before product admission.
 const UK_SUPPORT: &[SupportGuidance] = &[SupportGuidance {
     key: "rust.function.return_literal.return_type_arrow",
-    concept_label: "Тип повернення функції",
-    explanation: "Функція може оголосити тип значення після списку параметрів. У Rust стрілка веде від списку параметрів до цього типу.",
+    artifact_key: "function",
+    artifact_label: "ФУНКЦІЯ",
+    concept_label: "ТИП ПОВЕРНЕННЯ",
+    beginner_brief: UK_RETURN_TYPE_BRIEF,
+    explanation: "Тип повернення є частиною оголошення функції. Стрілка означає, що функція повертає значення наступного типу.",
     worked_example: Some("fn sample() -> u8 { 1 }"),
 }];
 
@@ -153,6 +249,7 @@ pub(crate) const GUIDANCE_PACKS: &[GuidancePack] = &[
         version: 1,
         instructions: EN_INSTRUCTIONS,
         glosses: &[],
+        operations: EN_OPERATIONS,
         support: EN_SUPPORT,
     },
     GuidancePack {
@@ -160,6 +257,7 @@ pub(crate) const GUIDANCE_PACKS: &[GuidancePack] = &[
         version: 1,
         instructions: UK_INSTRUCTIONS,
         glosses: &[],
+        operations: UK_OPERATIONS,
         support: UK_SUPPORT,
     },
 ];
@@ -247,12 +345,28 @@ mod tests {
                 }
             }
 
+            for (operation_index, operation) in pack.operations.iter().enumerate() {
+                assert!(!operation.action_header.is_empty());
+                assert!(!operation.operation_label.is_empty());
+                assert!(!operation.action_header.contains('\n'));
+                for earlier in &pack.operations[..operation_index] {
+                    assert_ne!(
+                        earlier.operation, operation.operation,
+                        "operation guidance must be unique within a guidance pack"
+                    );
+                }
+            }
+
             for (support_index, support) in pack.support.iter().enumerate() {
                 assert!(!support.key.is_empty(), "support key must not be empty");
+                assert!(!support.artifact_key.is_empty());
+                assert!(!support.artifact_label.is_empty());
                 assert!(
                     !support.concept_label.is_empty(),
                     "support concept label must not be empty"
                 );
+                assert_eq!(support.beginner_brief.len(), 7);
+                assert!(support.beginner_brief.iter().all(|line| !line.is_empty()));
                 assert!(
                     !support.explanation.is_empty(),
                     "support explanation must not be empty"
@@ -266,6 +380,7 @@ mod tests {
             }
 
             assert!(pack.glosses.is_empty());
+            assert_eq!(pack.operations.len(), 5);
             assert_eq!(pack.support.len(), 1);
 
             for template in TEMPLATES {
@@ -334,6 +449,56 @@ mod tests {
             EN_TRANSFORM_TAIL_EXPRESSION_PARTS
         );
         assert_eq!(english.support, EN_SUPPORT);
+        assert_eq!(english.operations, EN_OPERATIONS);
+        assert_eq!(
+            EN_OPERATIONS
+                .iter()
+                .map(|entry| entry.action_header)
+                .collect::<Vec<_>>(),
+            [
+                "COPY EXACTLY:",
+                "FILL ___ ONLY:",
+                "WRITE THE COMPLETE FUNCTION:",
+                "REPAIR THE HIGHLIGHTED PART:",
+                "ADD THE RETURN TYPE:",
+            ]
+        );
+        assert_eq!(
+            EN_OPERATIONS
+                .iter()
+                .map(|entry| entry.operation_label)
+                .collect::<Vec<_>>(),
+            ["COPY", "FILL", "PRODUCE", "REPAIR", "TRANSFORM"]
+        );
+        assert_eq!(EN_RETURN_TYPE_BRIEF.len(), 7);
+        assert_eq!(
+            EN_RETURN_TYPE_BRIEF[0],
+            "FUNCTION — a named block of instructions that does a job."
+        );
+        assert_eq!(
+            EN_RETURN_TYPE_BRIEF[1],
+            "CALL — tell the computer to run a function."
+        );
+        assert_eq!(
+            EN_RETURN_TYPE_BRIEF[2],
+            "RETURN — give a value back to the code that called the function."
+        );
+        assert_eq!(
+            EN_RETURN_TYPE_BRIEF[3],
+            "TYPE — the kind of value something is."
+        );
+        assert_eq!(
+            EN_RETURN_TYPE_BRIEF[4],
+            "RETURN TYPE — the kind of value a function promises to give back."
+        );
+        assert_eq!(
+            EN_RETURN_TYPE_BRIEF[5],
+            "WHY — other code and tools can know what kind of value to expect."
+        );
+        assert_eq!(
+            EN_RETURN_TYPE_BRIEF[6],
+            "RUST FORM — after the function's (), write -> and then the type."
+        );
 
         let ukrainian = &GUIDANCE_PACKS[1];
         assert_eq!(
@@ -358,5 +523,6 @@ mod tests {
             UK_TRANSFORM_TAIL_EXPRESSION_PARTS
         );
         assert_eq!(ukrainian.support, UK_SUPPORT);
+        assert_eq!(ukrainian.operations, UK_OPERATIONS);
     }
 }

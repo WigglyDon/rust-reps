@@ -70,10 +70,14 @@ Update triggers: Accepted-main change, lane transition, authority change, blocke
   `NO_FOCUS_DEFECT_FOUND`.
 - `LIVE_REPO_FACT`: the varied-flow feature is integrated and its implementation
   lane is closed. The integration queue remains valid, empty, and fresh.
-- `LIVE_REPO_FACT`: `problem-first-curriculum-v1` is registered on canonical
-  master. Its exact declared worktree and branch now exist, the worker is clean,
-  and lane-doctor reported `READY`. Implementation remains unstarted, no
-  candidate exists, and no integration-queue row exists.
+- `LIVE_REPO_FACT`: `problem-first-curriculum-v1` is registered and provisioned
+  on canonical master. Its exact declared worktree and branch exist, packet
+  `RR-PROBLEM-FIRST-CURRICULUM-20260714-010` is the active implementation
+  authority, and lane-doctor reports `READY`. This worker HEAD is the one
+  isolated task-first presentation candidate; canonical master remains at the
+  provisioning commit, no integration authority exists, and no
+  integration-queue row exists. `UNKNOWN`: Don's real-TTY layout playtest is
+  still required.
 - `LIVE_REPO_FACT`: canonical installed-command proof for the closed integrated
   state was completed from local `master` and is retained in the external
   integration evidence. Registration changes no product behavior or installed
@@ -270,8 +274,11 @@ adaptation; lab owns synthetic stress data only.
 - Active: [`problem-first-curriculum-v1`](../lanes/problem-first-curriculum-v1.md)
   is provisioned for Problem-First Task Hierarchy and Zero-Knowledge Brief V1
   at `/home/don/rust-reps-problem-first-curriculum-v1` on branch
-  `codex/problem-first-curriculum-v1`. The worker is clean, lane-doctor reported
-  `READY`, implementation remains unstarted, and no candidate exists.
+  `codex/problem-first-curriculum-v1`. Packet
+  `RR-PROBLEM-FIRST-CURRICULUM-20260714-010` is active, the worker HEAD is the
+  one isolated candidate, lane-doctor reports `READY`, Don's real-TTY layout
+  playtest remains required, and canonical master and the integration queue
+  remain unchanged.
 - Paused: new Ukrainian/French curriculum, validator integration, lab cleanup,
   product settings, interface localization, persistence, and scheduling.
 - No guidance language setting currently exists.

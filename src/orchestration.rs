@@ -49,8 +49,14 @@ pub(crate) struct ResolvedTaskSupport {
     pub(crate) concept_key: &'static str,
     pub(crate) stage: SupportStage,
     pub(crate) anchor_id: &'static str,
+    pub(crate) artifact_key: &'static str,
     pub(crate) target_dimension: &'static str,
+    pub(crate) action_header: String,
+    pub(crate) operation_label: String,
+    pub(crate) artifact_label: String,
     pub(crate) concept_label: String,
+    pub(crate) catalog_label: String,
+    pub(crate) beginner_brief: Vec<String>,
     pub(crate) explanation: String,
     pub(crate) worked_example: Option<String>,
     pub(crate) focus_ranges: Vec<crate::curriculum::support::FocusRangeSpec>,
@@ -161,15 +167,27 @@ pub(crate) fn resolve_core_task(
                 drill.id
             )));
         }
-        let resolved =
-            resolve_support_guidance(source.help_key, GUIDANCE_PACKS, locale, pack_version)
-                .map_err(ResolveCoreTaskError::Guidance)?;
+        let resolved = resolve_support_guidance(
+            drill.metadata.operation,
+            source.artifact_key,
+            source.help_key,
+            GUIDANCE_PACKS,
+            locale,
+            pack_version,
+        )
+        .map_err(ResolveCoreTaskError::Guidance)?;
         Some(ResolvedTaskSupport {
             concept_key: source.concept_key,
             stage: capability.support.stage(),
             anchor_id: source.anchor_id,
+            artifact_key: source.artifact_key,
             target_dimension: source.target_dimension,
+            action_header: resolved.action_header,
+            operation_label: resolved.operation_label,
+            artifact_label: resolved.artifact_label,
             concept_label: resolved.concept_label,
+            catalog_label: resolved.catalog_label,
+            beginner_brief: resolved.beginner_brief,
             explanation: resolved.explanation,
             worked_example: resolved.worked_example,
             focus_ranges: source.focus_ranges.to_vec(),
@@ -244,7 +262,9 @@ fn product_exercise_packet_from_drill(
                 SupportStage::Guided => ExerciseSupportStage::Guided,
                 SupportStage::Practice => ExerciseSupportStage::Practice,
             },
-            concept_label: Cow::Owned(support.concept_label),
+            action_header: Cow::Owned(support.action_header),
+            catalog_label: Cow::Owned(support.catalog_label),
+            beginner_brief: support.beginner_brief.into_iter().map(Cow::Owned).collect(),
             explanation: Cow::Owned(support.explanation),
             worked_example: support.worked_example.map(Cow::Owned),
             focus_ranges: support
@@ -685,8 +705,14 @@ mod tests {
                 crate::curriculum::support::RETURN_TYPE_CONCEPT_KEY
             );
             assert_eq!(support.anchor_id, if index < 5 { "013" } else { "018" });
+            assert_eq!(support.artifact_key, "function");
             assert!(!support.target_dimension.is_empty());
+            assert!(!support.action_header.is_empty());
+            assert!(!support.operation_label.is_empty());
+            assert_eq!(support.artifact_label, "FUNCTION");
             assert!(!support.concept_label.is_empty());
+            assert!(support.catalog_label.contains(" · FUNCTION · "));
+            assert_eq!(support.beginner_brief.len(), 7);
             assert!(!support.explanation.is_empty());
             assert_ne!(support.explanation, resolved.expected);
             assert_ne!(support.worked_example.as_deref(), Some(resolved.expected));
@@ -701,11 +727,63 @@ mod tests {
                 .expect("varied packet must resolve");
             let ExerciseSupport {
                 stage: _,
-                concept_label: _,
+                action_header: _,
+                catalog_label: _,
+                beginner_brief: _,
                 explanation: _,
                 worked_example: _,
                 focus_ranges: _,
             } = packet.support.expect("packet must carry resolved support");
+        }
+    }
+
+    #[test]
+    fn problem_first_headers_labels_and_beginner_brief_resolve_separately_from_cli_instructions() {
+        let expected_headers = [
+            "COPY EXACTLY:",
+            "FILL ___ ONLY:",
+            "WRITE THE COMPLETE FUNCTION:",
+            "REPAIR THE HIGHLIGHTED PART:",
+            "ADD THE RETURN TYPE:",
+        ];
+        let expected_catalog_labels = [
+            "COPY · FUNCTION · RETURN TYPE",
+            "FILL · FUNCTION · RETURN TYPE",
+            "PRODUCE · FUNCTION · RETURN TYPE",
+            "REPAIR · FUNCTION · RETURN TYPE",
+            "TRANSFORM · FUNCTION · RETURN TYPE",
+        ];
+        let expected_brief = [
+            "FUNCTION — a named block of instructions that does a job.",
+            "CALL — tell the computer to run a function.",
+            "RETURN — give a value back to the code that called the function.",
+            "TYPE — the kind of value something is.",
+            "RETURN TYPE — the kind of value a function promises to give back.",
+            "WHY — other code and tools can know what kind of value to expect.",
+            "RUST FORM — after the function's (), write -> and then the type.",
+        ];
+
+        for drill in &DRILLS[12..] {
+            let operation_index = (drill.id.parse::<usize>().unwrap() - 13) % 5;
+            let resolved = resolve_core_task(drill, "en", 1).unwrap();
+            let support = resolved.support.as_ref().unwrap();
+
+            assert_eq!(support.action_header, expected_headers[operation_index]);
+            assert_eq!(
+                support.catalog_label,
+                expected_catalog_labels[operation_index]
+            );
+            assert_eq!(support.beginner_brief, expected_brief);
+            assert_ne!(support.action_header, resolved.instruction);
+            assert!(!support.catalog_label.contains(resolved.expected));
+            assert!(
+                support
+                    .beginner_brief
+                    .iter()
+                    .all(|line| line != resolved.expected)
+            );
+            assert_ne!(support.explanation, resolved.expected);
+            assert_ne!(support.worked_example.as_deref(), Some(resolved.expected));
         }
     }
 
@@ -726,11 +804,24 @@ mod tests {
             assert_eq!(english_support.concept_key, ukrainian_support.concept_key);
             assert_eq!(english_support.stage, ukrainian_support.stage);
             assert_eq!(english_support.anchor_id, ukrainian_support.anchor_id);
+            assert_eq!(english_support.artifact_key, ukrainian_support.artifact_key);
             assert_eq!(
                 english_support.target_dimension,
                 ukrainian_support.target_dimension
             );
             assert_eq!(english_support.focus_ranges, ukrainian_support.focus_ranges);
+            assert_ne!(
+                english_support.action_header,
+                ukrainian_support.action_header
+            );
+            assert_ne!(
+                english_support.catalog_label,
+                ukrainian_support.catalog_label
+            );
+            assert_ne!(
+                english_support.beginner_brief,
+                ukrainian_support.beginner_brief
+            );
             assert_ne!(
                 english_support.concept_label,
                 ukrainian_support.concept_label

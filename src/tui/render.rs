@@ -560,7 +560,7 @@ fn problem_display_line(line: &ProblemDisplayLine) -> Line<'static> {
             vec![Span::styled(line.text.clone(), problem_header_style())]
         }
         ProblemLineKind::Code => code_spans(&line.tokens),
-        ProblemLineKind::ConceptLabel => {
+        ProblemLineKind::CatalogLabel => {
             vec![Span::styled(line.text.clone(), problem_header_style())]
         }
         ProblemLineKind::HelpText => vec![Span::raw(line.text.clone())],
@@ -1273,9 +1273,9 @@ mod tests {
     use crate::{
         client::{
             ClientAction, CursorPosition, EditorAnchor, FormatFrame, FormatNoticeKind,
-            ProblemDisplayLine, ProblemViewport, REWARD_ATTACK_DURATION, REWARD_DURATION,
-            REWARD_PLUS_ONE_BODY_DURATION, REWARD_PLUS_ONE_DURATION, RewardFrame, SkipFrame,
-            StatusTone, StimulusRowKind, ViewportOverflow,
+            ProblemDisplayLine, ProblemLineKind, ProblemViewport, REWARD_ATTACK_DURATION,
+            REWARD_DURATION, REWARD_PLUS_ONE_BODY_DURATION, REWARD_PLUS_ONE_DURATION, RewardFrame,
+            SkipFrame, StatusTone, StimulusRowKind, ViewportOverflow,
         },
         engine::{
             self, ExerciseAnswerRule, ExerciseKind, ExercisePacket, ExerciseValidator,
@@ -2061,8 +2061,9 @@ mod tests {
         let intro = interactive_app();
         for (width, height) in [(96, 24), (72, 24)] {
             let rendered = render_frame_text(&intro.frame(), width, height);
-            assert!(rendered.contains("Function return type"));
-            assert!(rendered.contains("A return type says"));
+            assert!(rendered.contains("COPY EXACTLY:"));
+            assert!(rendered.contains("COPY · FUNCTION · RETURN TYPE"));
+            assert!(rendered.contains("FUNCTION —"));
             assert!(rendered.contains("F2 help"));
             assert!(rendered.contains("F5 submit"));
             assert!(rendered.contains("Esc quit"));
@@ -2088,10 +2089,74 @@ mod tests {
         }
         guided.handle_action(ClientAction::Help);
         let rendered_help = render_frame_text(&guided.frame(), 72, 24);
-        assert!(rendered_help.contains("Function return type"));
-        assert!(rendered_help.contains("fn sample()"));
+        assert!(rendered_help.contains("REPAIR THE HIGHLIGHTED PART:"));
+        assert!(rendered_help.contains("REPAIR · FUNCTION · RETURN TYPE"));
+        assert!(guided.frame().game_window.problem.lines.iter().any(|line| {
+            line.kind == ProblemLineKind::HelpExample && line.text.contains("fn sample()")
+        }));
         assert!(rendered_help.contains("F2 help"));
         assert!(rendered_help.contains("Esc quit"));
+    }
+
+    #[test]
+    fn problem_first_source_row_is_stable_across_stage_help_and_narrow_support() {
+        let area = Rect::new(0, 0, 72, 24);
+        let mut apps = Vec::new();
+        for skips in [0, 1, 4] {
+            let mut app = interactive_app();
+            for _ in 0..skips {
+                app.handle_action(ClientAction::Skip);
+            }
+            apps.push(app);
+        }
+
+        let mut source_rows = Vec::new();
+        for app in &mut apps {
+            let (frame, layout) = project_app_for_area(app, area);
+            assert_eq!(frame.game_window.problem.instruction_lines().len(), 1);
+            assert_eq!(
+                frame.game_window.problem.lines[0].kind,
+                ProblemLineKind::Header
+            );
+            assert_eq!(layout.editor.y, layout.problem.y);
+            source_rows.push(layout.problem.y);
+        }
+        assert!(source_rows.windows(2).all(|rows| rows[0] == rows[1]));
+
+        let mut guided = interactive_app();
+        guided.handle_action(ClientAction::Skip);
+        load_text(&mut guided, "learner draft");
+        let (closed_frame, closed_layout) = project_app_for_area(&mut guided, area);
+        let closed_cursor = closed_frame.game_window.workbox.cursor;
+        let closed_editor_viewport = closed_frame.game_window.workbox.viewport;
+        let closed_problem_viewport = closed_frame.game_window.problem.viewport;
+        guided.handle_action(ClientAction::Help);
+        let (open_frame, open_layout) = project_app_for_area(&mut guided, area);
+
+        assert_eq!(open_layout.editor.y, closed_layout.editor.y);
+        assert_eq!(open_layout.problem.y, closed_layout.problem.y);
+        assert_eq!(open_frame.game_window.workbox.cursor, closed_cursor);
+        assert_eq!(
+            open_frame.game_window.workbox.viewport,
+            closed_editor_viewport
+        );
+        assert_eq!(
+            open_frame.game_window.problem.viewport,
+            closed_problem_viewport
+        );
+        assert_eq!(
+            open_frame.game_window.problem.stimulus_start(),
+            closed_frame.game_window.problem.stimulus_start()
+        );
+
+        let narrow = Rect::new(0, 0, 52, 18);
+        let (narrow_frame, narrow_layout) = project_app_for_area(&mut guided, narrow);
+        assert_eq!(
+            narrow_frame.game_window.problem.instruction_lines().len(),
+            1
+        );
+        assert_eq!(narrow_layout.editor.y, narrow_layout.problem.y);
+        assert!(narrow_frame.game_window.problem.overflow(3).below);
     }
 
     #[test]
@@ -3158,6 +3223,25 @@ mod tests {
             status_tone_style(StatusTone::Pass).fg,
             status_tone_style(StatusTone::TryAgain).fg
         );
+    }
+
+    #[test]
+    fn tui_renders_resolved_problem_lines_without_locale_or_concept_literals() {
+        let production = include_str!("render.rs")
+            .split("#[cfg(test)]\nmod tests")
+            .next()
+            .expect("expected TUI render production source");
+
+        for forbidden in [
+            "COPY EXACTLY:",
+            "RETURN TYPE",
+            "rust.function.return_literal.return_type_arrow",
+        ] {
+            assert!(
+                !production.contains(forbidden),
+                "TUI must not own resolved presentation literal {forbidden}"
+            );
+        }
     }
 
     #[test]

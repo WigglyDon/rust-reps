@@ -874,6 +874,40 @@ mod tests {
     }
 
     #[test]
+    fn problem_first_support_is_optional_and_f5_keeps_the_single_step_fast_path() {
+        let mut intro = interactive_app();
+        assert!(
+            intro
+                .frame()
+                .game_window
+                .problem
+                .lines
+                .iter()
+                .any(|line| { line.text.starts_with("FUNCTION —") })
+        );
+        let intro_expected = intro.active_exercise().expected_answer().to_owned();
+        let intro_before = intro.session().stats();
+        load_text(&mut intro, &intro_expected);
+        intro.handle_action(ClientAction::Submit);
+        assert_eq!(intro.active_exercise().id, "014");
+        assert_eq!(intro.session().stats().attempts, intro_before.attempts + 1);
+        assert_eq!(intro.session().stats().passed, intro_before.passed + 1);
+
+        let mut with_help = interactive_app();
+        advance_to_product_id(&mut with_help, "016");
+        with_help.handle_action(ClientAction::Help);
+        assert!(with_help.frame().help_open);
+        let expected = with_help.active_exercise().expected_answer().to_owned();
+        let before = with_help.session().stats();
+        load_text(&mut with_help, &expected);
+        with_help.handle_action(ClientAction::Submit);
+        assert_eq!(with_help.active_exercise().id, "017");
+        assert_eq!(with_help.session().stats().attempts, before.attempts + 1);
+        assert_eq!(with_help.session().stats().passed, before.passed + 1);
+        assert!(!with_help.frame().help_open);
+    }
+
+    #[test]
     fn help_stays_after_wrong_and_resets_on_correct_skip_and_round_transition() {
         let mut app = interactive_app();
         advance_to_product_id(&mut app, "016");
