@@ -13,7 +13,7 @@ Update triggers: Lane creation, pause, block, integration, retirement, respawn, 
 
 | Lane ID | Page | Worktree | Branch | Status |
 | --- | --- | --- | --- | --- |
-| `problem-first-curriculum-v1` | [`problem-first-curriculum-v1.md`](problem-first-curriculum-v1.md) | `/home/don/rust-reps-problem-first-curriculum-v1` | `codex/problem-first-curriculum-v1` | REGISTERED; WORKTREE NOT YET PROVISIONED |
+| `problem-first-curriculum-v1` | [`problem-first-curriculum-v1.md`](problem-first-curriculum-v1.md) | `/home/don/rust-reps-problem-first-curriculum-v1` | `codex/problem-first-curriculum-v1` | PROVISIONED; AWAITING FRESH IMPLEMENTATION PACKET |
 
 Active lane records must use this five-column table because `lane-doctor`
 consumes it. Bullet-form active records are invalid coordination memory.

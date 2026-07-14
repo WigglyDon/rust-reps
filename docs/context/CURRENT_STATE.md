@@ -71,8 +71,9 @@ Update triggers: Accepted-main change, lane transition, authority change, blocke
 - `LIVE_REPO_FACT`: the varied-flow feature is integrated and its implementation
   lane is closed. The integration queue remains valid, empty, and fresh.
 - `LIVE_REPO_FACT`: `problem-first-curriculum-v1` is registered on canonical
-  master. At this registration commit its declared worktree and branch are not
-  yet provisioned, and no implementation or candidate exists for the boundary.
+  master. Its exact declared worktree and branch now exist, the worker is clean,
+  and lane-doctor reported `READY`. Implementation remains unstarted, no
+  candidate exists, and no integration-queue row exists.
 - `LIVE_REPO_FACT`: canonical installed-command proof for the closed integrated
   state was completed from local `master` and is retained in the external
   integration evidence. Registration changes no product behavior or installed
@@ -267,9 +268,10 @@ adaptation; lab owns synthetic stress data only.
 - Retired: [`static-guidance-schema-v1`](../lanes/static-guidance-schema-v1.md),
   accepted and integrated into local canonical master.
 - Active: [`problem-first-curriculum-v1`](../lanes/problem-first-curriculum-v1.md)
-  is registered for Problem-First Task Hierarchy and Zero-Knowledge Brief V1.
-  Its declared worktree and branch are not yet provisioned at this registration
-  commit; implementation remains unstarted and no candidate exists.
+  is provisioned for Problem-First Task Hierarchy and Zero-Knowledge Brief V1
+  at `/home/don/rust-reps-problem-first-curriculum-v1` on branch
+  `codex/problem-first-curriculum-v1`. The worker is clean, lane-doctor reported
+  `READY`, implementation remains unstarted, and no candidate exists.
 - Paused: new Ukrainian/French curriculum, validator integration, lab cleanup,
   product settings, interface localization, persistence, and scheduling.
 - No guidance language setting currently exists.

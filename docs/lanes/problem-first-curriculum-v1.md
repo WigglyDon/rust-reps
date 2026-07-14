@@ -10,7 +10,7 @@ Related evidence: Git history, the completed varied-flow integration result, the
 Update triggers: Provisioning, a fresh implementation packet, candidate review, integration, rejection, pause, block, or retirement.
 
 - Lane ID: `problem-first-curriculum-v1`
-- Current status: `REGISTERED; WORKTREE NOT YET PROVISIONED`
+- Current status: `PROVISIONED; AWAITING FRESH IMPLEMENTATION PACKET`
 - Supervisor destination: `Master Codex`
 - Supervisor expected reply type: `MASTER_CODEX_PRESENTATION_REPAIR_RESULT_V1`
 - Latest packet ID: `RR-PROBLEM-FIRST-CURRICULUM-20260714-009`
@@ -48,7 +48,15 @@ This registration records intent without granting implementation authority:
 ## Registration State
 
 - `LIVE_REPO_FACT`: product behavior remains unchanged by registration.
-- `LIVE_REPO_FACT`: no new candidate exists and no integration authority exists.
+- `LIVE_REPO_FACT`: the declared worktree and branch exist. Before this
+  provisioning-state commit both pointed to registration SHA
+  `877b50935a327fb5b39f08b6debda87205d4f95f`.
+- `LIVE_REPO_FACT`: the worker is clean and lane-doctor reported `READY` for
+  this lane ID and page.
+- `LIVE_REPO_FACT`: product implementation remains unstarted; no candidate and
+  no integration-queue row exist.
+- `LIVE_REPO_FACT`: implementation requires a fresh packet anchored to the
+  final provisioning SHA and final Context-SHA; no integration authority exists.
 - `LIVE_REPO_FACT`: no Don playtest applies because registration changes no
   player-visible behavior.
 - `LIVE_REPO_FACT`: both parked donor worktrees remain outside this lane's
