@@ -57,40 +57,50 @@ Update triggers: Accepted-main change, lane transition, authority change, blocke
 - `USER_DECISION`: Product Integration Decision V1 and both prerequisites,
   Resolved Core Task And Orchestration Contract V1 and Truthful Task Projection
   Contract V1, are accepted and integrated.
-- `USER_DECISION`: Varied Deterministic Rust Practice Flow V1 is the selected
-  next product boundary.
-- `LIVE_REPO_FACT`: one active feature lane exists:
-  `varied-deterministic-flow-v1` at worktree
-  `/home/don/rust-reps-varied-flow-v1` and branch
-  `codex/varied-deterministic-flow-v1`. Provisioning was verified with the
-  clean worker at the provisioning commit, and lane-doctor reported `READY`
-  for its exact lane ID and page. Packet
-  `RR-CURRICULUM-SCAFFOLD-20260713-006` authorizes one focused branch-local
-  beginner concept-scaffolding slice, one candidate amendment, and candidate
-  proof.
-- `LIVE_REPO_FACT`: the integration queue remains empty and canonical product
-  behavior remains unchanged. The branch-local scaffolding candidate is carried
-  by the enclosing amended feature commit; Master review and Don beginner
-  real-TTY curriculum playtest are required before any integration.
+- `USER_DECISION`: Varied Deterministic Rust Practice Flow V1 and Beginner
+  Concept Scaffolding V1 are accepted product boundaries.
+- `LIVE_REPO_FACT`: canonical local `master` fast-forwarded to candidate
+  `a0bdbdc00751b08d49b36956fb82600001348217`; the integrated feature worktree
+  and branch were then retired without force.
+- `LIVE_REPO_FACT`: Don's real-TTY playtest passed with observations. The
+  screenshot ambiguity gate classified local Wrong feedback as
+  `NONBLOCKING_LOCAL_FEEDBACK_STYLE` and both Repair focus ranges as
+  `NO_FOCUS_DEFECT_FOUND`.
+- `LIVE_REPO_FACT`: the integration queue is valid, empty, and fresh; no active
+  implementation lane exists. Future curriculum refinement requires a fresh
+  registration and packet rather than continued work under the closed lane.
+- `LIVE_REPO_FACT`: canonical installed-command proof for the closed integrated
+  state was completed from local `master` and is retained in the external
+  integration evidence; no push or deployment occurred.
 
 ## Accepted Product State
 
-- `LIVE_REPO_FACT`: the catalog contains 12 ordered normal Copy reps with
-  static metadata; all use `ExactTrimFinalNewline` and `StateTransition::None`.
+- `LIVE_REPO_FACT`: the normal catalog contains 22 ordered tasks with stable
+  IDs 001-022. IDs 001-012 retain their accepted Copy behavior; IDs 013-022 are
+  two reviewed correlated rows in Copy, Fill, Produce, Repair, Transform order.
 - `LIVE_REPO_FACT`: plain terminal stdout/stderr and exit behavior remain the
   baseline oracle; interactive default is the sealed fullscreen TUI client.
 - `LIVE_REPO_FACT`: exact checking removes at most one final LF or CRLF and
   normalizes nothing else.
 - `LIVE_REPO_FACT`: current product task packets keep resolved instruction,
-  exact stimulus, and private expected-answer truth separate. Current normal
-  reps 001-012 explicitly disable formatting; synthetic lab packets explicitly
-  enable `Rustfmt` formatting.
+  support presentation, exact stimulus, and private expected-answer truth
+  separate. Copy and controlled Fill use `ExactTrimFinalNewline` with formatting
+  disabled; Produce, Repair, and Transform use `RustfmtExact` with F1 formatting
+  enabled.
 - `LIVE_REPO_FACT`: plain, one-shot, client, and TUI task projection reads
   instruction and stimulus, never expected-answer truth. The TUI aligns editor
   and stimulus source geometry and marks soft stimulus continuations with an
   out-of-source `↪ ` gutter.
 - `LIVE_REPO_FACT`: correct and wrong submissions increment attempts; skip
   advances without becoming a skill attempt. XP remains undisplayed metadata.
+- `LIVE_REPO_FACT`: normal interactive practice selects coherent deterministic
+  five-task rounds and continues until Esc. Correct or Skip at 5/5 opens 1/5 of
+  the next row; Wrong remains local. Plain, automatic fallback, and one-shot
+  execution remain finite.
+- `LIVE_REPO_FACT`: beginner varied tasks carry static support stages and
+  Unicode-safe stimulus focus ranges. F2 toggles resolved concept help in
+  transient client state without submission, validation, attempt, skip, XP, or
+  engine-state effects; unsupported tasks report `help unavailable`.
 - `LIVE_REPO_FACT`: approved direct product dependencies are only `ratatui`
   and `crossterm`.
 
@@ -98,14 +108,14 @@ Update triggers: Accepted-main change, lane transition, authority change, blocke
 
 The canonical matrix is [`CONTEXT_MATRIX.md`](CONTEXT_MATRIX.md). In brief,
 curriculum/catalog own normal content, admission, and locale-independent core
-task records; procgen owns inert source and pure expansion; planner owns inert
-capability/SetPlan source and pure deterministic planning over supplied candidate
-summaries; guidance owns authored instruction source and pure instruction
-resolution only; orchestration owns current product lookup, resolution, and
-packet construction; engine owns session truth over resolved packets; answer
-owns Exact; validators and tool runner own
-closed non-exact capability seams; client owns portable UI state; TUI owns
-terminal projection; CLI/practice/presentation/main own launch and plain terminal
+task records and static task support; procgen owns reviewed source rows and pure
+expansion; planner owns SetPlan source and deterministic planning over admitted
+candidate summaries; guidance owns authored prose and pure resolution;
+orchestration owns product lookup, resolution, planning, and packet construction;
+engine owns session truth over resolved packets; answer owns Exact; validators
+and tool runner own RustfmtExact dispatch and fixed rustfmt execution; client
+owns portable editor and transient help state; TUI owns terminal input and
+projection; CLI/practice/presentation/main own launch and finite plain terminal
 adaptation; lab owns synthetic stress data only.
 
 ## Core Task And Guidance State
@@ -131,9 +141,9 @@ adaptation; lab owns synthetic stress data only.
   optional capability ID, and optional generated provenance. Catalog canonical
   identity remains product identity; generated identity remains optional source
   provenance.
-- `LIVE_REPO_FACT`: all twelve current reps retain IDs 001-012, canonical IDs,
-  metadata, stimulus, and expected bytes. Each uses `copy.exact_line`, an empty
-  assignment slice, `capability_id: None`, and `generated_provenance: None`.
+- `LIVE_REPO_FACT`: the original twelve reps retain IDs 001-012, canonical IDs,
+  metadata, stimulus, expected bytes, Copy operation, Exact answer rule, disabled
+  formatting, and no generated provenance.
 - `LIVE_REPO_FACT`: `src/orchestration.rs` defines explicit initial `en@v1`
   guidance constants, pure `resolve_core_task` construction, and current
   product lookup/collection/session construction. `ResolvedCoreTask` separates
@@ -150,15 +160,14 @@ adaptation; lab owns synthetic stress data only.
   proof locales. Core identity, content seed, assignments, stimulus, expected
   response, answer rule, concepts, constraints, XP, and transition do not change
   by guidance locale. Guidance owns no expected-answer bytes.
-- `LIVE_REPO_FACT`: no expanded/materialized output is admitted by catalog,
-  engine, CLI, practice, client, TUI, lab, formatter, validator, tool runner,
-  presentation, or orchestration. Only current admitted catalog reps are
-  resolved for product use.
-- `LIVE_REPO_FACT`: `src/curriculum/procgen/materialized.rs` contains exactly
-  five inert checked tasks in Copy, Fill, Produce, Repair, Transform order.
-  Every materialized field is tested against pure seed-zero expansion; generated
-  IDs and task signatures are unique, and no task has a short ID or catalog
-  order.
+- `LIVE_REPO_FACT`: `src/curriculum/procgen/materialized.rs` contains two
+  explicit reviewed correlated rows. Catalog IDs 013-022 admit their ten static
+  materialized tasks in row-major Copy, Fill, Produce, Repair, Transform order;
+  runtime product code selects admitted IDs and does not expand templates.
+- `LIVE_REPO_FACT`: `src/curriculum/support.rs` carries one opaque primary
+  concept, Introduce/Guided/Practice stages, deterministic stimulus focus ranges,
+  and static help examples for IDs 013-022. Guidance resolves visible prose
+  before client/TUI construction, and expected responses remain private.
 - `LIVE_REPO_FACT`: no French curriculum, guidance-language setting,
   interface-language setting, fallback, or generated catalog admission exists.
   The Ukrainian proof source remains product-inert.
@@ -175,7 +184,8 @@ adaptation; lab owns synthetic stress data only.
 
 - `USER_DECISION`: capability planning belongs outside the engine; the engine
   executes admitted work and does not invent curriculum policy.
-- `LIVE_REPO_FACT`: `curriculum::planner` remains inert curriculum source. It
+- `LIVE_REPO_FACT`: `curriculum::planner` is curriculum source and pure planning
+  policy. It
   defines representation kinds, support levels, learning-focus targets,
   capability records, ordered set steps, and SetPlan records.
 - `LIVE_REPO_FACT`: capability records keep semantic frame, response system and
@@ -188,10 +198,10 @@ adaptation; lab owns synthetic stress data only.
   authors Copy, Fill, Produce, Repair, and Transform in that source order; set
   traversal or completion is curriculum structure, not mastery.
 - `LIVE_REPO_FACT`: the Rust function-return-literal surface conceptually
-  supports those five operations. `TEMPLATES` now contains one inert template
-  per operation, with one matching checked materialized task. Supported
-  operation or materialization still does not imply catalog admission, client
-  support, or product use.
+  supports those five operations. `TEMPLATES` contains one static template per
+  operation, and two reviewed rows materialize one task per template. Only the
+  explicitly admitted IDs enter product play; template support alone does not
+  imply admission.
 - `LIVE_REPO_FACT`: `curriculum::planner::planning` provides the pure
   `plan_cardinality` and `build_practice_plan` boundary. `CandidateSummary`
   describes supplied task metadata and carries `content_seed` only as inert
@@ -214,25 +224,23 @@ adaptation; lab owns synthetic stress data only.
   appears only in plan provenance; it does not change supplied rep identity.
   Content seed does not influence planning. Explicit repeated capability steps
   may repeat one supplied rep.
-- `LIVE_REPO_FACT`: no catalog, engine, guidance, presentation, client, TUI,
-  CLI, practice, or lab caller uses the pure planner. It does not expand
-  templates, generate tasks, resolve guidance, inspect task bytes, execute a
-  plan, or enter product flow. No generated task is playable and product
-  behavior is unchanged.
+- `LIVE_REPO_FACT`: orchestration supplies admitted catalog summaries to the
+  pure planner and constructs deterministic five-task product rounds from the
+  selected admitted IDs. The planner does not expand templates, generate tasks,
+  resolve guidance, inspect task bytes, or enter engine/client/TUI ownership.
 - `USER_DECISION`: no persistence, mastery, adaptive selection, or scheduling
   is authorized; planning remains static and deterministic. Tiny Multi-Operation
   Rust Set Materialization V1 is accepted and integrated as inert source.
-  Its five tasks remain outside the catalog. Proposed IDs 013-017 are unassigned,
-  PracticePlan execution remains deferred, and generated admission requires a
-  separately accepted player-visible product boundary.
+  Its accepted successor now admits exactly two reviewed rows as IDs 013-022;
+  no persistence, mastery, adaptive selection, scheduling, runtime generation,
+  or runtime LLM path exists.
 
 ## Lanes
 
-- Active focused repair: [`varied-deterministic-flow-v1`](../lanes/varied-deterministic-flow-v1.md).
-  Its declared worktree and branch remain active, lane-doctor reports `READY`,
-  and packet `RR-VARIED-FLOW-20260713-004` authorizes one amendment of the
-  isolated candidate for visible submission-contract clarity. The integration
-  queue remains empty and Don re-playtest is required.
+- Retired: [`varied-deterministic-flow-v1`](../lanes/varied-deterministic-flow-v1.md),
+  accepted and integrated through candidate
+  `a0bdbdc00751b08d49b36956fb82600001348217` after Don's real-TTY playtest;
+  worktree removed and branch deleted.
 - Retired: [`truthful-task-projection-v1`](../lanes/truthful-task-projection-v1.md),
   accepted and integrated into local canonical master; worktree removed and
   branch deleted after Don's accepted real-TTY playtest.
@@ -253,8 +261,8 @@ adaptation; lab owns synthetic stress data only.
   branch deleted.
 - Retired: [`static-guidance-schema-v1`](../lanes/static-guidance-schema-v1.md),
   accepted and integrated into local canonical master.
-- Selected active product boundary: Varied Deterministic Rust Practice Flow V1.
-  Registration does not begin implementation or change product behavior.
+- No active implementation lane exists. Future playtest-derived curriculum work
+  requires a fresh lane registration and packet.
 - Paused: new Ukrainian/French curriculum, validator integration, lab cleanup,
   product settings, interface localization, persistence, and scheduling.
 - No guidance language setting currently exists.
@@ -285,23 +293,21 @@ authority are unchanged; the fleet tool has no product runtime integration.
 - `USER_DECISION`: Exact is a narrow operation-specific rule that removes at
   most one final LF or CRLF and normalizes nothing else; it is not the universal
   validator for future generated Rust exercises.
-- `USER_DECISION`: current normal reps 001-012 are literal Copy tasks with
+- `USER_DECISION`: normal reps 001-012 are literal Copy tasks with
   `ExactTrimFinalNewline` and formatting `Disabled`. Exact Copy is appropriate
   for literal surface reproduction.
 - `USER_DECISION`: every future task must choose answer rule and format
   capability explicitly. Neither may be inferred from generated identity,
   source length, stimulus/expected equality, rustfmt output, or operation name
   alone.
-- `USER_DECISION`: initial future direction is Exact with formatting disabled
-  for Copy; Exact with formatting not applicable for controlled-label
-  Recognize/Read; Exact for token-scoped Fill when the stated target is one
-  exact token or label; and `RustfmtExact` as a candidate for formatting-tolerant
-  full-code Fill, Produce, Repair, and Transform tasks when their required code
-  form remains structurally explicit.
+- `LIVE_REPO_FACT`: Copy and token-scoped Fill use Exact with formatting
+  disabled. Produce, Repair, and Transform use `RustfmtExact` for one canonical
+  token-level answer modulo rustfmt formatting and enable the separate F1
+  editor helper.
 - `USER_DECISION`: `RustfmtExact` means formatting equivalence, not semantic
   equivalence. Broader `RustCheck` or `VisibleTests` semantics require a separate
-  permanent validator boundary. The existing `RustfmtExact` core remains
-  product-inert.
+  permanent validator boundary. Rustfmt-rejected learner input is a normal Wrong
+  result; rustfmt infrastructure failure remains a classified product error.
 - `LIVE_REPO_FACT`: F1 is formatter-only and never submits, validates, or reads
-  expected-answer truth. Current normal Exact tasks disable it; explicitly
-  format-enabled synthetic lab tasks use ordinary rustfmt.
+  expected-answer truth. Exact tasks disable it; explicitly format-enabled
+  normal and synthetic lab tasks use ordinary rustfmt.
