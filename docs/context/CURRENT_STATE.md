@@ -59,6 +59,8 @@ Update triggers: Accepted-main change, lane transition, authority change, blocke
   Contract V1, are accepted and integrated.
 - `USER_DECISION`: Varied Deterministic Rust Practice Flow V1 and Beginner
   Concept Scaffolding V1 are accepted product boundaries.
+- `USER_DECISION`: Problem-First Task Hierarchy and Zero-Knowledge Brief V1 is
+  the selected next product boundary.
 - `LIVE_REPO_FACT`: canonical local `master` fast-forwarded to candidate
   `a0bdbdc00751b08d49b36956fb82600001348217`; the integrated feature worktree
   and branch were then retired without force.
@@ -66,12 +68,15 @@ Update triggers: Accepted-main change, lane transition, authority change, blocke
   screenshot ambiguity gate classified local Wrong feedback as
   `NONBLOCKING_LOCAL_FEEDBACK_STYLE` and both Repair focus ranges as
   `NO_FOCUS_DEFECT_FOUND`.
-- `LIVE_REPO_FACT`: the integration queue is valid, empty, and fresh; no active
-  implementation lane exists. Future curriculum refinement requires a fresh
-  registration and packet rather than continued work under the closed lane.
+- `LIVE_REPO_FACT`: the varied-flow feature is integrated and its implementation
+  lane is closed. The integration queue remains valid, empty, and fresh.
+- `LIVE_REPO_FACT`: `problem-first-curriculum-v1` is registered on canonical
+  master. At this registration commit its declared worktree and branch are not
+  yet provisioned, and no implementation or candidate exists for the boundary.
 - `LIVE_REPO_FACT`: canonical installed-command proof for the closed integrated
   state was completed from local `master` and is retained in the external
-  integration evidence; no push or deployment occurred.
+  integration evidence. Registration changes no product behavior or installed
+  command; no push or deployment occurred.
 
 ## Accepted Product State
 
@@ -261,8 +266,10 @@ adaptation; lab owns synthetic stress data only.
   branch deleted.
 - Retired: [`static-guidance-schema-v1`](../lanes/static-guidance-schema-v1.md),
   accepted and integrated into local canonical master.
-- No active implementation lane exists. Future playtest-derived curriculum work
-  requires a fresh lane registration and packet.
+- Active: [`problem-first-curriculum-v1`](../lanes/problem-first-curriculum-v1.md)
+  is registered for Problem-First Task Hierarchy and Zero-Knowledge Brief V1.
+  Its declared worktree and branch are not yet provisioned at this registration
+  commit; implementation remains unstarted and no candidate exists.
 - Paused: new Ukrainian/French curriculum, validator integration, lab cleanup,
   product settings, interface localization, persistence, and scheduling.
 - No guidance language setting currently exists.

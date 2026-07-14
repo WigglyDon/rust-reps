@@ -13,16 +13,14 @@ Update triggers: Lane creation, pause, block, integration, retirement, respawn, 
 
 | Lane ID | Page | Worktree | Branch | Status |
 | --- | --- | --- | --- | --- |
-
-No active lanes.
+| `problem-first-curriculum-v1` | [`problem-first-curriculum-v1.md`](problem-first-curriculum-v1.md) | `/home/don/rust-reps-problem-first-curriculum-v1` | `codex/problem-first-curriculum-v1` | REGISTERED; WORKTREE NOT YET PROVISIONED |
 
 Active lane records must use this five-column table because `lane-doctor`
 consumes it. Bullet-form active records are invalid coordination memory.
 
 ## Planned but not active
 
-No repository-evidenced next product boundary is planned. Future
-playtest-derived curriculum work requires fresh lane registration and authority.
+No additional repository-evidenced product boundary is planned.
 
 ## Paused lanes
 
