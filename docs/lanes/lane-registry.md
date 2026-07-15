@@ -13,7 +13,6 @@ Update triggers: Lane creation, pause, block, integration, retirement, respawn, 
 
 | Lane ID | Page | Worktree | Branch | Status |
 | --- | --- | --- | --- | --- |
-| `problem-first-curriculum-v1` | [`problem-first-curriculum-v1.md`](problem-first-curriculum-v1.md) | `/home/don/rust-reps-problem-first-curriculum-v1` | `codex/problem-first-curriculum-v1` | PROVISIONED; AWAITING FRESH IMPLEMENTATION PACKET |
 
 Active lane records must use this five-column table because `lane-doctor`
 consumes it. Bullet-form active records are invalid coordination memory.
@@ -56,6 +55,7 @@ not active lanes.
 | `resolved-core-task-orchestration-v1` | [`resolved-core-task-orchestration-v1.md`](resolved-core-task-orchestration-v1.md) | `e4ab24cf9447601abc79f8a2bcead2e588252483` | Activated at `7c1c45d32fa030e85d277983c125d73c2e9bca69`, fast-forwarded to local canonical master; worktree removed and branch deleted; IDs 013-017 remain unassigned; product behavior unchanged; no push or deploy |
 | `truthful-task-projection-v1` | [`truthful-task-projection-v1.md`](truthful-task-projection-v1.md) | `ad56f9725eab16203f44e8518e31e230c2d3987b` | Activated at `8b72ddb0b47261d8c34dcda18ea98cd65d96f664`, fast-forwarded to local canonical master after Don's accepted playtest; worktree removed and branch deleted; no push or deploy |
 | `varied-deterministic-flow-v1` | [`varied-deterministic-flow-v1.md`](varied-deterministic-flow-v1.md) | `a0bdbdc00751b08d49b36956fb82600001348217` | Fast-forwarded to local canonical master after Don's `PASS_WITH_OBSERVATIONS` playtest; worktree removed and branch deleted without force; no push or deploy |
+| `problem-first-curriculum-v1` | [`problem-first-curriculum-v1.md`](problem-first-curriculum-v1.md) | `39c1ba0d606e6bc7dc1a7c857c12dbb856f6e645` | Fast-forwarded to local canonical master after Don's `PASS` playtest; worktree removed and branch deleted without force; no push or deploy |
 
 ## Historical milestones
 

@@ -70,14 +70,24 @@ Update triggers: Accepted-main change, lane transition, authority change, blocke
   `NO_FOCUS_DEFECT_FOUND`.
 - `LIVE_REPO_FACT`: the varied-flow feature is integrated and its implementation
   lane is closed. The integration queue remains valid, empty, and fresh.
-- `LIVE_REPO_FACT`: `problem-first-curriculum-v1` is registered and provisioned
-  on canonical master. Its exact declared worktree and branch exist, packet
-  `RR-PROBLEM-FIRST-CURRICULUM-20260714-010` is the active implementation
-  authority, and lane-doctor reports `READY`. This worker HEAD is the one
-  isolated task-first presentation candidate; canonical master remains at the
-  provisioning commit, no integration authority exists, and no
-  integration-queue row exists. `UNKNOWN`: Don's real-TTY layout playtest is
-  still required.
+- `LIVE_REPO_FACT`: Problem-First Task Hierarchy and Zero-Knowledge Brief V1
+  is integrated through candidate
+  `39c1ba0d606e6bc7dc1a7c857c12dbb856f6e645`. The actionable header and
+  symbolic stimulus precede operation, artifact, concept, and lesson support.
+- `LIVE_REPO_FACT`: the beginner brief explains function, call, return, type,
+  return type, purpose, and the current Rust form. F2 adds deeper support below
+  the task without moving editor or stimulus source, while experienced learners
+  retain an immediate same-curriculum submission path.
+- `LIVE_REPO_FACT`: task IDs, stimuli, expected responses, answer rules,
+  formatting capabilities, validation, planning, engine truth, transitions,
+  and finite CLI surfaces remain unchanged by the problem-first integration.
+- `USER_DECISION`: Don's real-TTY problem-first playtest passed and closed the
+  candidate's manual terminal gate.
+- `LIVE_REPO_FACT`: the problem-first implementation worktree and branch were
+  retired normally after fast-forward. The lane is closed, no active
+  implementation lane remains, and the integration queue remains valid, empty,
+  and fresh. Further curriculum refinement waits for the next natural playtest
+  blockage; the complete beginner curriculum is not claimed finished.
 - `LIVE_REPO_FACT`: canonical installed-command proof for the closed integrated
   state was completed from local `master` and is retained in the external
   integration evidence. Registration changes no product behavior or installed
@@ -111,6 +121,10 @@ Update triggers: Accepted-main change, lane transition, authority change, blocke
   Unicode-safe stimulus focus ranges. F2 toggles resolved concept help in
   transient client state without submission, validation, attempt, skip, XP, or
   engine-state effects; unsupported tasks report `help unavailable`.
+- `LIVE_REPO_FACT`: supported varied tasks render a compact action header and
+  the active symbolic stimulus before support. Operation, artifact, and concept
+  orientation plus the zero-knowledge brief follow the stimulus; F2 adds help
+  below it without shifting source geometry.
 - `LIVE_REPO_FACT`: approved direct product dependencies are only `ratatui`
   and `crossterm`.
 
@@ -247,6 +261,10 @@ adaptation; lab owns synthetic stress data only.
 
 ## Lanes
 
+- Retired: [`problem-first-curriculum-v1`](../lanes/problem-first-curriculum-v1.md),
+  accepted and integrated through candidate
+  `39c1ba0d606e6bc7dc1a7c857c12dbb856f6e645` after Don's real-TTY `PASS`;
+  worktree removed and branch deleted without force.
 - Retired: [`varied-deterministic-flow-v1`](../lanes/varied-deterministic-flow-v1.md),
   accepted and integrated through candidate
   `a0bdbdc00751b08d49b36956fb82600001348217` after Don's real-TTY playtest;
@@ -271,14 +289,9 @@ adaptation; lab owns synthetic stress data only.
   branch deleted.
 - Retired: [`static-guidance-schema-v1`](../lanes/static-guidance-schema-v1.md),
   accepted and integrated into local canonical master.
-- Active: [`problem-first-curriculum-v1`](../lanes/problem-first-curriculum-v1.md)
-  is provisioned for Problem-First Task Hierarchy and Zero-Knowledge Brief V1
-  at `/home/don/rust-reps-problem-first-curriculum-v1` on branch
-  `codex/problem-first-curriculum-v1`. Packet
-  `RR-PROBLEM-FIRST-CURRICULUM-20260714-010` is active, the worker HEAD is the
-  one isolated candidate, lane-doctor reports `READY`, Don's real-TTY layout
-  playtest remains required, and canonical master and the integration queue
-  remain unchanged.
+- No active implementation lane remains. The integration queue is valid,
+  empty, and fresh; future curriculum work requires new player evidence and a
+  fresh lane.
 - Paused: new Ukrainian/French curriculum, validator integration, lab cleanup,
   product settings, interface localization, persistence, and scheduling.
 - No guidance language setting currently exists.
