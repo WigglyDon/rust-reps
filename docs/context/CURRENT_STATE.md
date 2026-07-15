@@ -84,10 +84,19 @@ Update triggers: Accepted-main change, lane transition, authority change, blocke
 - `USER_DECISION`: Don's real-TTY problem-first playtest passed and closed the
   candidate's manual terminal gate.
 - `LIVE_REPO_FACT`: the problem-first implementation worktree and branch were
-  retired normally after fast-forward. The lane is closed, no active
-  implementation lane remains, and the integration queue remains valid, empty,
-  and fresh. Further curriculum refinement waits for the next natural playtest
-  blockage; the complete beginner curriculum is not claimed finished.
+  retired normally after fast-forward, and that lane remains integrated and
+  closed. The complete beginner curriculum is not claimed finished.
+- `USER_DECISION`: Beginner Foundations Content V1 is the selected next product
+  boundary.
+- `USER_DECISION`: the current content is technically correct but its formatting
+  is ugly, its default prose is overly technical and verbose, its two correlated
+  rows are repetitive, and it does not provide useful beginner progression.
+- `USER_DECISION`: unexplained type variation is unacceptable; changing only a
+  name, integer literal, or integer type is not meaningful beginner practice
+  unless that exact change is the declared and taught target.
+- `LIVE_REPO_FACT`: `beginner-foundations-content-v1` is registered but its
+  worker is not yet provisioned. No implementation has started, no candidate
+  exists, and the integration queue remains valid, empty, and fresh.
 - `LIVE_REPO_FACT`: canonical installed-command proof for the closed integrated
   state was completed from local `master` and is retained in the external
   integration evidence. Registration changes no product behavior or installed
@@ -289,9 +298,10 @@ adaptation; lab owns synthetic stress data only.
   branch deleted.
 - Retired: [`static-guidance-schema-v1`](../lanes/static-guidance-schema-v1.md),
   accepted and integrated into local canonical master.
-- No active implementation lane remains. The integration queue is valid,
-  empty, and fresh; future curriculum work requires new player evidence and a
-  fresh lane.
+- Active: [`beginner-foundations-content-v1`](../lanes/beginner-foundations-content-v1.md),
+  registered for context and worker provisioning only. Its worktree does not
+  yet exist, no implementation or candidate exists, and the queue remains
+  valid, empty, and fresh.
 - Paused: new Ukrainian/French curriculum, validator integration, lab cleanup,
   product settings, interface localization, persistence, and scheduling.
 - No guidance language setting currently exists.

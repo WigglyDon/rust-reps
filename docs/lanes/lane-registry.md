@@ -13,13 +13,15 @@ Update triggers: Lane creation, pause, block, integration, retirement, respawn, 
 
 | Lane ID | Page | Worktree | Branch | Status |
 | --- | --- | --- | --- | --- |
+| `beginner-foundations-content-v1` | [`beginner-foundations-content-v1.md`](beginner-foundations-content-v1.md) | `/home/don/rust-reps-beginner-foundations-content-v1` | `codex/beginner-foundations-content-v1` | REGISTERED; WORKTREE NOT YET PROVISIONED |
 
 Active lane records must use this five-column table because `lane-doctor`
 consumes it. Bullet-form active records are invalid coordination memory.
 
 ## Planned but not active
 
-No additional repository-evidenced product boundary is planned.
+No additional repository-evidenced product boundary is planned beyond the
+registered active lane above.
 
 ## Paused lanes
 
