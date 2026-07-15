@@ -94,9 +94,15 @@ Update triggers: Accepted-main change, lane transition, authority change, blocke
 - `USER_DECISION`: unexplained type variation is unacceptable; changing only a
   name, integer literal, or integer type is not meaningful beginner practice
   unless that exact change is the declared and taught target.
-- `LIVE_REPO_FACT`: `beginner-foundations-content-v1` is registered but its
-  worker is not yet provisioned. No implementation has started, no candidate
-  exists, and the integration queue remains valid, empty, and fresh.
+- `LIVE_REPO_FACT`: `beginner-foundations-content-v1` is provisioned at
+  `/home/don/rust-reps-beginner-foundations-content-v1` on branch
+  `codex/beginner-foundations-content-v1`. The worker was created clean at
+  registration commit `030e9d83d1b2cd2f7863681981aea7e9464a575c`, and
+  lane-doctor returned `READY`.
+- `LIVE_REPO_FACT`: no implementation has started, no candidate exists, and the
+  integration queue remains valid, empty, and fresh. Fresh implementation
+  authority requires a packet matching the final provisioning commit and
+  Context-SHA.
 - `LIVE_REPO_FACT`: canonical installed-command proof for the closed integrated
   state was completed from local `master` and is retained in the external
   integration evidence. Registration changes no product behavior or installed
@@ -299,9 +305,9 @@ adaptation; lab owns synthetic stress data only.
 - Retired: [`static-guidance-schema-v1`](../lanes/static-guidance-schema-v1.md),
   accepted and integrated into local canonical master.
 - Active: [`beginner-foundations-content-v1`](../lanes/beginner-foundations-content-v1.md),
-  registered for context and worker provisioning only. Its worktree does not
-  yet exist, no implementation or candidate exists, and the queue remains
-  valid, empty, and fresh.
+  provisioned and awaiting a fresh implementation packet. Its declared clean
+  branch and worktree exist, no implementation or candidate exists, and the
+  queue remains valid, empty, and fresh.
 - Paused: new Ukrainian/French curriculum, validator integration, lab cleanup,
   product settings, interface localization, persistence, and scheduling.
 - No guidance language setting currently exists.

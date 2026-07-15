@@ -10,7 +10,7 @@ Related evidence: Git history, packet `RR-BEGINNER-FOUNDATIONS-20260715-012`, th
 Update triggers: Registration, provisioning, fresh implementation authority, candidate creation, integration, pause, block, or retirement.
 
 - Lane ID: `beginner-foundations-content-v1`
-- Current status: `REGISTERED; WORKTREE NOT YET PROVISIONED`
+- Current status: `PROVISIONED; AWAITING FRESH IMPLEMENTATION PACKET`
 - Supervisor destination: `Master Codex`
 - Supervisor expected reply type: `MASTER_CODEX_BEGINNER_CONTENT_RESULT_V1`
 - Latest packet ID: `RR-BEGINNER-FOUNDATIONS-20260715-012`
@@ -100,8 +100,11 @@ implementation inspection.
 ## Provisioning Boundary
 
 - Current product behavior remains unchanged.
+- The declared worktree and branch exist and initially pointed to registration commit `030e9d83d1b2cd2f7863681981aea7e9464a575c`.
+- The worker was clean at creation, and lane-doctor returned `READY` for the declared worktree, branch, lane ID, lane page, and accepted base.
 - No implementation has started and no candidate exists.
 - No integration-queue row exists.
 - No installation occurs under this packet.
 - Don playtest is not applicable to provisioning.
 - Both parked donors remain outside this lane's authority.
+- Fresh implementation authority requires a new packet matching the final provisioning commit and Context-SHA recorded by the verified provisioning result.
