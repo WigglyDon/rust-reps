@@ -91,6 +91,10 @@ pub(crate) const ROW_B_ASSIGNMENTS: &[MaterializedAssignmentSpec] = &[
     },
 ];
 
+#[expect(
+    clippy::too_many_arguments,
+    reason = "static records specify independent identity, provenance, content and validation fields"
+)]
 const fn task(
     generated_id: &'static str,
     capability_id: &'static str,

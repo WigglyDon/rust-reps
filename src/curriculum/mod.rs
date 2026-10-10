@@ -2,7 +2,7 @@
     not(test),
     expect(
         dead_code,
-        reason = "guidance source and pure resolution are intentionally inert until a later presentation-integration boundary"
+        reason = "guidance contains product-active resolution and additional proof-only vocabulary"
     )
 )]
 pub(crate) mod guidance;
@@ -10,7 +10,7 @@ pub(crate) mod guidance;
     not(test),
     expect(
         dead_code,
-        reason = "capability/set-plan source and pure plan construction are intentionally inert until a later catalog-integration boundary"
+        reason = "planner contains product-active selection and additional proof-only vocabulary"
     )
 )]
 pub(crate) mod planner;

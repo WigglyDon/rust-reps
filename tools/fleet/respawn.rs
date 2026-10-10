@@ -1,6 +1,6 @@
 use std::{collections::BTreeMap, fs, path::Path, process::Command};
 
-use crate::{hash, packet, AppResult};
+use crate::{AppResult, hash, packet};
 
 const CONTEXT_SHA_PATH: &str = "ops/fleet/context-sha256.txt";
 

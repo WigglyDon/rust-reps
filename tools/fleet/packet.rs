@@ -1,6 +1,6 @@
 use std::{collections::BTreeMap, fs, path::Path};
 
-use crate::{hash, AppResult, OutputMode};
+use crate::{AppResult, OutputMode, hash};
 
 const BEGIN: &str = "BEGIN RUST REPS PROJECT PACKET";
 const END: &str = "END RUST REPS PROJECT PACKET";
@@ -155,16 +155,19 @@ fn verify_text(text: &str) -> PacketVerification {
         }
     }
 
-    if let Some(context_sha) = packet.fields.get("Context-SHA") {
-        if !hash::is_lower_hex_sha256(context_sha) && !context_sha.starts_with("UNKNOWN_") {
-            errors
-                .push("Context-SHA must be lowercase SHA-256 or explicit UNKNOWN class".to_owned());
-        }
+    if packet
+        .fields
+        .get("Context-SHA")
+        .is_some_and(|sha| !hash::is_lower_hex_sha256(sha) && !sha.starts_with("UNKNOWN_"))
+    {
+        errors.push("Context-SHA must be lowercase SHA-256 or explicit UNKNOWN class".to_owned());
     }
-    if let Some(base) = packet.fields.get("Expected-Base") {
-        if !is_commit_sha(base) && !base.starts_with("UNKNOWN_") {
-            errors.push("Expected-Base must be a commit SHA or explicit UNKNOWN class".to_owned());
-        }
+    if packet
+        .fields
+        .get("Expected-Base")
+        .is_some_and(|base| !is_commit_sha(base) && !base.starts_with("UNKNOWN_"))
+    {
+        errors.push("Expected-Base must be a commit SHA or explicit UNKNOWN class".to_owned());
     }
 
     let lower = text.to_ascii_lowercase();
@@ -210,10 +213,12 @@ fn verify_text(text: &str) -> PacketVerification {
                 errors.push(format!("Final-Status {status} is not allowed"));
             }
         }
-        if let Some(digest) = packet.fields.get("Artifact-SHA-256") {
-            if !hash::is_lower_hex_sha256(digest) {
-                errors.push("Artifact-SHA-256 must be lowercase SHA-256".to_owned());
-            }
+        if packet
+            .fields
+            .get("Artifact-SHA-256")
+            .is_some_and(|digest| !hash::is_lower_hex_sha256(digest))
+        {
+            errors.push("Artifact-SHA-256 must be lowercase SHA-256".to_owned());
         }
     }
 
@@ -277,54 +282,66 @@ mod tests {
     #[test]
     fn missing_packet_id_fails() {
         let text = include_str!("tests/fixtures/packet-missing-id.txt");
-        assert!(verify_text(text)
-            .errors
-            .iter()
-            .any(|error| error.contains("Packet-ID")));
+        assert!(
+            verify_text(text)
+                .errors
+                .iter()
+                .any(|error| error.contains("Packet-ID"))
+        );
     }
 
     #[test]
     fn broken_reply_to_fails() {
         let text = include_str!("tests/fixtures/packet-broken-reply.txt");
-        assert!(verify_text(text)
-            .errors
-            .iter()
-            .any(|error| error.contains("Reply-To")));
+        assert!(
+            verify_text(text)
+                .errors
+                .iter()
+                .any(|error| error.contains("Reply-To"))
+        );
     }
 
     #[test]
     fn missing_context_sha_fails() {
         let text = include_str!("tests/fixtures/packet-missing-context.txt");
-        assert!(verify_text(text)
-            .errors
-            .iter()
-            .any(|error| error.contains("Context-SHA")));
+        assert!(
+            verify_text(text)
+                .errors
+                .iter()
+                .any(|error| error.contains("Context-SHA"))
+        );
     }
 
     #[test]
     fn unresolved_placeholder_fails() {
         let text = include_str!("tests/fixtures/packet-placeholder.txt");
-        assert!(verify_text(text)
-            .errors
-            .iter()
-            .any(|error| error.contains("placeholder")));
+        assert!(
+            verify_text(text)
+                .errors
+                .iter()
+                .any(|error| error.contains("placeholder"))
+        );
     }
 
     #[test]
     fn fragment_without_end_marker_fails() {
         let text = include_str!("tests/fixtures/packet-fragment.txt");
-        assert!(verify_text(text)
-            .errors
-            .iter()
-            .any(|error| error.contains("END marker")));
+        assert!(
+            verify_text(text)
+                .errors
+                .iter()
+                .any(|error| error.contains("END marker"))
+        );
     }
 
     #[test]
     fn missing_no_push_statement_fails_when_required() {
         let text = include_str!("tests/fixtures/packet-missing-no-push.txt");
-        assert!(verify_text(text)
-            .errors
-            .iter()
-            .any(|error| error.contains("no-push")));
+        assert!(
+            verify_text(text)
+                .errors
+                .iter()
+                .any(|error| error.contains("no-push"))
+        );
     }
 }

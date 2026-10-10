@@ -1,3 +1,5 @@
+> Historical record. Its former lane/status/packet requirements confer no current authority. Follow [current development](../DEVELOPMENT.md).
+
 # Pure Guidance Resolution V1 Lane
 
 Context role: Retired lane coordination record.

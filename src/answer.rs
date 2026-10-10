@@ -1,11 +1,6 @@
 pub fn trim_line_ending(input: &str) -> &str {
-    if input.ends_with('\n') {
-        let without_lf = &input[..input.len() - 1];
-        if without_lf.ends_with('\r') {
-            &without_lf[..without_lf.len() - 1]
-        } else {
-            without_lf
-        }
+    if let Some(without_lf) = input.strip_suffix('\n') {
+        without_lf.strip_suffix('\r').unwrap_or(without_lf)
     } else {
         input
     }

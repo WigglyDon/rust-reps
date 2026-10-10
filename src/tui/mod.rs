@@ -33,10 +33,8 @@ fn run_tui_app(mut app: TuiApp) -> io::Result<()> {
     match loop_result {
         Ok(()) => cleanup_result,
         Err(loop_err) => {
-            if cleanup_result.is_err() {
-                return cleanup_result;
-            }
-            return Err(loop_err);
+            cleanup_result?;
+            Err(loop_err)
         }
     }
 }
@@ -80,10 +78,7 @@ fn run_tui_loop(terminal: &mut terminal::TuiTerminal, app: &mut TuiApp) -> io::R
             .unwrap_or(cursor_wait);
 
         if event::poll(timeout)? {
-            let event = match event::read() {
-                Ok(event) => event,
-                Err(err) => return Err(err),
-            };
+            let event = event::read()?;
             let action_at = Instant::now();
 
             let intent = match event {

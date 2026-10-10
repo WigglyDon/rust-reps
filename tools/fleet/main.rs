@@ -1,4 +1,5 @@
 mod context;
+mod development;
 mod evidence;
 mod hash;
 mod lane;
@@ -30,6 +31,16 @@ fn run(args: Vec<String>) -> AppResult<()> {
     let rest = &args[1..];
 
     match command {
+        "verify" => development::verify(&development::repository(rest)?),
+        "context" => {
+            let repo = development::repository(rest)?;
+            match rest.first().map(String::as_str) {
+                Some("current") => development::current(&repo, output_mode(rest)?, rest.iter().any(|arg| arg == "--verify")),
+                Some("verify") => context::command_verify(&repo, output_mode(rest)?),
+                Some("manifest") => context::command_manifest(&repo, output_mode(rest)?),
+                _ => Err("usage: cargo xtask context <current|verify|manifest> [--repo PATH] [--human|--machine] [--verify]".to_owned()),
+            }
+        }
         "context-verify" => {
             let repo = required_path(rest, "--repo")?;
             context::command_verify(&repo, output_mode(rest)?)
@@ -79,7 +90,7 @@ fn run(args: Vec<String>) -> AppResult<()> {
 }
 
 fn usage() -> String {
-    "usage: fleet <context-verify|context-manifest|lane-doctor|packet-verify|respawn-bundle|queue-render|queue-verify|evidence-manifest> [arguments]".to_owned()
+    "usage: cargo xtask <verify|context|context-verify|context-manifest|lane-doctor|packet-verify|respawn-bundle|queue-render|queue-verify|evidence-manifest> [arguments]".to_owned()
 }
 
 pub(crate) fn required_value(args: &[String], name: &str) -> AppResult<String> {
@@ -121,22 +132,35 @@ pub(crate) mod test_support {
 
     static NEXT_TEMP: AtomicUsize = AtomicUsize::new(0);
 
+    pub(crate) fn repo_path(relative: &str) -> PathBuf {
+        let root = option_env!("CARGO_MANIFEST_DIR")
+            .map(|path| {
+                std::path::Path::new(path)
+                    .parent()
+                    .expect("xtask workspace root")
+            })
+            .unwrap_or_else(|| std::path::Path::new("."));
+        root.join(relative)
+    }
+
     pub(crate) struct TempDir {
         path: PathBuf,
     }
 
     impl TempDir {
         pub(crate) fn new(label: &str) -> Self {
-            let number = NEXT_TEMP.fetch_add(1, Ordering::Relaxed);
-            let path = std::env::temp_dir().join(format!(
-                "rust-reps-fleet-test-{}-{label}-{number}",
-                std::process::id()
-            ));
-            if path.exists() {
-                fs::remove_dir_all(&path).expect("remove prior deterministic test directory");
+            loop {
+                let number = NEXT_TEMP.fetch_add(1, Ordering::Relaxed);
+                let path = std::env::temp_dir().join(format!(
+                    "rust-reps-fleet-test-{}-{label}-{number}",
+                    std::process::id()
+                ));
+                match fs::create_dir(&path) {
+                    Ok(()) => return Self { path },
+                    Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
+                    Err(error) => panic!("create test directory: {error}"),
+                }
             }
-            fs::create_dir_all(&path).expect("create test directory");
-            Self { path }
         }
 
         pub(crate) fn path(&self) -> &std::path::Path {

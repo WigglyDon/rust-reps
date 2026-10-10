@@ -1,8 +1,14 @@
 # Rust Reps
 
-Rust Reps is a terminal-first Rust practice game.
-It teaches small Rust reps through deterministic terminal practice.
-The catalog contains literal exact tasks and formatting-equivalent full-code tasks.
+Rust Reps is a terminal Rust typing game for learning syntax through curiosity
+and repetition. The new curriculum is being designed around small, explained
+models of computing: stored numbers, registers, instructions and how Rust
+expresses changes to machine state. No CPU knowledge is assumed.
+
+The restored app still has its original 22 drills and two alternating interactive
+practice rows. The replacement curriculum is a design in progress; see the
+[curriculum discussion](docs/CURRICULUM.md) and [product direction](docs/PRODUCT.md).
+The public source and task discussions live on [GitHub](https://github.com/WigglyDon/rust-reps).
 
 ## Player Mode
 
@@ -87,7 +93,7 @@ Plain mode remains available with `rust-reps plain` and for piped stdin.
 `rust-reps plain` starts one finite pass over all 22 drills in fixed order. Piped
 noninteractive fallback is the same finite proof surface, and one-shot commands remain finite.
 
-- `PASS` means exact answer match and advances to the next drill.
+- `PASS` means the task’s answer rule accepted the input and advances to the next drill.
 - `TRY AGAIN` means a wrong answer and repeats the same drill.
 - `:skip` skips the current drill and advances without incrementing attempts.
 - `:status` prints current state (`Current`, `Passed`, `Skipped`, `Attempts`) without advancing.
@@ -166,30 +172,37 @@ answer rule, and transition. XP is stored metadata only and is not displayed.
 Copy and controlled Fill use `ExactTrimFinalNewline`; full-code Produce, Repair,
 and Transform use `RustfmtExact`. Every normal rep has no state transition.
 
-## Developer Mode
+## Development
+
+Read [AGENTS.md](AGENTS.md), [the context index](docs/INDEX.md) and the
+[development workflow](docs/DEVELOPMENT.md) for the assigned change.
 
 ```sh
-cargo run
-cargo run -- plain
-cargo run -- 001
-cargo test
-./scripts/proof.sh
+cargo run --bin rust-reps
+cargo run --bin rust-reps -- plain
+cargo xtask context current --verify
+cargo xtask context verify
+cargo xtask verify
 ```
 
-For CLI-only validation, use:
+`cargo xtask verify` checks workspace formatting, warnings-denied Clippy,
+product and developer-tool tests, context integrity, actual CLI transcripts,
+a temporary installation and Git whitespace. It does not establish teaching
+quality or real-terminal feel. Remote information in `context current` is
+explicitly a local cache; fetch separately when fresh remote state is needed.
+
+After reviewing changes to context owners, explicitly update their recorded hashes:
 
 ```sh
-cargo fmt --check
+cargo xtask context manifest
+cargo xtask context verify
 ```
 
-## Proof / Quality Gates
-
-- `cargo fmt --check`
-- `cargo test`
-- `./scripts/proof.sh`
-- `git diff --check`
-- `git diff --cached --check` (if staged)
-- installed-command proof when install behavior changes (requires real command path checks)
+Historical fleet commands remain available through `cargo xtask` and the thin
+`scripts/fleet.sh` launcher. They preserve old evidence; they do not assign work
+or require Don to relay worker packets. Current assignments and handback use
+[GitHub issues](https://github.com/WigglyDon/rust-reps/issues). `main` is the
+published branch; the restored `master` and donor worktrees preserve earlier work.
 
 ## PATH Troubleshooting
 

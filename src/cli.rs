@@ -1,5 +1,9 @@
 use crate::{catalog, engine, orchestration, presentation};
 
+#[expect(
+    clippy::large_enum_variant,
+    reason = "parsed once per launch; the owned exercise packet needs no extra allocation"
+)]
 pub enum DrillCommand {
     Practice,
     Run(engine::ExercisePacket),

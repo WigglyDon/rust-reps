@@ -1,3 +1,5 @@
+> Historical record. Its former lane/status/packet requirements confer no current authority. Follow [current development](../DEVELOPMENT.md).
+
 # Beginner Foundations Content V1 Lane
 
 Context role: Active lane record.

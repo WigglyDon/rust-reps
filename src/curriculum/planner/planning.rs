@@ -126,6 +126,10 @@ pub(crate) fn plan_cardinality(
     Ok(cardinality)
 }
 
+#[expect(
+    clippy::too_many_arguments,
+    reason = "selection inputs remain explicit and separate from the independent plan seed"
+)]
 pub(crate) fn build_practice_plan(
     set: &SetPlan,
     capabilities: &[CapabilitySpec],
@@ -182,7 +186,7 @@ pub(crate) fn build_practice_plan(
             plan_cardinality,
             guidance_locale: guidance_locale.to_owned(),
             guidance_pack_version,
-            supported_answer_rules: supported_answer_rules.iter().copied().collect(),
+            supported_answer_rules: supported_answer_rules.to_vec(),
         },
         reps,
     })

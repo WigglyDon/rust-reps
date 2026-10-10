@@ -1,93 +1,11 @@
-# Curriculum And Catalog
+# Curriculum and catalog
 
-Context role: Subsystem authority and navigation.
-Scope: `src/curriculum`, normal static reps, and `src/catalog.rs`.
-Canonical for: Curriculum/catalog ownership, ordering, IDs, lookup, and admission boundary.
-Not canonical for: Session truth, generation internals, or terminal presentation.
-Inherits: [`../../../AGENTS.md`](../../../AGENTS.md) and [`../CONTEXT_MATRIX.md`](../CONTEXT_MATRIX.md).
-Current-state owner: [`../CURRENT_STATE.md`](../CURRENT_STATE.md).
-Related evidence: Catalog tests and [`../../evidence/README.md`](../../evidence/README.md).
-Update triggers: Rep schema, shard registration, catalog invariants, or admission changes.
+Curriculum supplies immutable tasks, static support and guidance. Catalog owns admission, IDs, order and lookup. The schema keeps instruction keys, assignments, stimuli, expected answers, rule/format properties and provenance separate. Orchestration supplies candidate summaries to the planner and resolves authored guidance; none of those jobs belongs to the engine. Catalog never expands templates at runtime. Current counts and new curriculum design belong to their linked owners.
 
-## Mission And Authority
+[Architecture](../CONTEXT_MATRIX.md) owns dependency boundaries; [current state](../CURRENT_STATE.md)
+owns implementation status; [curriculum design](../../CURRICULUM.md) owns the
+new teaching direction.
 
-Curriculum supplies immutable rep data; catalog owns the playable view, stable
-short IDs, canonical metadata, ordering, lookup, rendering, and admission
-invariants. Source roots are `src/curriculum/mod.rs`, shard modules such as
-`syntax_basics.rs`, and `src/catalog.rs`.
-
-The admitted `DrillSpec`/`RepSpec` shape now carries a short ID, stable catalog
-metadata/canonical identity, explicit instruction key, static guidance
-assignments, exact stimulus, exact expected response, optional capability ID,
-and optional generated source provenance. Catalog canonical identity remains
-product identity; generated identity does not replace it or the short ID.
-Current reps 001-012 use `copy.exact_line`, empty assignment slices, and
-`None` capability/generated provenance while preserving their prior bytes.
-
-Allowed authority: normal reps, metadata, `DRILL_SHARDS`, `DRILLS`, lookup, and
-catalog tests. Forbidden authority: attempts, pass/skip truth, terminal I/O,
-runtime generation, validation weakening, and lab admission.
-
-Allowed direction is catalog reading curriculum data and orchestration reading
-the ordinary catalog to construct resolved engine packets. Curriculum must not
-depend on engine, client, TUI, or practice. Generated-shaped data remains unplayable until a future explicit
-catalog admission boundary produces ordinary `RepSpec` data.
-Catalog never expands a template at runtime. Any future generated admission
-must preserve and test exact checked materialized provenance in the ordinary
-catalog record.
-
-## Adjacent Inert Planner Source And Pure Planning
-
-`src/curriculum/planner.rs` owns inert representation kinds, support levels,
-learning-focus targets, capability records, and explicit SetPlan source. The
-accepted Rust function-return-literal set authors Copy, Fill, Produce, Repair,
-and Transform in source order. Learning focus is evidence intent and does not
-replace all required task concepts or constraints; set traversal is structure,
-not mastery.
-
-`src/curriculum/planner/planning.rs` owns the inert pure planning boundary:
-`CandidateSummary`, `GuidanceAvailability`, `PlannedRep`, `PlanProvenance`,
-`PracticePlan`, `PlanError`, `plan_cardinality`, and `build_practice_plan`.
-Candidate summaries are supplied read-only metadata, not catalog reads;
-content seed is provenance only. Guidance availability carries exact
-locale/version/instruction-key facts without text, resolution, or fallback.
-
-Candidate IDs must be unique and source order must already be strict catalog
-order. Eligibility uses exact capability, caller-supported answer rule, and
-selected guidance availability. Checked mixed radix gives zero steps
-cardinality one, accepts only seeds in `0..cardinality`, and varies the first
-SetStep fastest. Output contains planning provenance and supplied rep IDs only.
-
-Planner source does not inspect stimulus or expected bytes, expand procgen
-templates, generate tasks, read catalog, resolve guidance, execute a plan,
-persist state, adapt from attempts, use XP/mastery/scheduling, or enter catalog,
-engine, presentation, client, TUI, CLI, practice, or lab product flow. Future
-catalog integration must construct truthful candidate summaries from admitted
-reps without moving catalog authority into planner.
-
-## Consistency And Proof
-
-Ordering is explicit source order. Short IDs are unique three-digit strings;
-canonical IDs and required metadata are unique/present; prerequisites resolve;
-normal reps use explicit answer rules and transitions. Lab data never enters
-the catalog.
-
-Accepted proof: catalog unit invariants, CLI `--list`/lookup tests, and the full
-proof transcript. Those gates do not prove learning quality or future admission
-safety. Runtime integration is current for hand-authored normal reps only.
-
-Rollback is commit-level removal of an unaccepted data/schema change while
-preserving IDs and transcripts. Observability is catalog listing and tests;
-there is no persistence or telemetry. Resource cost is static data only.
-
-## Gate And Unknowns
-
-Tiny Multi-Operation Rust Set Materialization V1 remains checked inert source;
-catalog admission and IDs 013-017 are absent. Resolved Core Task And
-Orchestration Contract V1 and Truthful Task Projection Contract V1 are
-integrated: orchestration resolves the current twelve admitted Copy reps into
-product packets, assigns formatting `Disabled`, and preserves catalog order and
-identity. Varied Deterministic Rust Practice Flow V1 is the sole next planned
-boundary, remains inactive, and must separately prove any admission. Update
-this page when schema, planning, ordering, admission, or visible catalog
-behavior changes.
+Validation: Catalog invariants, guidance/planner failure tests, CLI lookup/list proof and Don review for learning changes.
+Use [development](../../DEVELOPMENT.md) and [evidence](../../evidence/README.md)
+for task authority, required checks and claim limits.

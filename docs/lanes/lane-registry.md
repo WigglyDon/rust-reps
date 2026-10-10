@@ -1,3 +1,5 @@
+> Historical record. Its former lane/status/packet requirements confer no current authority. Follow [current development](../DEVELOPMENT.md).
+
 # Rust Reps Lane Registry
 
 Context role: Canonical lane-status registry.
@@ -11,38 +13,7 @@ Update triggers: Lane creation, pause, block, integration, retirement, respawn, 
 
 ## Active lanes
 
-| Lane ID | Page | Worktree | Branch | Status |
-| --- | --- | --- | --- | --- |
-| `beginner-foundations-content-v1` | [`beginner-foundations-content-v1.md`](beginner-foundations-content-v1.md) | `/home/don/rust-reps-beginner-foundations-content-v1` | `codex/beginner-foundations-content-v1` | PROVISIONED; AWAITING FRESH IMPLEMENTATION PACKET |
-
-Active lane records must use this five-column table because `lane-doctor`
-consumes it. Bullet-form active records are invalid coordination memory.
-
-## Planned but not active
-
-No additional repository-evidenced product boundary is planned beyond the
-registered active lane above.
-
-## Paused lanes
-
-- `USER_DECISION`: new Ukrainian/French curriculum, validator integration, lab
-  cleanup, product settings, interface localization, persistence, and scheduling.
-
-No paused item is represented as a live worker without repository/worktree evidence.
-
-## Blocked lanes
-
-None currently established by live lane evidence.
-
-## Parked donor lanes
-
-| Branch | Worktree | HEAD at discovery | Classification |
-| --- | --- | --- | --- |
-| `curriculum-data-seam-v0` | `/home/don/rust-reps-curriculum-data` | `d8d8207303d98c953e6c656ab680ed4ccabd3d8a` | Clean historical divergence; donor/reference, 62 master commits vs 2 branch commits |
-| `curriculum-sharding-v0` | `/home/don/rust-reps-curriculum-sharding` | `c3ac7f748e88ff93f12d252babb219560c325641` | Clean ancestor already absorbed by master |
-
-These worktrees remain preserved and receive no context update because they are
-not active lanes.
+None. Live assignments are tracked in GitHub issues. Preserved branches and worktrees are historical donor state.
 
 ## Retired lanes
 

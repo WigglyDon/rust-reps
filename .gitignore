@@ -1,1 +1,7 @@
 /target
+/.rust-reps-local/
+/.agents/
+/.codex/
+/artifacts/
+.env
+.env.*

@@ -1,3 +1,5 @@
+> Historical record. Its former lane/status/packet requirements confer no current authority. Follow [current development](../DEVELOPMENT.md).
+
 # Varied Deterministic Rust Practice Flow V1 Lane
 
 Context role: Retired lane record.

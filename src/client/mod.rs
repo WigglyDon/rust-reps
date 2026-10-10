@@ -1973,7 +1973,7 @@ mod tests {
     fn token_kinds_and_text(tokens: &[super::CodeToken]) -> Vec<(CodeTokenKind, String)> {
         tokens
             .iter()
-            .map(|token| (token.kind.clone(), token.text.clone()))
+            .map(|token| (token.kind, token.text.clone()))
             .collect()
     }
 
@@ -2022,6 +2022,10 @@ mod tests {
         )])
     }
 
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "projection fixtures vary each support and answer-privacy input independently"
+    )]
     fn support_projection_session(
         stage: ExerciseSupportStage,
         action_header: &'static str,
@@ -2725,7 +2729,7 @@ mod tests {
                 .all(|line| line.kind == ProblemLineKind::Header)
         );
         assert_ne!(
-            problem.lines.last().map(|line| line.kind.clone()),
+            problem.lines.last().map(|line| line.kind),
             Some(ProblemLineKind::Blank)
         );
     }
@@ -3540,7 +3544,7 @@ mod tests {
         assert!(REWARD_PLUS_ONE_DURATION < REWARD_DURATION);
         assert!(REWARD_SWEEP_DURATION > REWARD_ATTACK_DURATION);
         assert!(REWARD_SWEEP_DURATION < REWARD_DURATION);
-        assert!(REWARD_GAME_GLOW_MAX_INTENSITY < 100);
+        const { assert!(REWARD_GAME_GLOW_MAX_INTENSITY < 100) };
         assert_eq!(FAILURE_PULSE_DURATION, Duration::from_millis(520));
         assert_eq!(SKIP_TOAST_DURATION, Duration::from_millis(900));
         assert_eq!(FORMAT_TOAST_DURATION, Duration::from_millis(900));

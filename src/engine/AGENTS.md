@@ -1,26 +1,14 @@
-# AGENTS: Engine And Session
+# Working on engine
 
-## Scope And Inheritance
+Inherit [root law](../../AGENTS.md). Enter through [the index](../../docs/INDEX.md),
+[current state](../../docs/context/CURRENT_STATE.md), the actual task and the relevant
+[subsystem](../../docs/context/subsystems/engine-session.md).
 
-Applies under `src/engine/`. Inherits [`../../AGENTS.md`](../../AGENTS.md).
+Pure session/attempt/pass/wrong/skip/completion truth over resolved packets. No terminal types, curriculum generation or catalog/guidance lookup. Skip is not an attempt.
 
-## Owner And Authority
-
-Engine owns pure session truth, packets, attempts, pass/skip/completion, and
-snapshots. It may read admitted catalog data, validator dispatch, and explicit
-lab packets. It must not generate curriculum, render terminal output, own editor
-state, or import client/TUI types.
-
-## Canonical Links
-
-- Root law: [`../../AGENTS.md`](../../AGENTS.md)
-- Index: [`../../docs/INDEX.md`](../../docs/INDEX.md)
-- Current state: [`../../docs/context/CURRENT_STATE.md`](../../docs/context/CURRENT_STATE.md)
-- Subsystem: [`../../docs/context/subsystems/engine-session.md`](../../docs/context/subsystems/engine-session.md)
-- Lane registry: [`../../docs/lanes/lane-registry.md`](../../docs/lanes/lane-registry.md)
-
-## Validation And Stop Conditions
-
-Run engine, adapter, and full transcript proof. Stop if skip becomes an attempt,
-wrong answers become errors, Exact changes, generator logic enters engine, or
-terminal types cross the boundary. Update on packet or transition changes.
+Choose checks by changed behavior under [development](../../docs/DEVELOPMENT.md).
+Documentation/data changes need context/link/hash and diff checks; Rust changes
+need affected tests, formatting, warnings-denied Clippy and the complete relevant
+gate. Real-terminal and learning claims require their corresponding observations.
+Preserve user/peer work; clarify contradictory accepted meaning or missing task
+authority while continuing independent authorized work.

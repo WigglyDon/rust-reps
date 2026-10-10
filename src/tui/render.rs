@@ -2275,8 +2275,8 @@ mod tests {
             app.handle_action(ClientAction::MoveCursorUp);
         }
         let top = app.frame().game_window.workbox.overflow(3);
-        assert_eq!(top.above, false);
-        assert_eq!(top.below, true);
+        assert!(!top.above);
+        assert!(top.below);
         assert!(
             viewport_indicator_cells(4, top)
                 .iter()

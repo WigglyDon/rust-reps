@@ -1,6 +1,6 @@
 use std::{collections::BTreeMap, fs, path::Path};
 
-use crate::{hash, AppResult};
+use crate::{AppResult, hash};
 
 const REQUIRED: &[&str] = &[
     "record_type",
@@ -142,9 +142,11 @@ mod tests {
     #[test]
     fn missing_sha_field_fails() {
         let text = include_str!("tests/fixtures/evidence-missing-sha.tsv");
-        assert!(parse(text)
-            .expect_err("missing SHA fails")
-            .contains("context_sha"));
+        assert!(
+            parse(text)
+                .expect_err("missing SHA fails")
+                .contains("context_sha")
+        );
     }
 
     #[test]
@@ -153,9 +155,11 @@ mod tests {
             "artifact_checksums\t/tmp/report.md=",
             "artifact_checksums\t/tmp/report.md-",
         );
-        assert!(parse(&text)
-            .expect_err("invalid checksum fails")
-            .contains("artifact_checksums"));
+        assert!(
+            parse(&text)
+                .expect_err("invalid checksum fails")
+                .contains("artifact_checksums")
+        );
     }
 
     #[test]

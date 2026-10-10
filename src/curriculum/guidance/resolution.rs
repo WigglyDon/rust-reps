@@ -304,7 +304,7 @@ fn render_guidance_parts(
             GuidancePart::Literal(text) => output.push_str(text),
             GuidancePart::SlotRendered(slot) => {
                 let assignment_index = find_assignment_index(assignments, slot)?;
-                output.push_str(&assignments[assignment_index].rendered);
+                output.push_str(assignments[assignment_index].rendered);
             }
             GuidancePart::SlotGloss(slot) => {
                 let assignment_index = find_assignment_index(assignments, slot)?;

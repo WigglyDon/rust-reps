@@ -1,26 +1,14 @@
-# AGENTS: Portable Client
+# Working on portable client
 
-## Scope And Inheritance
+Inherit [root law](../../AGENTS.md). Enter through [the index](../../docs/INDEX.md),
+[current state](../../docs/context/CURRENT_STATE.md), the actual task and the relevant
+[subsystem](../../docs/context/subsystems/client-tui.md).
 
-Applies under `src/client/`. Inherits [`../../AGENTS.md`](../../AGENTS.md).
+Editor and projection state without terminal-library types or session/answer authority. Non-copy expected answers never enter task display.
 
-## Owner And Authority
-
-Client owns terminal-free editor and visual projection state. It may consume
-engine packets/snapshots. It may not import Ratatui/Crossterm public model types,
-own curriculum/session/answer truth, or invoke product tools.
-
-## Canonical Links
-
-- Root law: [`../../AGENTS.md`](../../AGENTS.md)
-- Index: [`../../docs/INDEX.md`](../../docs/INDEX.md)
-- Current state: [`../../docs/context/CURRENT_STATE.md`](../../docs/context/CURRENT_STATE.md)
-- Subsystem: [`../../docs/context/subsystems/client-tui.md`](../../docs/context/subsystems/client-tui.md)
-- Lane registry: [`../../docs/lanes/lane-registry.md`](../../docs/lanes/lane-registry.md)
-
-## Validation And Stop Conditions
-
-Run portable model/projection tests and full proof; obtain real-TTY evidence for
-feel claims. Stop on terminal-type leakage, answer mutation, or duplicated
-session truth. The boundary is sealed unless playtesting exposes a real defect.
-Update on model ownership or accepted interaction changes.
+Choose checks by changed behavior under [development](../../docs/DEVELOPMENT.md).
+Documentation/data changes need context/link/hash and diff checks; Rust changes
+need affected tests, formatting, warnings-denied Clippy and the complete relevant
+gate. Real-terminal and learning claims require their corresponding observations.
+Preserve user/peer work; clarify contradictory accepted meaning or missing task
+authority while continuing independent authorized work.

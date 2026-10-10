@@ -36,28 +36,22 @@ fn main() {
     match command {
         cli::DrillCommand::Practice => {
             practice::run_practice_session(current_product_session_or_exit());
-            return;
         }
         cli::DrillCommand::Run(exercise) => practice::run_one_shot_drill(exercise),
         cli::DrillCommand::List => {
             cli::print_drill_list();
-            return;
         }
         cli::DrillCommand::Help => {
             cli::print_help();
-            return;
         }
         cli::DrillCommand::Version => {
             cli::print_version();
-            return;
         }
         cli::DrillCommand::Tui => {
             run_tui_or_exit();
-            return;
         }
         cli::DrillCommand::Lab => {
             run_lab_or_exit();
-            return;
         }
     }
 }

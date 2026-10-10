@@ -210,8 +210,8 @@ mod tests {
 
     #[test]
     fn valid_queue_renders_deterministic_markdown() {
-        let path = Path::new("tools/fleet/tests/fixtures/queue-valid.tsv");
-        let rows = read_queue(path).expect("valid queue");
+        let path = crate::test_support::repo_path("tools/fleet/tests/fixtures/queue-valid.tsv");
+        let rows = read_queue(&path).expect("valid queue");
         assert_eq!(rows.len(), 1);
         assert_eq!(render(&rows), render(&rows));
         assert!(render(&rows).contains("| lane-a |"));
@@ -219,10 +219,12 @@ mod tests {
 
     #[test]
     fn malformed_field_count_fails() {
-        let path = Path::new("tools/fleet/tests/fixtures/queue-malformed.tsv");
-        assert!(read_queue(path)
-            .expect_err("malformed queue fails")
-            .contains("fields"));
+        let path = crate::test_support::repo_path("tools/fleet/tests/fixtures/queue-malformed.tsv");
+        assert!(
+            read_queue(&path)
+                .expect_err("malformed queue fails")
+                .contains("fields")
+        );
     }
 
     #[test]
@@ -290,7 +292,8 @@ mod tests {
 
     #[test]
     fn current_empty_source_is_valid() {
-        let rows = read_queue(Path::new(SOURCE)).expect("current empty queue");
+        let rows =
+            read_queue(&crate::test_support::repo_path(SOURCE)).expect("current empty queue");
         assert!(rows.is_empty());
     }
 
@@ -299,8 +302,10 @@ mod tests {
         let temp = TempDir::new("queue-freshness");
         fs::create_dir_all(temp.path().join("ops/fleet")).expect("create ops");
         fs::create_dir_all(temp.path().join("docs/lanes")).expect("create docs");
-        let source = fs::read_to_string("tools/fleet/tests/fixtures/queue-valid.tsv")
-            .expect("read queue fixture");
+        let source = fs::read_to_string(crate::test_support::repo_path(
+            "tools/fleet/tests/fixtures/queue-valid.tsv",
+        ))
+        .expect("read queue fixture");
         fs::write(temp.path().join(SOURCE), source).expect("write queue source");
         let rows = read_queue(&temp.path().join(SOURCE)).expect("read temp queue");
         fs::write(temp.path().join(VIEW), render(&rows)).expect("write view");

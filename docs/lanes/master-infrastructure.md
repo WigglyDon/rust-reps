@@ -1,3 +1,5 @@
+> Historical record. Its former lane/status/packet requirements confer no current authority. Follow [current development](../DEVELOPMENT.md).
+
 # Master Infrastructure Lane
 
 Context role: Retired lane coordination record.

@@ -1,3 +1,5 @@
+> Historical record. Its former lane/status/packet requirements confer no current authority. Follow [current development](../DEVELOPMENT.md).
+
 # Problem-First Task Hierarchy And Zero-Knowledge Brief V1 Lane
 
 Context role: Retired lane record.

@@ -1,3 +1,5 @@
+> Historical design audit. Its former instructions do not authorize current changes; follow [development](DEVELOPMENT.md) and the active assignment.
+
 # Codex TUI Reference Audit v1
 
 **Local Codex reference path:** `/home/don/rust-reps-reference/codex`

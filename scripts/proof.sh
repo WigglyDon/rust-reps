@@ -113,11 +113,12 @@ expect_error() {
     rm -f "$expected_file" "$stdout_file" "$stderr_file"
 }
 
-section "fmt check"
-cargo fmt --check
-
-section "tests"
-cargo test
+if [ "${RUST_REPS_VERIFY_FROM_XTASK:-0}" != "1" ]; then
+    section "fmt check"
+    cargo fmt --all --check
+    section "tests"
+    cargo test --workspace --locked
+fi
 
 practice_all_correct_input='fn main() {}
 println!("Rust Reps");

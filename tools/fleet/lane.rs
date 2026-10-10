@@ -5,7 +5,7 @@ use std::{
     process::{Command, Output},
 };
 
-use crate::{context, AppResult, OutputMode};
+use crate::{AppResult, OutputMode, context};
 
 const READ_ONLY_GIT_SUBCOMMANDS: &[&str] = &[
     "branch",
@@ -529,11 +529,7 @@ fn escape_field(value: &str) -> String {
 }
 
 fn yes_no(value: bool) -> &'static str {
-    if value {
-        "yes"
-    } else {
-        "no"
-    }
+    if value { "yes" } else { "no" }
 }
 
 fn optional_number(value: Option<u64>) -> String {

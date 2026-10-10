@@ -113,6 +113,10 @@ pub struct ExercisePacket {
 }
 
 impl ExercisePacket {
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "packet construction keeps private answers and validation separate from visible task fields"
+    )]
     pub(crate) fn new(
         id: Cow<'static, str>,
         position: usize,
@@ -282,7 +286,7 @@ impl Session {
     ) -> Self {
         assert!(round_size > 0, "looping round must contain exercises");
         assert!(
-            !looping_exercises.is_empty() && looping_exercises.len() % round_size == 0,
+            !looping_exercises.is_empty() && looping_exercises.len().is_multiple_of(round_size),
             "looping exercises must contain complete rounds"
         );
         Self {

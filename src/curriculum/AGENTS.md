@@ -1,32 +1,14 @@
-# AGENTS: Curriculum And Procgen
+# Working on curriculum
 
-## Scope And Inheritance
+Inherit [root law](../../AGENTS.md). Enter through [the index](../../docs/INDEX.md),
+[current state](../../docs/context/CURRENT_STATE.md), the actual task and the relevant
+[subsystem](../../docs/context/subsystems/curriculum-catalog.md).
 
-Applies under `src/curriculum/`. Inherits [`../../AGENTS.md`](../../AGENTS.md).
+Task/schema data, authored guidance, deterministic planning and reviewed static materialization. Keep instruction/stimulus/expected/rules distinct. New learner content follows the agreed curriculum design and Don review.
 
-## Owner And Authority
-
-Curriculum owns static schema/data. Procgen owns inert source and pure expansion.
-Catalog admission, short IDs, ordering, and playability remain catalog authority.
-Engine/session truth, terminal output, runtime generation, persistence, and
-randomness are forbidden here.
-
-Allowed dependencies point inward to curriculum enums/data and standard library
-only. Product modules must not call procgen before an explicit catalog-admission
-packet. Procgen must not import catalog, engine, client, TUI, practice, or lab.
-
-## Canonical Links
-
-- Root law: [`../../AGENTS.md`](../../AGENTS.md)
-- Index: [`../../docs/INDEX.md`](../../docs/INDEX.md)
-- Current state: [`../../docs/context/CURRENT_STATE.md`](../../docs/context/CURRENT_STATE.md)
-- Curriculum/catalog: [`../../docs/context/subsystems/curriculum-catalog.md`](../../docs/context/subsystems/curriculum-catalog.md)
-- Procgen: [`../../docs/context/subsystems/procgen.md`](../../docs/context/subsystems/procgen.md)
-- Lane registry: [`../../docs/lanes/lane-registry.md`](../../docs/lanes/lane-registry.md)
-
-## Validation And Stop Conditions
-
-Run module-local invariants, procgen deterministic/isolation tests when touched,
-catalog tests when admitted data changes, and full project proof. Stop if IDs,
-Exact behavior, catalog listing, or product callers change outside explicit
-authority. Update on schema, determinism, or admission-boundary changes.
+Choose checks by changed behavior under [development](../../docs/DEVELOPMENT.md).
+Documentation/data changes need context/link/hash and diff checks; Rust changes
+need affected tests, formatting, warnings-denied Clippy and the complete relevant
+gate. Real-terminal and learning claims require their corresponding observations.
+Preserve user/peer work; clarify contradictory accepted meaning or missing task
+authority while continuing independent authorized work.

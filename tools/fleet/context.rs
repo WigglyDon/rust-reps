@@ -1,10 +1,10 @@
 use std::{
     collections::{BTreeMap, BTreeSet},
     fs,
-    path::Path,
+    path::{Component, Path},
 };
 
-use crate::{hash, AppResult, OutputMode};
+use crate::{AppResult, OutputMode, hash};
 
 const MANIFEST: &str = "ops/fleet/context-manifest.tsv";
 const REPORTED_SHA: &str = "ops/fleet/context-sha256.txt";
@@ -12,6 +12,9 @@ const REPORTED_SHA: &str = "ops/fleet/context-sha256.txt";
 const REQUIRED_FILES: &[&str] = &[
     "AGENTS.md",
     "docs/INDEX.md",
+    "docs/PRODUCT.md",
+    "docs/CURRICULUM.md",
+    "docs/DEVELOPMENT.md",
     "docs/context/README.md",
     "docs/context/CURRENT_STATE.md",
     "docs/context/CONTEXT_MATRIX.md",
@@ -35,27 +38,6 @@ const SCOPED_AGENTS: &[&str] = &[
     "scripts/AGENTS.md",
     "tools/AGENTS.md",
     "ops/AGENTS.md",
-];
-
-const REQUIRED_HEADERS: &[&str] = &[
-    "Context role:",
-    "Scope:",
-    "Canonical for:",
-    "Not canonical for:",
-    "Inherits:",
-    "Current-state owner:",
-    "Related evidence:",
-    "Update triggers:",
-];
-
-const PLACEHOLDERS: &[&str] = &["TODO", "TBD", "FIXME", "CHANGEME"];
-const VALID_LABELS: &[&str] = &[
-    "USER_DECISION",
-    "LIVE_REPO_FACT",
-    "RUNTIME_FACT",
-    "WORKER_CLAIM",
-    "INFERENCE",
-    "UNKNOWN",
 ];
 
 #[derive(Debug, Eq, PartialEq)]
@@ -137,13 +119,9 @@ pub(crate) fn verify_repo(repo: &Path) -> Verification {
     if let Some(manifest) = &manifest {
         verify_required_members(manifest, &mut errors);
         verify_manifest_files(repo, manifest, &mut errors);
-        verify_headers_and_owners(repo, manifest, &mut errors);
         verify_links(repo, manifest, &mut errors);
-        verify_labels_and_placeholders(repo, manifest, &mut errors);
     }
-    verify_scoped_agents(repo, &mut errors);
     verify_lanes(repo, &mut errors);
-    verify_authority(repo, &mut errors);
     verify_index_owners(repo, &mut errors);
 
     let context_sha = fs::read(&manifest_path)
@@ -183,13 +161,20 @@ fn parse_manifest(path: &Path) -> AppResult<BTreeMap<String, String>> {
                 line_number + 1
             ));
         }
-        if relative.is_empty() || Path::new(relative).is_absolute() || relative.contains("..") {
+        if relative.is_empty()
+            || Path::new(relative)
+                .components()
+                .any(|part| !matches!(part, Component::Normal(_)))
+            || relative == MANIFEST
+            || relative == REPORTED_SHA
+        {
             return Err(format!("manifest line {} has unsafe path", line_number + 1));
         }
-        if let Some(previous) = &previous {
-            if previous.as_str() >= relative {
-                return Err("context manifest paths are not uniquely bytewise sorted".to_owned());
-            }
+        if previous
+            .as_ref()
+            .is_some_and(|path| path.as_str() >= relative)
+        {
+            return Err("context manifest paths are not uniquely bytewise sorted".to_owned());
         }
         previous = Some(relative.to_owned());
         if manifest
@@ -228,47 +213,6 @@ fn verify_manifest_files(
                 "stale manifest entry: {relative} expected {expected}, found {actual}"
             )),
             Err(error) => errors.push(error),
-        }
-    }
-}
-
-fn carries_context_header(relative: &str) -> bool {
-    relative.ends_with(".md")
-        && (relative.starts_with("docs/context/")
-            || relative == "docs/lanes/lane-registry.md"
-            || relative == "docs/lanes/master-infrastructure.md"
-            || relative.starts_with("docs/process/")
-            || relative.starts_with("docs/evidence/")
-            || relative.starts_with("docs/operations/"))
-}
-
-fn verify_headers_and_owners(
-    repo: &Path,
-    manifest: &BTreeMap<String, String>,
-    errors: &mut Vec<String>,
-) {
-    let mut owners = BTreeMap::<String, String>::new();
-    for relative in manifest.keys().filter(|path| carries_context_header(path)) {
-        let Ok(text) = fs::read_to_string(repo.join(relative)) else {
-            continue;
-        };
-        for header in REQUIRED_HEADERS {
-            if !text.lines().any(|line| line.starts_with(header)) {
-                errors.push(format!("{relative} missing required header {header}"));
-            }
-        }
-        if let Some(owner) = text
-            .lines()
-            .find_map(|line| line.strip_prefix("Canonical for:"))
-            .map(str::trim)
-        {
-            if owner.is_empty() {
-                errors.push(format!("{relative} has empty Canonical for header"));
-            } else if let Some(earlier) = owners.insert(owner.to_owned(), relative.to_owned()) {
-                errors.push(format!(
-                    "duplicate canonical owner declaration in {earlier} and {relative}: {owner}"
-                ));
-            }
         }
     }
 }
@@ -314,54 +258,6 @@ fn markdown_targets(text: &str) -> Vec<String> {
     targets
 }
 
-fn verify_labels_and_placeholders(
-    repo: &Path,
-    manifest: &BTreeMap<String, String>,
-    errors: &mut Vec<String>,
-) {
-    for relative in manifest.keys() {
-        let Ok(text) = fs::read_to_string(repo.join(relative)) else {
-            continue;
-        };
-        for placeholder in PLACEHOLDERS {
-            if text.contains(placeholder) {
-                errors.push(format!(
-                    "unresolved operational placeholder in {relative}: {placeholder}"
-                ));
-            }
-        }
-        for token in uppercase_tokens(&text) {
-            if (token.ends_with("_FACT") || token.ends_with("_CLAIM"))
-                && !VALID_LABELS.contains(&token.as_str())
-            {
-                errors.push(format!("invalid evidence label in {relative}: {token}"));
-            }
-        }
-    }
-}
-
-fn uppercase_tokens(text: &str) -> BTreeSet<String> {
-    text.split(|character: char| !(character.is_ascii_uppercase() || character == '_'))
-        .filter(|token| token.len() > 1)
-        .map(str::to_owned)
-        .collect()
-}
-
-fn verify_scoped_agents(repo: &Path, errors: &mut Vec<String>) {
-    for relative in SCOPED_AGENTS {
-        let Ok(text) = fs::read_to_string(repo.join(relative)) else {
-            continue;
-        };
-        for required in ["AGENTS.md", "INDEX.md", "CURRENT_STATE.md", "subsystems/"] {
-            if !text.contains(required) {
-                errors.push(format!(
-                    "scoped law {relative} missing inheritance/link: {required}"
-                ));
-            }
-        }
-    }
-}
-
 fn verify_lanes(repo: &Path, errors: &mut Vec<String>) {
     let path = repo.join("docs/lanes/lane-registry.md");
     let Ok(text) = fs::read_to_string(path) else {
@@ -378,10 +274,9 @@ fn verify_lanes(repo: &Path, errors: &mut Vec<String>) {
             errors.push(format!("active lane missing page: {lane}"));
             continue;
         }
-        if let Ok(page_text) = fs::read_to_string(page) {
-            if !page_text.contains(&format!("Lane ID: `{lane}`")) {
-                errors.push(format!("active lane page does not declare lane ID: {lane}"));
-            }
+        if fs::read_to_string(page).is_ok_and(|text| !text.contains(&format!("Lane ID: `{lane}`")))
+        {
+            errors.push(format!("active lane page does not declare lane ID: {lane}"));
         }
     }
 }
@@ -398,32 +293,17 @@ fn lane_ids_in_section(text: &str, heading: &str) -> BTreeSet<String> {
         .collect()
 }
 
-fn verify_authority(repo: &Path, errors: &mut Vec<String>) {
-    let dangerous = [
-        "worker branches pushed: yes",
-        "canonical master changed: yes",
-        "deploy performed: yes",
-        "force-push performed: yes",
-        "destructive operation performed: yes",
-    ];
-    for relative in REQUIRED_FILES.iter().chain(SCOPED_AGENTS.iter()) {
-        if let Ok(text) = fs::read_to_string(repo.join(relative)) {
-            let lower = text.to_ascii_lowercase();
-            for phrase in dangerous {
-                if lower.contains(phrase) {
-                    errors.push(format!(
-                        "accidental authority enabled in {relative}: {phrase}"
-                    ));
-                }
-            }
-        }
-    }
-}
-
 fn verify_index_owners(repo: &Path, errors: &mut Vec<String>) {
     if let Ok(index) = fs::read_to_string(repo.join("docs/INDEX.md")) {
-        for owner in ["context/CURRENT_STATE.md", "context/DECISION_LOG.md"] {
-            if !index.contains(owner) {
+        let targets = markdown_targets(&index);
+        for owner in [
+            "PRODUCT.md",
+            "CURRICULUM.md",
+            "DEVELOPMENT.md",
+            "context/CURRENT_STATE.md",
+            "context/DECISION_LOG.md",
+        ] {
+            if !targets.iter().any(|target| target == owner) {
                 errors.push(format!(
                     "docs/INDEX.md missing canonical owner link: {owner}"
                 ));
@@ -475,9 +355,7 @@ mod tests {
     }
 
     fn context_document(title: &str, extra: &str) -> String {
-        format!(
-            "# {title}\n\nContext role: Fixture.\nScope: Fixture.\nCanonical for: {title}.\nNot canonical for: Runtime.\nInherits: Root fixture.\nCurrent-state owner: Fixture state.\nRelated evidence: Fixture.\nUpdate triggers: Fixture changes.\n\n{extra}\n"
-        )
+        format!("# {title}\n\n{extra}\n")
     }
 
     fn valid_fixture() -> TempDir {
@@ -486,7 +364,7 @@ mod tests {
         write(&repo.join("AGENTS.md"), "# Root\n");
         write(
             &repo.join("docs/INDEX.md"),
-            "[state](context/CURRENT_STATE.md) [decision](context/DECISION_LOG.md)\n",
+            "[product](PRODUCT.md) [curriculum](CURRICULUM.md) [development](DEVELOPMENT.md) [state](context/CURRENT_STATE.md) [decision](context/DECISION_LOG.md)\n",
         );
         for relative in REQUIRED_FILES {
             let path = repo.join(relative);
@@ -565,8 +443,9 @@ mod tests {
         let mut text = fs::read_to_string(&path).expect("read fixture");
         text.push_str("[broken](missing.md)\n");
         fs::write(path, text).expect("write broken link");
+        command_manifest(temp.path(), OutputMode::Human).expect("refresh fixture hashes");
         assert!(verify_repo(temp.path()).errors.iter().any(|error| {
-            error.contains("broken relative link") || error.contains("stale manifest entry")
+            error.contains("broken relative link in docs/context/README.md: missing.md")
         }));
     }
 
@@ -574,10 +453,12 @@ mod tests {
     fn stale_manifest_fails() {
         let temp = valid_fixture();
         fs::write(temp.path().join("AGENTS.md"), "changed\n").expect("stale fixture");
-        assert!(verify_repo(temp.path())
-            .errors
-            .iter()
-            .any(|error| error.contains("stale manifest entry: AGENTS.md")));
+        assert!(
+            verify_repo(temp.path())
+                .errors
+                .iter()
+                .any(|error| error.contains("stale manifest entry: AGENTS.md"))
+        );
     }
 
     #[test]
@@ -591,36 +472,56 @@ mod tests {
                 "## Active lanes\n| `same-lane` | active |\n\n## Retired lanes\n| `same-lane` | retired |\n",
             ),
         );
-        assert!(verify_repo(temp.path())
-            .errors
-            .iter()
-            .any(|error| error.contains("both active and retired")));
+        assert!(
+            verify_repo(temp.path())
+                .errors
+                .iter()
+                .any(|error| error.contains("both active and retired"))
+        );
     }
 
     #[test]
-    fn invalid_evidence_label_fails() {
+    fn missing_required_manifest_member_fails() {
         let temp = valid_fixture();
-        let path = temp.path().join("docs/context/README.md");
-        let mut text = fs::read_to_string(&path).expect("read fixture");
-        text.push_str("BAD_FACT: invalid\n");
-        fs::write(path, text).expect("write invalid label");
-        assert!(verify_repo(temp.path())
-            .errors
-            .iter()
-            .any(|error| error.contains("invalid evidence label")));
+        let path = temp.path().join(MANIFEST);
+        let manifest = fs::read_to_string(&path).expect("read fixture");
+        let manifest: String = manifest
+            .lines()
+            .filter(|line| !line.ends_with("\tdocs/CURRICULUM.md"))
+            .map(|line| format!("{line}\n"))
+            .collect();
+        fs::write(path, manifest).expect("remove manifest member");
+        command_manifest(temp.path(), OutputMode::Human).expect("refresh remaining hashes");
+        assert!(verify_repo(temp.path()).errors.iter().any(|error| {
+            error.contains("required context member absent from manifest: docs/CURRICULUM.md")
+        }));
     }
 
     #[test]
-    fn missing_required_header_fails() {
+    fn reported_digest_mismatch_fails() {
         let temp = valid_fixture();
-        let path = temp.path().join("docs/context/README.md");
-        let text = fs::read_to_string(&path)
-            .expect("read fixture")
-            .replace("Scope: Fixture.\n", "");
-        fs::write(path, text).expect("write missing header");
-        assert!(verify_repo(temp.path())
-            .errors
-            .iter()
-            .any(|error| error.contains("missing required header Scope:")));
+        write(&temp.path().join(REPORTED_SHA), &"0".repeat(64));
+        assert!(
+            verify_repo(temp.path())
+                .errors
+                .iter()
+                .any(|error| { error.contains("reported Context-SHA mismatch") })
+        );
+    }
+
+    #[test]
+    fn recursive_and_outside_manifest_members_fail() {
+        let temp = valid_fixture();
+        for path in [MANIFEST, REPORTED_SHA, "../outside.md", "/outside.md"] {
+            write(
+                &temp.path().join(MANIFEST),
+                &format!("{}\t{path}\n", "0".repeat(64)),
+            );
+            assert!(
+                parse_manifest(&temp.path().join(MANIFEST))
+                    .unwrap_err()
+                    .contains("unsafe path")
+            );
+        }
     }
 }

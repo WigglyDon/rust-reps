@@ -1,3 +1,5 @@
+> Historical record. Statements marked “current” describe earlier stages; [current state](CURRENT_STATE.md) owns the implementation today. This page grants no task authority.
+
 # Project History
 
 Context role: Canonical direction-change history.

@@ -1,141 +1,78 @@
-# AGENTS: Rust Reps
+# Working on Rust Reps
 
-## Project Identity
-- Product: Rust Reps
-- Repo/package/binary/command: `rust-reps`
-- Terminal-first Rust practice game with exact one-line typing reps.
-- Plain terminal `stdout`/`stderr` is the product surface.
+Rust Reps is a terminal Rust typing game for learning through personal curiosity.
+Don's interest in FN64 motivates explaining processor behavior alongside Rust
+syntax. The [product direction](docs/PRODUCT.md) owns that purpose; the
+[curriculum design](docs/CURRICULUM.md) distinguishes agreed direction from
+questions still being discussed. Typing is an enjoyable practice activity, not
+proof of professional competence or mastery.
 
-## Core Law
-- Terminal output is the source of truth.
-- Source behavior, tests, proof script, and CLI transcripts outrank summaries.
-- Wrong answers are product results (e.g., `TRY AGAIN`), not crashes.
-- Tool/parsing errors are for CLI errors only: print to `stderr` and exit nonzero.
-- Plain CLI output remains the baseline proof oracle; TUI uses the same session truth.
+## Enter from the task
 
-## Current Behavior Contract
-- `rust-reps` starts fullscreen TUI in an interactive terminal.
-- Piped `rust-reps` starts plain practice mode.
-- `rust-reps plain` starts plain practice mode.
-- `rust-reps 001` runs one-shot drill 001.
-- `rust-reps lab` starts fullscreen client stress lab in an interactive terminal.
-- Piped `rust-reps lab` prints a CLI error and exits nonzero.
-- Current TUI shell:
-  - editor tablet on the left, task/problem tablet on the right.
-  - compact green completed-rep counter top-left over the editor.
-  - `+1` appears beside that counter on correct submit.
-  - editor-local controls: `F1 format · F5 submit · F7 skip · Esc quit`.
-  - no `F6` skip alias.
-- Current TUI editor:
-  - smart pairs for `{}`, `()`, `[]`, and `""`.
-  - skip-over generated closing delimiters.
-  - Backspace removes empty generated pairs.
-  - smart Enter expands simple brace blocks with spaces, not tabs.
-  - `Delete` forward-deletes.
-  - mouse click moves the editor cursor.
-  - editor and task panes scroll independently.
-- `F1 format` invokes `rustfmt` directly as an optional editor helper.
-  It is not validation, linting, compilation, or answer normalization.
-  On unavailable/failure/timeout, the editor buffer remains unchanged.
-- Practice commands:
-  - `:help`, `:status`, `:list`, `:skip`, `:q`, `:quit`.
-  - `EOF` exits practice.
-  - Completion is distinct from early quit.
-- Practice result flow:
-  - Exact match prints `PASS` and advances.
-  - Wrong answer prints `TRY AGAIN` and repeats the same drill.
-  - `:skip` advances without incrementing attempts.
-  - `:status`, `:list`, `:help` do not increment attempts.
-- Unknown colon-prefixed input in practice is a command error:
-  - Print `UNKNOWN COMMAND` / `Type :help for commands.`
-  - Do not increment attempts.
-- One-shot mode does not use in-session commands; any input is treated as an answer.
+Read this file, [the index](docs/INDEX.md), the actual assignment and nearest
+scoped instructions. Inspect repository/remotes, checkout, branch, HEAD, dirt,
+worktrees, interrupted Git operations and affected resources before mutation.
+Read source before believing old prose. [Current state](docs/context/CURRENT_STATE.md)
+owns implementation status; [decisions](docs/context/DECISION_LOG.md) own accepted
+choices. Use `cargo xtask context current --verify` for local source/context
+identity, then fetch separately when remote freshness matters.
 
-## Exact Answer Contract
-- Trim exactly one trailing line ending only:
-  - `\n` or `\r\n`.
-- Do not normalize other input:
-  - leading spaces, trailing spaces, internal spaces, tabs, casing, punctuation,
-  - braces, quotes, Unicode, or multiline shape.
-- Blank line is a wrong answer and prints `TRY AGAIN` + expected answer.
-- Empty line ending does not bypass exactness.
+Direct Don instructions authorize bounded work. GitHub issues carry assignments,
+amendments, progress, questions and handback; repository owners carry durable
+meaning. Read relevant issue amendments before conflicting work and integration.
+Don need not relay routine reports, fix Git mechanics or construct packets.
+History and old lane records never reactivate work.
 
-## Module Ownership
-- `curriculum`: curriculum data schema (`DrillSpec`, metadata enums) and static drill data.
-- `catalog`: public catalog API, rendering, metadata invariants, and curriculum validation tests.
-- `main`: process orchestration and interactive default decision only.
-- `answer`: answer normalization/comparison helpers.
-- `validators`: product validation dispatch seam; currently routes only
-  `ExactTrimFinalNewline` to `answer` at runtime.
-  `RustfmtExact` remains unused by current reps and normal dispatch still fails
-  closed for it. A RustfmtExact core evaluator exists for future integration;
-  it runs only when explicitly given a runner and is not product truth today.
-- `tool_runner`: local tool request/result boundary for future validators.
-  Real execution is limited to fixed `rustfmt --emit stdout` formatting
-  requests; no cargo/rustc/Clippy/test execution or arbitrary commands.
-  Product paths do not call the real runner today.
-- `cli`: launch command selection, usage/help/list/version, CLI/tool errors.
-- `engine`: pure game/session simulation, state transitions, and exercise-shaped packets.
-- `lab`: endless deterministic client/engine stress matrix for visible lab mode; not normal curriculum.
-- `practice`: plain terminal adapter, stdin/stdout, and in-session command handling.
-- `client`: platform-neutral editor model, problem viewport, visual projection from engine packets, semantic code tokens, client frame structs, and visual-only UI state.
-- `tui`: terminal adapter/projection, theme/color mapping, fullscreen rendering, key input loop, and terminal lifecycle only.
-- `tests` / `scripts/proof.sh`: executable behavior evidence.
-- `README`: describe proven behavior only.
+## Authority and product boundaries
 
-## Catalog Metadata
-- Normal curriculum reps carry static metadata:
-  - short ID, canonical ID, system, track, semantic frame, surface frame,
-    operation, concepts, constraints, XP, answer rule, and transition.
-- Current normal reps use `ExactTrimFinalNewline` and transition `None`.
-- XP is metadata only; do not display it in current player UI.
-- Lab packets are synthetic stress data and must stay out of normal catalog/list output.
-- Metadata describes current exact-copy behavior; it must not add validation,
-  compilation, linting, persistence, scheduling, or runtime generation.
+Don owns purpose, taste, priorities and acceptance. The assigned agent owns
+inspection, implementation, relevant proof, reconciliation and authorized
+delivery. Follow [development](docs/DEVELOPMENT.md); ordinary reversible choices
+and compile failures are internal work, not approval checkpoints. Clarify real
+product choices, conflicting authority or consequential actions beyond the task.
 
-## Forbidden Scope (without explicit approval)
-- No additional crates beyond this packet's explicit approval.
-- No alternative TUI frameworks or GUI.
-- No persistence.
-- No random mode.
-- No hidden tests.
-- No drill additions.
-- No product-enabled compilation validation feature.
-- No product-enabled non-exact validator, linter, checker, or compiler feature.
-- No broad refactors; proof behavior must stay exact.
+Curriculum owns task data; catalog owns admission, IDs and order; guidance owns
+teaching prose; orchestration resolves packets and selects practice; engine owns
+attempts, pass, skip and completion. Client owns portable editor/projection state;
+TUI owns terminal lifecycle/input/rendering; plain adapters own stdout/stderr.
+Validators own answer comparison and fixed tool requests. Keep one owner per
+fact and dependency directions explicit in [architecture](docs/context/CONTEXT_MATRIX.md).
+Owned product logic and developer tooling are Rust. Shell launchers remain thin.
 
-## Approved Dependencies
-- `ratatui` (for fullscreen TUI rendering/input loop)
-- `crossterm` (terminal control for fullscreen TUI)
+Teach meaning before assuming terminology. Distinguish physical circuitry,
+explicit teaching models, real instruction-set rules, Rust semantics and actual
+compiler output. A Rust variable need not occupy a hardware register; Rust
+syntax and an instruction encoding are different representations. Chosen model
+state is not measured silicon evidence. Keep examples small and explain every
+new symbol that matters to the task. Curriculum acceptance requires Don's review.
 
-## Verification Gates
-- `cargo fmt --check`
-- `cargo test`
-- `./scripts/proof.sh`
-- `git diff --check`
-- `git diff --cached --check` (if staged)
-- If install behavior is changed: `cargo install --path . --force`,
-  `command -v rust-reps`, `rust-reps --version`,
-  installed-command practice/one-shot smoke checks.
+Expected answers stay out of non-copy task projection. Wrong answers are normal
+results; tool/configuration failures remain explicit failures. Exact removes at
+most one final LF or CRLF. RustfmtExact means formatting equivalence, not semantic
+or compiler proof. F1 formatting is separate from submission and cannot read
+expected answers. New answer rules need an explicit task contract and failure
+proof. Tests and transcripts establish their bounded behavior, not learning
+quality, physical-hardware fidelity or real-terminal feel.
 
-## Workflow Constraints
-- Inspect repo state before edits.
-- Stop and report if unrelated files are modified.
-- Commit only after required verification passes.
-- Include commands run, results, and final status in closure.
-- Do not push, publish, tag, release, create GitHub workflows, or edit CI unless explicitly requested.
+## Finish the outcome
 
-## Project Context Discovery
-- Read this file first, then every more-specific `AGENTS.md` from the repository
-  root to the working directory.
-- Read [`docs/INDEX.md`](docs/INDEX.md) and
-  [`docs/context/CURRENT_STATE.md`](docs/context/CURRENT_STATE.md) before
-  consequential work.
-- Use the evidence labels `USER_DECISION`, `LIVE_REPO_FACT`, `RUNTIME_FACT`,
-  `WORKER_CLAIM`, `INFERENCE`, and `UNKNOWN` as defined by the context system.
-- One mutable fact has one canonical owner. Link to that owner instead of
-  copying current-state truth into multiple documents.
-- If context documents conflict, stop and identify the conflict. Stronger live
-  source, Git, test, or runtime evidence may correct stale shared memory.
-- Packet transport is manual and complete: fragments are invalid, Don
-  transports packets, and Don is not expected to fill routine repository facts.
+Use an owned task branch and preserve user/peer changes, unpublished commits,
+parked worktrees and unique evidence. `main` is the published integration branch;
+restored `master` and donor branches remain historical references. Do not reset,
+clean, silently stash, rewrite shared history, force-push or delete unfamiliar
+work. Conflicting shared resources require actual coordination, not blanket
+approval from every idle agent.
+
+Run focused checks and the complete applicable `cargo xtask verify` gate before
+delivery; inspect the whole and staged diffs. Update canonical context when
+accepted understanding changes, then regenerate its manifest explicitly. Commit
+only owned scope, reconcile freshly fetched main additively and use normal
+nonforce publication within current authority. Observe the remote result.
+
+Keep credentials, personal records, raw chats, local sessions and private
+artifacts outside Git. Public source publication, package release, installation
+and human acceptance are distinct. Publication follows the active instruction;
+new visibility, licensing, spending, hosted automation or device actions require
+applicable authority. No GitHub Actions or automatic follow-on work is implied.
+Report actual changes, checks, failures and remaining decisions briefly, with the
+GitHub handback and relevant files.
