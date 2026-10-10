@@ -10,6 +10,7 @@ This page routes to current owners. It does not own mutable product or task stat
 | What is implemented and unresolved? | [Current state](context/CURRENT_STATE.md) |
 | Which decisions are accepted? | [Decision log](context/DECISION_LOG.md) |
 | What owns each boundary? | [Architecture](context/CONTEXT_MATRIX.md) and relevant [subsystem pages](context/subsystems/) |
+| How does the workshop save, compile and run? | [Workshop contract](context/subsystems/workshop.md) |
 | How do agents work and deliver? | [Development workflow](DEVELOPMENT.md) |
 | How is context checked? | [Context system](context/README.md) and [verification operations](operations/RELEASE_AND_EVIDENCE.md) |
 | What do the existing tests establish? | [Evidence](evidence/README.md) |

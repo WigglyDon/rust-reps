@@ -10,6 +10,28 @@ mod input;
 mod render;
 mod terminal;
 mod theme;
+#[cfg(unix)]
+mod workshop;
+
+pub fn run_workshop() -> io::Result<()> {
+    if !std::io::IsTerminal::is_terminal(&io::stdin())
+        || !std::io::IsTerminal::is_terminal(&io::stdout())
+    {
+        return Err(io::Error::other(
+            "workshop requires an interactive terminal",
+        ));
+    }
+    #[cfg(unix)]
+    {
+        workshop::run()
+    }
+    #[cfg(not(unix))]
+    {
+        Err(io::Error::other(
+            "workshop preview currently requires Unix process groups",
+        ))
+    }
+}
 
 use frame_scheduler::FrameScheduler;
 

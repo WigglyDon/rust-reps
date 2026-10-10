@@ -10,6 +10,7 @@ pub enum DrillCommand {
     List,
     Tui,
     Lab,
+    Workshop,
     Help,
     Version,
 }
@@ -31,6 +32,9 @@ pub fn select_command(args: &[&str]) -> Result<DrillCommand, String> {
     }
     if id == "lab" {
         return Ok(DrillCommand::Lab);
+    }
+    if id == "workshop" {
+        return Ok(DrillCommand::Workshop);
     }
     if id == "--help" || id == "-h" {
         return Ok(DrillCommand::Help);

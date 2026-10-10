@@ -29,7 +29,7 @@ const DRILL_015_TRY_AGAIN_OUTPUT: &str = "Rust Reps\n----------------\n\nDrill 0
 const DRILL_019_PASS_OUTPUT: &str = "Rust Reps\n----------------\n\nDrill 019\nPrompt:\n\nComplete the missing return-type arrow: Type only the code replacing ___.\nfn seven() ___ u64 { 7 }\n\n>PASS\n";
 const DRILL_019_TRY_AGAIN_OUTPUT: &str = "Rust Reps\n----------------\n\nDrill 019\nPrompt:\n\nComplete the missing return-type arrow: Type only the code replacing ___.\nfn seven() ___ u64 { 7 }\n\n>TRY AGAIN\nExpected:\n->\n";
 const LIST_OUTPUT: &str = "Rust Reps\n----------------\n\nAvailable drills:\n001  fn main() {}\n002  println!(\"Rust Reps\");\n003  let answer = 42;\n004  let name = \"Rust Reps\";\n005  let mut score = 0;\n006  score += 1;\n007  let passed = true;\n008  let score: i32 = 0;\n009  let scores = [1, 2, 3];\n010  fn add_one(x: i32) -> i32 { x + 1 }\n011  if score > 0 {}\n012  while score < 10 {}\n013  fn five() -> i32 { 5 }\n014  fn five() ___ i32 { 5 }\n015  fn five() ___ i32 { 5 }\n016  fn five(): i32 { 5 }\n017  fn five() { 5 }\n018  fn seven() -> u64 { 7 }\n019  fn seven() ___ u64 { 7 }\n020  fn seven() ___ u64 { 7 }\n021  fn seven(): u64 { 7 }\n022  fn seven() { 7 }\n";
-const HELP_OUTPUT: &str = "Rust Reps\n----------------\n\nUsage:\n  rust-reps\n  rust-reps plain\n  rust-reps [DRILL_ID]\n  rust-reps play\n  rust-reps lab\n  rust-reps --list\n  rust-reps --help\n  rust-reps --version\n\nDefault:\n  Starts fullscreen TUI in an interactive terminal.\n  Uses plain practice mode when stdin/stdout are piped.\n\nLab:\n  rust-reps lab starts a fullscreen client stress lab in an interactive terminal.\n  It is not curriculum and does not appear in --list.\n\nCurrent drills:\n001  fn main() {}\n002  println!(\"Rust Reps\");\n003  let answer = 42;\n004  let name = \"Rust Reps\";\n005  let mut score = 0;\n006  score += 1;\n007  let passed = true;\n008  let score: i32 = 0;\n009  let scores = [1, 2, 3];\n010  fn add_one(x: i32) -> i32 { x + 1 }\n011  if score > 0 {}\n012  while score < 10 {}\n013  fn five() -> i32 { 5 }\n014  fn five() ___ i32 { 5 }\n015  fn five() ___ i32 { 5 }\n016  fn five(): i32 { 5 }\n017  fn five() { 5 }\n018  fn seven() -> u64 { 7 }\n019  fn seven() ___ u64 { 7 }\n020  fn seven() ___ u64 { 7 }\n021  fn seven(): u64 { 7 }\n022  fn seven() { 7 }\n";
+const HELP_OUTPUT: &str = "Rust Reps\n----------------\n\nUsage:\n  rust-reps\n  rust-reps plain\n  rust-reps [DRILL_ID]\n  rust-reps play\n  rust-reps lab\n  rust-reps workshop\n  rust-reps --list\n  rust-reps --help\n  rust-reps --version\n\nDefault:\n  Starts fullscreen TUI in an interactive terminal.\n  Uses plain practice mode when stdin/stdout are piped.\n\nWorkshop preview:\n  rust-reps workshop opens a persistent real edit/compile/run TUI (Unix).\n  Trusted local code only; runs with your permissions, not a security sandbox.\n\nLab:\n  rust-reps lab starts a fullscreen client stress lab in an interactive terminal.\n  It is not curriculum and does not appear in --list.\n\nCurrent drills:\n001  fn main() {}\n002  println!(\"Rust Reps\");\n003  let answer = 42;\n004  let name = \"Rust Reps\";\n005  let mut score = 0;\n006  score += 1;\n007  let passed = true;\n008  let score: i32 = 0;\n009  let scores = [1, 2, 3];\n010  fn add_one(x: i32) -> i32 { x + 1 }\n011  if score > 0 {}\n012  while score < 10 {}\n013  fn five() -> i32 { 5 }\n014  fn five() ___ i32 { 5 }\n015  fn five() ___ i32 { 5 }\n016  fn five(): i32 { 5 }\n017  fn five() { 5 }\n018  fn seven() -> u64 { 7 }\n019  fn seven() ___ u64 { 7 }\n020  fn seven() ___ u64 { 7 }\n021  fn seven(): u64 { 7 }\n022  fn seven() { 7 }\n";
 const LAB_REQUIRES_TTY_STDERR: &str = "error: lab mode requires an interactive terminal\n";
 const VERSION_OUTPUT: &str = "rust-reps 0.1.0\n";
 const PRACTICE_ALL_CORRECT_INPUT: &str = concat!(
@@ -1481,4 +1481,15 @@ fn stderr_is_empty_for_normal_product_results() {
     assert_eq!(String::from_utf8(list_output.stderr).unwrap(), "");
     assert_eq!(String::from_utf8(help_output.stderr).unwrap(), "");
     assert_eq!(String::from_utf8(version_output.stderr).unwrap(), "");
+}
+
+#[test]
+fn workshop_requires_a_terminal_without_creating_source() {
+    let output = run_rust_reps(&["workshop"], "");
+    assert!(!output.status.success());
+    assert_eq!(
+        String::from_utf8(output.stderr).unwrap(),
+        "error: workshop requires an interactive terminal\n"
+    );
+    assert!(output.stdout.is_empty());
 }

@@ -2,6 +2,10 @@
 
 Orchestration resolves catalog tasks, guidance/support and selected admitted-ID plans into engine packets. Main chooses interactive default or CLI command. CLI/practice/presentation adapt resolved instructions and stimuli to stdout/stderr without duplicating engine truth. One-shot and plain remain finite; unknown colon commands are command errors without attempts. Expected answers appear as wrong-answer feedback, not non-copy task stimuli.
 
+`workshop` is an explicit opt-in Unix TUI route; it requires interactive stdin
+and stdout before opening its local workspace. Help lists it with the trust
+boundary. Default launch, plain/one-shot selection and the catalog are unchanged.
+
 [Architecture](../CONTEXT_MATRIX.md) owns dependency boundaries; [current state](../CURRENT_STATE.md)
 owns implementation status; [curriculum design](../../CURRICULUM.md) owns the
 new teaching direction.

@@ -3,6 +3,8 @@ use std::time::{Duration, Instant};
 use crate::engine;
 
 mod editor;
+#[cfg(unix)]
+pub(crate) mod workshop;
 
 pub use editor::{CursorPosition, EditorAction, EditorBuffer, EditorView, EditorViewport};
 

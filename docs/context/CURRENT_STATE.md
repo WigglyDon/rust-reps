@@ -5,8 +5,21 @@
 The recovered repository contains one Rust terminal game. Catalog IDs 001–012
 are literal Copy tasks; 013–022 form two Copy/Fill/Produce/Repair/Transform rows
 around a function's return type. Plain and one-shot modes are finite. The
-interactive product cycles the two five-task rows indefinitely. The lab is
-separate synthetic UI stress data. There is no persistence or adaptive mastery.
+restored interactive course cycles the two five-task rows indefinitely. The lab
+is separate synthetic UI stress data. The restored course has no persistence or
+adaptive mastery.
+
+`cargo run --bin rust-reps -- workshop` opts into a Unix workshop preview.
+The existing editor displays learner-owned `.rust-reps-local/workshop/main.rs`
+under the launch directory, alongside Guidance/Compiler/Program tabs. Ctrl-S
+saves; F5 saves and invokes real installed rustc; F6 runs a successful build for
+the unchanged displayed revision; F8 stops; Esc/Ctrl-C saves and quits. Save
+failures retain the buffer and block normal quit. Reopening preserves source
+and requires a fresh build. Revision/build-attempt labels identify previous
+output. One job at a time, process-group cleanup, bounded nonblocking capture
+and time limits preserve responsiveness. This is trusted local execution with
+user permissions, not a sandbox. [The workshop contract](subsystems/workshop.md)
+owns its workspace, execution and recovery details.
 
 Exact comparisons remove at most one final LF or CRLF. Full-code Produce,
 Repair and Transform tasks use RustfmtExact through fixed rustfmt requests.
@@ -23,13 +36,15 @@ they do not launch agents or grant task authority.
 ## New direction and unresolved design
 
 [Product direction](../PRODUCT.md) and [curriculum design](../CURRICULUM.md) own
-Don's new goal: enjoyable manual Rust typing while learning the state and
-operations beneath processor behavior. Assume no prior programming experience or CPU terminology. The course should
-build a connected program one Rust rep at a time, inspired by FN64 and potentially
+Don's clarified goal: make something he understands through manually typed Rust,
+real compilation, output inspection, changes and repair. Underlying mechanisms
+motivate that work. Assume no prior programming experience or CPU terminology.
+The course should build a connected program one Rust rep at a time, inspired by FN64 and potentially
 other projects. The original subtraction example is not the chosen starter. The
 first unit is being designed through concrete examples and conversation. Its exact
-content, order and scaffolding are unresolved; the restored catalog has not yet
-been replaced or claimed to satisfy the new course.
+content, order and scaffolding are unresolved; the workshop's small connected
+program and repair guidance are explicitly subject to Don's review. The restored
+catalog has not been replaced or claimed to satisfy the new course.
 
 ## Source and workflow
 

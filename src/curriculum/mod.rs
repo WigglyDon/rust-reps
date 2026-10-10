@@ -24,6 +24,8 @@ pub(crate) mod planner;
 pub(crate) mod procgen;
 pub(crate) mod support;
 mod syntax_basics;
+#[cfg(unix)]
+pub(crate) mod workshop;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum Track {

@@ -3,6 +3,7 @@
 | Decision | Authority and consequence |
 | --- | --- |
 | Rust Reps is for enjoyable manual Rust syntax practice. | Don's October 9, 2026 clarification. Typing counters are practice facts, not mastery. |
+| Making something understandable includes real edit–compile–run and repair. | Don's October 10 clarification and WORKSHOP-1 on issue #1. Deliver an opt-in terminal workshop preview while preserving the restored course. Preview content and first-use acceptance remain for Don's review. |
 | Computing fundamentals motivate the new curriculum. | Don's FN64/register example and subsequent clarification. Start without assumed CPU terminology; use explicit small models and meaningful Rust exercises. |
 | Start from no assumed programming knowledge and build something one rep at a time. | Don’s subsequent clarification: a FN64-inspired core or other projects should supply connected progression rather than isolated syntax copying. |
 | Design the first unit through conversation. | Don asked for back-and-forth clarification. Concrete examples precede large curriculum admission. |

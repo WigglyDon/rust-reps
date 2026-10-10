@@ -12,6 +12,9 @@
 | `answer`, `validators`, `tool_runner`, `formatter` | Literal comparison, explicit rule dispatch, fixed rustfmt execution and separate editor formatting. No arbitrary learner commands or semantic-equivalence claim. |
 | `main`, `cli`, `practice`, `presentation` | Launch selection and deterministic plain terminal adaptation using resolved packets and engine results. Wrong answers remain normal results; tool errors are explicit. |
 | `client` | Portable editor, cursor/viewports, visual feedback and projection-safe task/help state. No terminal library types or answer/session authority. |
+| `workshop` | Persistent learner source, revision/build identity, eligible artifact and separate compiler/program records. Uses the process adapter; separate from course engine and validators. |
+| `workshop_process` | Fixed single-file rustc and explicit artifact launch, minimal child environment, bounded capture/time and Unix group cleanup. No shell or security-sandbox claim. |
+| `curriculum::workshop`, `client::workshop`, `tui::workshop` | Respectively preview teaching prose, portable editor/focus/scroll projection and terminal events/rendering. Consume shared workshop truth; never insert solutions on step changes. |
 | `tui` | Terminal lifecycle, input mapping, frame scheduling, drawing and restoration. Uses shared client/engine semantics. |
 | `lab` | Explicit synthetic stress packets, separate from the playable catalog and curriculum. |
 | `tools/fleet`, `xtask` | Developer checks, local observations, deterministic context/evidence generation and optional historical diagnostics. Never a product dependency or authority source. |

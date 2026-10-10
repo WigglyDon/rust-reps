@@ -9,8 +9,10 @@ changes into explicit machine operations and encoded commands.
 A program is a set of instructions we write for the computer to carry out.
 Rust source is text in the Rust language. A compiler translates a complete
 valid program into executable instructions for the host computer. Rust Reps
-currently checks typing; it does not run the learner's submission. The results
-below are explanations of these authored programs.
+keeps text comparison in the restored course and offers real compilation/run
+in its separate opt-in workshop. The results below are explanations of authored
+programs, not observations of a learner's work. The workshop uses a small related
+progression whose guidance is also subject to Don's review.
 
 ## Rep 1: make a program say something
 
@@ -91,4 +93,6 @@ step size and amount of repetition need learner feedback.
 Admission would require actual task/support data, answer-rule and default-flow
 decisions and product verification under [curriculum design](../CURRICULUM.md).
 An authored example is not a result from executing a submitted answer. No
-arbitrary learner-code execution is proposed by this preview.
+execution is implied by this document alone; WORKSHOP-1 separately authorizes
+the bounded trusted-local-code workshop described in its
+[contract](../context/subsystems/workshop.md).

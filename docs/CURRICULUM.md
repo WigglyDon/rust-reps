@@ -2,8 +2,9 @@
 
 ## Agreed purpose
 
-Learn Rust syntax through enjoyable manual typing while building connected
-understanding. Don has programmed in other languages but wants the course to
+Make something understandable through manual Rust typing, real compilation,
+observed output, deliberate changes and repair. Don has programmed in other
+languages but wants the course to
 work for someone completely new to programming. Assume neither programming
 knowledge nor CPU terminology. Explain what each addition means, why it belongs
 in the program, and what its Rust symbols do before asking the learner to use it.
@@ -50,11 +51,13 @@ updates and later operations as different actions when they become relevant.
 Teach programmer-written names as names rather than pretending they are
 physical processor registers.
 
-The product currently compares submitted text; it does not compile or execute
-learner code. Worked output and state traces must therefore be described as
-authored examples, not falsely presented as results from running a submission.
-A project progression or new runnable tool needs its own explicit implementation
-contract; learning purpose alone does not authorize an arbitrary-code runner.
+The restored course compares submitted text. The separately requested opt-in
+workshop compiles a saved single-file Rust program and runs its successful build
+only on deliberate learner action. Its [runner contract](context/subsystems/workshop.md)
+is for trusted local practice code and does not provide a security sandbox.
+Guidance distinguishes authored example output from observed compiler/program
+streams. Compile success is feedback on Rust rules; neither it nor a successful
+exit proves program correctness or understanding.
 
 ## Physical-to-software connection
 
@@ -85,5 +88,8 @@ it. Define catalog IDs/order, prerequisite and default-flow consequences before
 admission. Validate actual plain, one-shot and TUI behavior, wrong answers, skip,
 formatting failure and answer privacy. Preserve earlier evidence in Git.
 
-The restored 22-task catalog and two-row interactive loop remain the current
-implementation. They have not been replaced or claimed to meet this new course.
+The restored 22-task catalog and two-row interactive loop remain available.
+`workshop` adds three short preview guidance steps: type a complete printing
+program, grow it with an observable changing value, and investigate/repair a
+compiler error. Steps never overwrite the source or insert a solution. This is
+one reviewable experience slice, not catalog admission or acceptance of a syllabus.

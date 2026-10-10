@@ -1,14 +1,57 @@
 # Rust Reps
 
-Rust Reps is a terminal Rust typing game for learning syntax through curiosity
-and repetition. The new curriculum is being designed around small, explained
-models of computing: stored numbers, registers, instructions and how Rust
-expresses changes to machine state. No CPU knowledge is assumed.
+Rust Reps is a terminal Rust learning app for making something you understand:
+type it, compile it, inspect its output, change it and fix mistakes. Curiosity
+about the underlying mechanism motivates the work; no programming or CPU
+knowledge is assumed.
 
-The restored app still has its original 22 drills and two alternating interactive
-practice rows. The replacement curriculum is a design in progress; see the
-[curriculum discussion](docs/CURRICULUM.md) and [product direction](docs/PRODUCT.md).
-The public source and task discussions live on [GitHub](https://github.com/WigglyDon/rust-reps).
+The restored 22-drill course remains available. An opt-in workshop now provides
+one real edit–compile–run preview while the curriculum and first-use experience
+await Don's review. See [product direction](docs/PRODUCT.md) and
+[curriculum design](docs/CURRICULUM.md). Task discussion lives on
+[GitHub](https://github.com/WigglyDon/rust-reps/issues/1).
+
+## Workshop preview
+
+From this repository in an interactive Unix terminal, run:
+
+```sh
+cargo run --bin rust-reps -- workshop
+```
+
+Source is saved at `.rust-reps-local/workshop/main.rs` under the launch directory
+(`/home/don/rust-reps/.rust-reps-local/workshop/main.rs` for Don's checkout).
+A new file starts empty; Guidance shows a tiny complete program to type.
+Guidance steps never replace your work. Reopening resumes your source.
+
+- Ctrl-S: Save. F5: Save and Compile with installed `rustc` (Rust edition 2024).
+- F6: Run the successful build for the unchanged displayed revision.
+- F8: Stop. Esc/Ctrl-C: Save and Quit; write failures keep the buffer open.
+- F2: Guidance/Compiler/Program tabs. F3/F4: previous/next guidance step.
+- Tab: source/information focus. Arrows/Home/End edit or navigate; PageUp/PageDown
+  and mouse wheel scroll information; the wheel also scrolls source under the pointer.
+
+Try typing the first program, Compile, inspect diagnostics, then Run and inspect
+Program output. Change its message, Compile and Run again. F4 describes adding
+and changing a value in the same program; the final step invites removing `mut`,
+reading a genuine compiler error and repairing it yourself. Authored examples
+and observed output are labeled separately; successful compilation awards no score.
+
+This Unix-only slice supports a single-file, standard-library-only program,
+with closed stdin, one job at a time, a 30-second compilation limit, a 5-second
+run limit and 64 KiB capture per stream. Previous revision/build output is labeled;
+edits and failed/cancelled builds block stale execution. Build artifacts are
+private temporary paths, removed on normal closure; the source persists and a
+fresh build is needed after reopening. Save refuses ordinary external file
+changes. Abrupt termination can lose edits since the last Save/Compile.
+
+**Trusted locally authored code only.** Programs run deliberately with your user
+permissions and can access your files and network. The working directory,
+minimal environment, time limits and process groups are not a security sandbox.
+Do not use this preview for hostile code or downloaded projects. It does not
+support Cargo projects, dependencies, interactive input, an IDE or an emulator.
+The [workshop contract](docs/context/subsystems/workshop.md) explains ownership,
+cleanup and source recovery. Preview guidance needs Don's review.
 
 ## Player Mode
 
@@ -234,8 +277,8 @@ rust-reps --version
 
 - Core behavior currently uses `ratatui` + `crossterm` for interactive fullscreen TUI.
 - Core practice flow stays terminal-first plain `stdout`/`stderr`.
-- No persistence
+- Persistence is limited to the opt-in workshop source file.
 - No random mode
-- No compilation validation
-- No semantic, compiler, check, lint, or test-runner validation
+- Restored course validation remains text comparison; workshop compilation/run is separate.
+- No semantic-equivalence, lint or test-runner validation.
 - Plain practice remains available through `plain` and piped stdin.

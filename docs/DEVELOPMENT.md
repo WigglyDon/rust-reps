@@ -51,6 +51,12 @@ Update the nearest canonical owner when accepted understanding changes. After
 review, regenerate context with `cargo xtask context manifest` and check it with
 `cargo xtask context verify`. Verification itself does not rewrite context.
 
+Workshop proof uses owned temporary workspaces and actual installed rustc,
+without global installation or dependency downloads. The workshop PTY check
+covers the explicit terminal route and restoration; its scope is software
+interaction, not Don's first-use acceptance. [The runner contract](context/subsystems/workshop.md)
+owns process limits, trust and source recovery behavior.
+
 ## Integration and publication
 
 `main` is the public integration branch. Restored `master` and parked donor

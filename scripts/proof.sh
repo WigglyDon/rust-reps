@@ -1498,6 +1498,7 @@ Usage:
   rust-reps [DRILL_ID]
   rust-reps play
   rust-reps lab
+  rust-reps workshop
   rust-reps --list
   rust-reps --help
   rust-reps --version
@@ -1505,6 +1506,10 @@ Usage:
 Default:
   Starts fullscreen TUI in an interactive terminal.
   Uses plain practice mode when stdin/stdout are piped.
+
+Workshop preview:
+  rust-reps workshop opens a persistent real edit/compile/run TUI (Unix).
+  Trusted local code only; runs with your permissions, not a security sandbox.
 
 Lab:
   rust-reps lab starts a fullscreen client stress lab in an interactive terminal.
@@ -1543,6 +1548,7 @@ Usage:
   rust-reps [DRILL_ID]
   rust-reps play
   rust-reps lab
+  rust-reps workshop
   rust-reps --list
   rust-reps --help
   rust-reps --version
@@ -1550,6 +1556,10 @@ Usage:
 Default:
   Starts fullscreen TUI in an interactive terminal.
   Uses plain practice mode when stdin/stdout are piped.
+
+Workshop preview:
+  rust-reps workshop opens a persistent real edit/compile/run TUI (Unix).
+  Trusted local code only; runs with your permissions, not a security sandbox.
 
 Lab:
   rust-reps lab starts a fullscreen client stress lab in an interactive terminal.
@@ -1674,6 +1684,7 @@ Usage:
   rust-reps [DRILL_ID]
   rust-reps play
   rust-reps lab
+  rust-reps workshop
   rust-reps --list
   rust-reps --help
   rust-reps --version
@@ -1681,6 +1692,10 @@ Usage:
 Default:
   Starts fullscreen TUI in an interactive terminal.
   Uses plain practice mode when stdin/stdout are piped.
+
+Workshop preview:
+  rust-reps workshop opens a persistent real edit/compile/run TUI (Unix).
+  Trusted local code only; runs with your permissions, not a security sandbox.
 
 Lab:
   rust-reps lab starts a fullscreen client stress lab in an interactive terminal.
