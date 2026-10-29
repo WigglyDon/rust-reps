@@ -9,7 +9,7 @@ restored interactive course cycles the two five-task rows indefinitely. The lab
 is separate synthetic UI stress data. The restored course has no persistence or
 adaptive mastery.
 
-`cargo run --bin rust-reps -- workshop` opts into a Unix workshop preview.
+`cargo run --locked --bin rust-reps -- workshop` opts into a Unix workshop preview.
 The existing editor displays learner-owned `.rust-reps-local/workshop/main.rs`
 under the launch directory, alongside Guidance/Compiler/Program tabs. Ctrl-S
 saves; F5 saves and invokes real installed rustc; F6 runs a successful build for
@@ -45,6 +45,13 @@ first unit is being designed through concrete examples and conversation. Its exa
 content, order and scaffolding are unresolved; the workshop's small connected
 program and repair guidance are explicitly subject to Don's review. The restored
 catalog has not been replaced or claimed to satisfy the new course.
+
+The [WORKSHOP-1 review](https://github.com/WigglyDon/rust-reps/issues/1#issuecomment-6098946445)
+accepted proceeding to Don's small first-use review: type, compile, run, change
+the message and confirm save/reopen. That remains the next product checkpoint;
+further lessons and curriculum admission have not been dispatched. The current
+workflow review changes operational documentation only, with no new runtime or
+curriculum acceptance claim.
 
 ## Source and workflow
 

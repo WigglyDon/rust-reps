@@ -30,6 +30,11 @@ changed by another writer; use a new temporary file and atomic rename for saves.
 Recheck directory device/inode identities before use or cleanup; preserve replaced
 directories rather than treating a new path occupant as owned work.
 Learner source and build paths are ignored locally and excluded from publication.
+The executable location, install prefix and Cargo target directory do not select
+this workspace. Return to the same working directory to reopen the same source.
+Preserve source/recovery copies when changing storage; revalidate actual bytes
+instead of assuming that an old path or backup receipt still resolves. Compiler
+output can be rebuilt after recovery; it cannot replace the learner's source.
 
 Compile snapshots one saved revision in a uniquely owned build directory and
 invokes installed `rustc` directly with fixed single-file, edition-2024 arguments.
@@ -55,6 +60,8 @@ Commands, separate streams, exit/signal, missing tool, spawn/I/O failures,
 compiler rejection, cancellation, timeout and truncation remain visible.
 Source is limited to 256 KiB and eligible artifacts to 32 MiB. Build directories
 are private (mode 0700); source/recovery files use mode 0600.
+These are job limits, not host storage/RAM admission. A growing compile phase
+still follows [development](../../DEVELOPMENT.md) and the current resource owner.
 
 Output is rendered as escaped text, including control and directional formatting
 characters. Working directories, environment filtering and limits are **not a

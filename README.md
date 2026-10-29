@@ -16,13 +16,17 @@ await Don's review. See [product direction](docs/PRODUCT.md) and
 From this repository in an interactive Unix terminal, run:
 
 ```sh
-cargo run --bin rust-reps -- workshop
+cargo run --locked --bin rust-reps -- workshop
 ```
 
-Source is saved at `.rust-reps-local/workshop/main.rs` under the launch directory
-(`/home/don/rust-reps/.rust-reps-local/workshop/main.rs` for Don's checkout).
+Source is saved at `.rust-reps-local/workshop/main.rs` under the launch directory.
 A new file starts empty; Guidance shows a tiny complete program to type.
 Guidance steps never replace your work. Reopening resumes your source.
+The working directory determines the save location, independently of the
+executable, installation prefix or Cargo target directory. Return to the same
+directory to resume. A source-bound existing executable can open the preview
+directly; `cargo run` may first compile the application. See the
+[development workflow](docs/DEVELOPMENT.md) before a growing build phase.
 
 - Ctrl-S: Save. F5: Save and Compile with installed `rustc` (Rust edition 2024).
 - F6: Run the successful build for the unchanged displayed revision.
@@ -55,10 +59,21 @@ cleanup and source recovery. Preview guidance needs Don's review.
 
 ## Player Mode
 
-After local install, the command is `rust-reps` (`rust-reps.exe` on Windows).
+The workshop can be tried from source without installing a command. Optional
+installation can use an owned prefix from the repository root:
 
 ```sh
-cargo install --path . --force
+cargo install --locked --path . --root .rust-reps-local/install
+.rust-reps-local/install/bin/rust-reps --version
+```
+
+This may build the application. Keep an existing command and its provenance;
+an intentional replacement is a separate installation choice. The example
+leaves the user's usual command untouched and does not change shell startup
+files. Use the explicit installed path, or a deliberate PATH setting, to select
+it. Once selected, the command is `rust-reps` (`rust-reps.exe` on Windows).
+
+```sh
 rust-reps
 rust-reps plain
 rust-reps 001
@@ -66,7 +81,6 @@ rust-reps lab
 rust-reps --list
 rust-reps --help
 rust-reps --version
-cargo uninstall rust-reps
 ```
 
 `rust-reps` without arguments starts the fullscreen TUI when run in an interactive terminal.
@@ -249,7 +263,13 @@ published branch; the restored `master` and donor worktrees preserve earlier wor
 
 ## PATH Troubleshooting
 
-After `cargo install --path . --force`, confirm:
+For the optional repository-local installation, confirm its explicit path:
+
+```sh
+.rust-reps-local/install/bin/rust-reps --version
+```
+
+For a separately chosen user installation, confirm which command the shell uses:
 
 ```sh
 command -v rust-reps

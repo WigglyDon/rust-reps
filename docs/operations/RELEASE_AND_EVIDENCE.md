@@ -1,11 +1,26 @@
 # Verification and evidence operations
 
-Run `cargo xtask verify` from the checkout. The gate checks workspace formatting,
+After resource admission, run `cargo xtask verify` from the checkout for a source
+or runtime delivery. The gate checks workspace formatting,
 warnings-denied Clippy, workspace tests, current context, actual CLI transcripts,
 temporary installation and working/staged diff checks. The temporary installation
 does not replace the user's installed command. `scripts/proof.sh` remains a
 standalone product-proof entry; an aggregate verification avoids rerunning
 unchanged formatting/tests inside that proof.
+
+Cargo-based entry points may compile their helper. For a bounded documentation
+review, an already-built developer helper whose source/lockfile identity has
+been checked can run `context current --verify`, `context manifest` and
+`context verify` directly, without Cargo. If that helper is absent, report the
+prerequisite and use read-only Git/hash observations before planning a build.
+Documentation-only changes need applicable context/link/hash and diff checks;
+do not describe those as a rerun of the full compilation/transcript gate.
+
+Verification and the proof script can grow compiler caches, temporary files and
+the private install root. Use admitted owned target/TMPDIR destinations, current
+capacity and serialization as described in [development](../DEVELOPMENT.md).
+Do not reuse a retired destination or overwrite a user's installed command to
+make a check pass. Preserve required evidence independently of disposable caches.
 
 `cargo xtask context current --verify` reports local source/context identity.
 Its origin-main SHA and divergence use cached refs. Fetch separately for fresh

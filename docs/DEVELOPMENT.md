@@ -28,10 +28,38 @@ paths, ports and mutable test storage; serialize conflicting operations and
 preserve unique evidence. A restricted process view does not prove host-wide
 inactivity. Coordinate actual conflicting shared semantics or resources.
 
+Existing local tooling is useful for review, but a Cargo entry can rebuild that
+tooling. Inspect source/lockfile identity and the existing artifact before reuse;
+a shared version string does not establish which source produced an executable.
+For a documentation-only or preservation review, invoke an existing matching
+developer helper directly for `context current --verify` and `context verify`.
+If none is available, first use Git/diff and read-only file/hash observations;
+report the missing helper rather than starting an unplanned toolchain build.
+
 `cargo xtask context current --verify` derives local Git and context facts without
 fetching. Its remote-main identity and divergence are cached observations.
 Fetch separately for integration freshness. A remote URL is identity, not proof
 that the currently authenticated account has publication authority.
+
+Before a growing build/test/install phase, check the actual filesystem and RAM,
+the active task's bounds, source/profile/target ownership and competing writers.
+Use one admitted target directory for that source and profile; route temporary
+files, proof output and install roots to owned writable locations. Retain existing
+host margins and serialize conflicting heavy phases through their actual owner.
+A previous free-space reading is not a reservation. Missing space, cache inputs,
+toolchain or destination blocks that phase; do not lower guards or silently
+redirect to another filesystem. Prefer focused current checks to rebuilding old
+matrices. `--locked` preserves dependency resolution; it does not make a command
+offline or prevent compilation. Use `--offline` only with the required inputs
+already present, and report a cache miss explicitly.
+
+The terminal workshop needs an interactive terminal and installed Rust compiler,
+not a phone, server, provider account or signing identity. Optional facility
+discovery follows the existing owner's private route or a locally installed
+`resource-discovery` entry. Discovery grants no operation. Personal devices keep
+their current owner window and task-specific custody; ordinary authorized local
+review needs no unrelated device approval. Keep fleet paths, identities, capacity
+receipts and recovery material out of public source and issues.
 
 ## Local checks
 
@@ -56,6 +84,24 @@ without global installation or dependency downloads. The workshop PTY check
 covers the explicit terminal route and restoration; its scope is software
 interaction, not Don's first-use acceptance. [The runner contract](context/subsystems/workshop.md)
 owns process limits, trust and source recovery behavior.
+
+## Persistence and recovery
+
+Keep the learner's source separate from compiler caches. Changing a target or
+install prefix does not relocate the workshop's working-directory-based save.
+Preserve that file and any reported recovery copy before replacing a checkout,
+changing storage or retiring output. Recheck the actual input/destination and
+current ownership; an old storage receipt, symlink or backup path does not prove
+that its bytes survive. Retired destinations require a fresh owner route and
+qualification, with no implicit fallback.
+
+Ignored directories can contain unique reports, unfinished source or nested Git
+repositories as well as reconstructible compiler output. Inspect the exact
+subtree before cleanup; do not treat the whole `target` directory as disposable.
+Preserve dirty/staged/untracked bytes, local-only refs and any object-alternate
+dependencies together. A clean outer checkout or remote main cannot restore
+all of those. Rebuildable binaries are not substitutes for original diagnostic
+evidence, and a local hash list alone is not an independent backup/readback.
 
 ## Integration and publication
 
